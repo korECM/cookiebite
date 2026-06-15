@@ -1,0 +1,4 @@
+{ "name":"raycast","label":"Raycast","source":"voltagent/awesome-design-md",
+  "font":{"family":"Inter","url":"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap","fallback":"-apple-system, system-ui, sans-serif"},
+  "colors":{"accent":"#FF5C5C","accentStrong":"#E04545","accentWeak":"#FFECEC","accentOn":"#FFFFFF","bg":"#FCFCFD","surface":"#FFFFFF","primary":"#0D0D0F","secondary":"#5C5C5E","disabled":"#9C9C9D","placeholder":"#B5B5B6","line":"#E6E6E8","lineWeak":"#F1F1F3","disabledBg":"#F4F4F6","critical":"#DC2626","cautionary":"#D97706","positive":"#16A34A","informative":"#2563EB"},
+  "locale":{"number":"en-US","currency":"USD","symbol":"$","bigUnits":false} }

@@ -1,0 +1,764 @@
+<!doctype html>
+<!--
+  HTML Report — SaaS Growth & Revenue weekly review (showcase).
+  Built from assets/template.html; Stripe theme applied last via scripts/apply-theme.py.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Growth &amp; Revenue — Weekly Review</title>
+
+<!-- THEME — preset: Persimmon. Swap this block to re-theme (see assets/theme-studio.html). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
+    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;
+    --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
+    --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+  }
+</style>
+<script>window.REPORT_LOCALE = {'number': 'en-US', 'currency': 'USD', 'symbol': '$', 'bigUnits': false};</script>
+<!-- end THEME -->
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/countup.js@2/dist/countUp.umd.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- Grid.js sortable/searchable table -->
+<link rel="stylesheet" href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css">
+<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+
+<!-- Glossary tooltips (Tippy.js + Popper) -->
+<link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+<script src="https://unpkg.com/@popperjs/core@2"></script>
+<script src="https://unpkg.com/tippy.js@6"></script>
+
+<style>
+  html{ scroll-behavior:smooth; }
+  body{ font-family:var(--font-family); letter-spacing:-0.01em; }
+  .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  .prose-measure{ max-width:68ch; }
+  [x-cloak]{ display:none !important; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+  .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
+  .tippy-box[data-theme~='report']{ background:var(--c-primary); color:#fff; border-radius:12px; font-size:13px; line-height:1.5; }
+  .tippy-box[data-theme~='report'] .tippy-content{ padding:10px 12px; }
+  .tippy-box[data-theme~='report'] .tippy-arrow{ color:var(--c-primary); }
+
+  /* Grid.js — theme to the report accent + neutral surface */
+  .gridjs-wrapper{ box-shadow:none; border:1px solid var(--c-line-weak); border-radius:12px; }
+  .gridjs-table{ font-family:var(--font-family); }
+  .gridjs-th{ background:var(--c-disabled-bg); color:var(--c-secondary); font-weight:600; border-bottom:1px solid var(--c-line-weak); }
+  .gridjs-td{ color:var(--c-primary); border-bottom:1px solid var(--c-line-weak); }
+  .gridjs-tr:hover .gridjs-td{ background:var(--accent-weak); }
+  input.gridjs-input{ border:1px solid var(--c-line-weak); border-radius:8px; }
+  input.gridjs-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); }
+  .gridjs-pages button.gridjs-currentPage{ background:var(--accent); color:var(--accent-on); border-color:var(--accent); }
+  td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-critical); }
+</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      bg:'var(--c-bg)', surface:'var(--c-surface)', primary:'var(--c-primary)', secondary:'var(--c-secondary)',
+      'text-disabled':'var(--c-disabled)', placeholder:'var(--c-placeholder)',
+      line:'var(--c-line)', 'line-weak':'var(--c-line-weak)', 'disabled-bg':'var(--c-disabled-bg)',
+      critical:'var(--c-critical)', cautionary:'var(--c-cautionary)', positive:'var(--c-positive)', informative:'var(--c-informative)',
+      accent:'var(--accent)', 'accent-strong':'var(--accent-strong)',
+      'accent-weak':'var(--accent-weak)', 'accent-on':'var(--accent-on)',
+    },
+    borderColor:{ DEFAULT:'var(--c-line-weak)' },
+    borderRadius:{ xxs:'4px', xs:'8px', small:'12px', medium:'16px', large:'24px', xlarge:'32px' },
+    boxShadow:{ xs:'0 1px 2px rgba(0,0,0,0.5)', sm:'0 2px 8px rgba(0,0,0,0.15)',
+                md:'0 8px 20px rgba(0,0,0,0.12)', lg:'0 7px 30px rgba(0,0,0,0.2)' },
+    spacing:{ '2':'2px','4':'4px','6':'6px','8':'8px','10':'10px','12':'12px','16':'16px',
+              '20':'20px','24':'24px','28':'28px','32':'32px','40':'40px','48':'48px',
+              '56':'56px','64':'64px','72':'72px' },
+    fontSize:{ 'caption-12':['12px','16px'],'body-14':['14px','20px'],'body-16':['16px','24px'],
+               'body-18':['18px','26px'],'title-20':['20px','28px'],'title-24':['24px','30px'],
+               'title-28':['28px','36px'],'headline-36':['36px','44px'],'headline-48':['48px','56px'] },
+  } } }
+</script>
+</head>
+<body class="bg-bg text-primary">
+<div class="mx-auto max-w-[1400px] px-24">
+  <div class="flex flex-row-reverse gap-40">
+
+    <!-- ===== TOC sidebar — right rail ===== -->
+    <nav class="hidden lg:block w-[200px] shrink-0">
+      <div class="sticky top-24 py-40">
+        <p class="text-caption-12 text-text-disabled mb-12 pl-12">ON THIS PAGE</p>
+        <ul id="toc" class="space-y-2 text-body-14">
+          <li><a href="#summary"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">TL;DR &amp; KPIs</a></li>
+          <li><a href="#bridge"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">MRR bridge</a></li>
+          <li><a href="#trend"     class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">MRR trend</a></li>
+          <li><a href="#funnel"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Acquisition funnel</a></li>
+          <li><a href="#cohort"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Cohort retention</a></li>
+          <li><a href="#plans"     class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Revenue by plan</a></li>
+          <li><a href="#health"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Goal &amp; health</a></li>
+          <li><a href="#accounts"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Top accounts</a></li>
+          <li><a href="#glossary"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Glossary</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- ===== main column ===== -->
+    <main class="min-w-0 flex-1 py-40">
+
+      <!-- header -->
+      <header class="mb-40">
+        <div class="flex flex-wrap items-center gap-8 mb-16">
+          <span class="px-10 py-4 rounded-xxs bg-accent text-accent-on text-caption-12 font-semibold">WEEKLY REVIEW</span>
+          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12 nums">Week 24 · Jun 9–15, 2026</span>
+          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12">Acme Cloud · Self-serve + Sales</span>
+        </div>
+        <h1 class="text-headline-36 font-bold tracking-tight">Growth &amp; Revenue — Weekly Review</h1>
+        <p class="mt-12 text-body-18 text-secondary prose-measure">
+          MRR crossed <b class="text-primary">$1.42M</b> (+3.1% WoW) on the back of strong expansion;
+          <span class="gloss" tabindex="0" role="button" data-tippy-content="Net Revenue Retention measures revenue from existing customers over time, including expansion, contraction, and churn — but excluding new logos. Above 100% means existing customers grow faster than they leave.">NRR</span>
+          held at <b class="text-primary">112%</b>, but new-logo velocity softened and gross churn ticked up.
+        </p>
+      </header>
+
+      <!-- ===== TL;DR + KPI cards ===== -->
+      <section id="summary" class="scroll-mt-24 mb-56">
+        <!-- TL;DR callout -->
+        <div class="bg-accent-weak border border-line-weak rounded-medium p-20 mb-24">
+          <div class="flex items-start gap-12">
+            <i data-lucide="sparkles" class="w-20 h-20 text-accent-strong shrink-0 mt-2"></i>
+            <div class="prose-measure">
+              <p class="text-body-16 font-semibold text-accent-strong mb-4">TL;DR</p>
+              <p class="text-body-14 text-primary">
+                Expansion (+$71K) more than offset contraction and churn, lifting net new MRR to <b>+$43K</b>.
+                The growth engine is <b>retention &amp; upsell</b>, not new logos — paid conversion slipped to 3.6%
+                and 11 accounts churned ($28K). Action: protect the Pro→Enterprise upgrade path and unblock
+                the activation step where 38% of signups stall.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="gauge" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Key Metrics</h2>
+        </div>
+
+        <!-- hero KPI row: 6 cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-16">
+          <!-- MRR -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <p class="text-body-14 text-secondary">
+              <span class="gloss" tabindex="0" role="button" data-tippy-content="Monthly Recurring Revenue — the normalized, predictable subscription revenue you can expect each month from active plans.">MRR</span>
+            </p>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">$<span data-countup="1.42" data-decimals="2">0</span><span class="text-title-20 text-secondary font-semibold">M</span></span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-positive"><i data-lucide="arrow-up-right" class="w-12 h-12"></i> 3.1%</span>
+            </div>
+            <div class="h-32 mt-12" data-spark='[1281,1305,1332,1351,1372,1389,1420]'></div>
+          </div>
+          <!-- New MRR -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <p class="text-body-14 text-secondary">New MRR</p>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">$<span data-countup="58">0</span><span class="text-title-20 text-secondary font-semibold">K</span></span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-critical"><i data-lucide="arrow-down-right" class="w-12 h-12"></i> 8.2%</span>
+            </div>
+            <div class="h-32 mt-12" data-spark='[61,64,67,72,66,63,58]'></div>
+          </div>
+          <!-- Churned MRR -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <p class="text-body-14 text-secondary">
+              <span class="gloss" tabindex="0" role="button" data-tippy-content="Churned MRR is recurring revenue lost this period from customers who fully cancelled their subscription. Higher is worse.">Churned MRR</span>
+            </p>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">$<span data-countup="28">0</span><span class="text-title-20 text-secondary font-semibold">K</span></span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-critical"><i data-lucide="arrow-up-right" class="w-12 h-12"></i> 14.0%</span>
+            </div>
+            <div class="h-32 mt-12" data-spark='[19,22,20,24,21,25,28]'></div>
+          </div>
+          <!-- Net new logos -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <p class="text-body-14 text-secondary">Net new logos</p>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums" data-countup="34">0</span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-critical"><i data-lucide="arrow-down-right" class="w-12 h-12"></i> 5 vs prev</span>
+            </div>
+            <div class="h-32 mt-12" data-spark='[41,38,44,40,43,39,34]'></div>
+          </div>
+          <!-- NRR -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <p class="text-body-14 text-secondary">
+              <span class="gloss" tabindex="0" role="button" data-tippy-content="Net Revenue Retention — existing-customer revenue including expansion, net of contraction & churn. >100% means the base grows on its own.">NRR</span>
+            </p>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums" data-countup="112" data-suffix="%">0</span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-positive"><i data-lucide="arrow-up-right" class="w-12 h-12"></i> 2pp</span>
+            </div>
+            <div class="h-32 mt-12" data-spark='[106,107,108,109,110,111,112]'></div>
+          </div>
+          <!-- Activation rate -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <p class="text-body-14 text-secondary">
+              <span class="gloss" tabindex="0" role="button" data-tippy-content="Activation rate is the share of new signups that reach the product's 'aha' milestone (here: created a project and invited a teammate) within 7 days. It predicts whether they convert to paid.">Activation rate</span>
+            </p>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums" data-countup="62.4" data-decimals="1" data-suffix="%">0</span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-positive"><i data-lucide="arrow-up-right" class="w-12 h-12"></i> 1.8pp</span>
+            </div>
+            <div class="h-32 mt-12" data-spark='[58.1,59.0,60.2,60.6,61.5,61.0,62.4]'></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MRR bridge / waterfall ===== -->
+      <section id="bridge" class="scroll-mt-24 mb-56" x-data="{ table:false }">
+        <div class="flex items-center justify-between gap-12 mb-12">
+          <div class="flex items-center gap-8">
+            <i data-lucide="git-merge" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-24 font-bold">MRR Bridge</h2>
+          </div>
+          <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? 'Chart view' : 'Table view'"></button>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          Starting at <b class="text-primary">$1.377M</b>, expansion (+$71K) was the single biggest lever — bigger than all new business —
+          while contraction (−$18K) and
+          <span class="gloss" tabindex="0" role="button" data-tippy-content="Churn is revenue lost when customers downgrade or cancel. 'Gross churn' counts only losses; 'net churn' nets expansion against it.">churn</span>
+          (−$28K) clawed some back. Net effect: <b class="text-positive">+$43K</b> to a $1.420M close.
+        </p>
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div x-show="!table"><div id="bridgeChart" role="img" aria-label="MRR waterfall: starting MRR plus new and expansion minus contraction and churn equals ending MRR" style="height:340px"></div></div>
+          <div x-show="table" x-cloak>
+            <table class="w-full text-body-14 nums">
+              <caption class="sr-only">MRR bridge components in thousands of dollars</caption>
+              <thead class="text-secondary text-left"><tr><th class="py-8 font-medium">Component</th><th class="py-8 font-medium text-right">Δ MRR ($K)</th></tr></thead>
+              <tbody class="divide-y divide-line-weak">
+                <tr><td class="py-8">Starting MRR</td><td class="py-8 text-right">1,377</td></tr>
+                <tr><td class="py-8">New business</td><td class="py-8 text-right text-positive">+58</td></tr>
+                <tr><td class="py-8">Expansion</td><td class="py-8 text-right text-positive">+71</td></tr>
+                <tr><td class="py-8">Reactivation</td><td class="py-8 text-right text-positive">+9</td></tr>
+                <tr><td class="py-8">Contraction</td><td class="py-8 text-right text-critical">−18</td></tr>
+                <tr><td class="py-8">Churn</td><td class="py-8 text-right text-critical">−28</td></tr>
+                <tr><td class="py-8 font-semibold">Ending MRR</td><td class="py-8 text-right font-semibold">1,420</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MRR trend (area + dataZoom + markLine) ===== -->
+      <section id="trend" class="scroll-mt-24 mb-56" x-data="{ mode:'mrr', table:false }" x-init="$watch('mode', () => renderTrend(mode)); $watch('table', v => { if(!v) requestAnimationFrame(()=>trendChart && trendChart.resize()) })">
+        <div class="flex items-center justify-between gap-12 mb-12">
+          <div class="flex items-center gap-8">
+            <i data-lucide="trending-up" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-24 font-bold">MRR Trend</h2>
+          </div>
+          <div class="flex items-center gap-12 text-body-14">
+            <div class="flex gap-6">
+              <button @click="mode='mrr'"   :class="mode==='mrr'   ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'" class="px-12 py-6 rounded-small transition">MRR</button>
+              <button @click="mode='arr'"   :class="mode==='arr'   ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'" class="px-12 py-6 rounded-small transition">ARR</button>
+            </div>
+            <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? 'Chart view' : 'Table view'"></button>
+          </div>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          26 weeks of compounding growth — the trailing-13-week average (dashed) sits below the curve, and the
+          <b class="text-primary">$1.5M target</b> (accent line) is now ~3 weeks out at current pace. Drag the slider to zoom any window.
+        </p>
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div x-show="!table"><div id="trendChart" role="img" aria-label="Weekly MRR trend area chart with target line and trailing average" style="height:340px"></div></div>
+          <div x-show="table" x-cloak>
+            <div id="trendTable"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Funnel + small sparkline grid (two-up) ===== -->
+      <section id="funnel" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-12">
+          <i data-lucide="filter" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Acquisition Funnel</h2>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          The drop from <b class="text-primary">Signup → Activated</b> is the leak: 38% never reach the activation milestone.
+          Fix that step and paid conversion follows.
+        </p>
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-16">
+          <div class="lg:col-span-3 bg-surface border border-line-weak rounded-medium shadow-sm p-20" x-data="{ table:false }" x-init="$watch('table', v => { if(!v) requestAnimationFrame(()=>funnelChart && funnelChart.resize()) })">
+            <div class="flex justify-end mb-4">
+              <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? 'Chart view' : 'Table view'"></button>
+            </div>
+            <div x-show="!table"><div id="funnelChart" role="img" aria-label="Conversion funnel from visitor to expanded customer" style="height:320px"></div></div>
+            <div x-show="table" x-cloak>
+              <table class="w-full text-body-14 nums">
+                <caption class="sr-only">Funnel stages and counts</caption>
+                <thead class="text-secondary text-left"><tr><th class="py-8 font-medium">Stage</th><th class="py-8 font-medium text-right">Count</th><th class="py-8 font-medium text-right">% of prev</th></tr></thead>
+                <tbody class="divide-y divide-line-weak">
+                  <tr><td class="py-8">Visitor</td><td class="py-8 text-right">48,200</td><td class="py-8 text-right">—</td></tr>
+                  <tr><td class="py-8">Signup</td><td class="py-8 text-right">6,140</td><td class="py-8 text-right">12.7%</td></tr>
+                  <tr><td class="py-8">Activated</td><td class="py-8 text-right">3,830</td><td class="py-8 text-right">62.4%</td></tr>
+                  <tr><td class="py-8">Paid</td><td class="py-8 text-right">1,420</td><td class="py-8 text-right">37.1%</td></tr>
+                  <tr><td class="py-8">Expanded</td><td class="py-8 text-right">540</td><td class="py-8 text-right">38.0%</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <!-- secondary sparkline grid -->
+          <div class="lg:col-span-2 grid grid-cols-2 gap-16">
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+              <p class="text-caption-12 text-secondary">Trial→Paid</p>
+              <p class="text-title-20 font-bold nums mt-2">23.1%</p>
+              <div class="h-24 mt-8" data-spark='[20.1,21.0,22.4,21.8,22.9,23.0,23.1]'></div>
+            </div>
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+              <p class="text-caption-12 text-secondary">CAC payback</p>
+              <p class="text-title-20 font-bold nums mt-2">11.4<span class="text-caption-12 text-secondary font-semibold"> mo</span></p>
+              <div class="h-24 mt-8" data-spark='[13.2,12.8,12.4,12.0,11.8,11.6,11.4]'></div>
+            </div>
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+              <p class="text-caption-12 text-secondary">Demo requests</p>
+              <p class="text-title-20 font-bold nums mt-2">128</p>
+              <div class="h-24 mt-8" data-spark='[96,104,112,108,120,124,128]'></div>
+            </div>
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+              <p class="text-caption-12 text-secondary">Avg. seats/acct</p>
+              <p class="text-title-20 font-bold nums mt-2">14.8</p>
+              <div class="h-24 mt-8" data-spark='[12.9,13.2,13.6,13.9,14.2,14.5,14.8]'></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Cohort retention heatmap ===== -->
+      <section id="cohort" class="scroll-mt-24 mb-56" x-data="{ table:false }" x-init="$watch('table', v => { if(!v) requestAnimationFrame(()=>cohortChart && cohortChart.resize()) })">
+        <div class="flex items-center justify-between gap-12 mb-12">
+          <div class="flex items-center gap-8">
+            <i data-lucide="grid-3x3" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-24 font-bold">Cohort Retention</h2>
+          </div>
+          <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? 'Chart view' : 'Table view'"></button>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          Logo retention by signup cohort. Newer cohorts (Mar–May) retain better at month 3 (~84%) than older
+          ones (~71%) — onboarding changes in Q1 are paying off. Blank cells are simply future months.
+        </p>
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div x-show="!table"><div id="cohortChart" role="img" aria-label="Cohort retention heatmap, signup month by months since signup, percent retained" style="height:360px"></div></div>
+          <div x-show="table" x-cloak>
+            <div id="cohortTable" class="overflow-x-auto"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Revenue by plan (tabbed: stacked bar / treemap) ===== -->
+      <section id="plans" class="scroll-mt-24 mb-56" x-data="{ tab:'stack' }" x-init="$watch('tab', t => showPlanTab(t))">
+        <div class="flex items-center justify-between gap-12 mb-12">
+          <div class="flex items-center gap-8">
+            <i data-lucide="layers" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-24 font-bold">Revenue by Plan</h2>
+          </div>
+          <div class="flex gap-6 text-body-14">
+            <button @click="tab='stack'" :class="tab==='stack' ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'" class="px-12 py-6 rounded-small transition">Over time</button>
+            <button @click="tab='tree'"  :class="tab==='tree'  ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'" class="px-12 py-6 rounded-small transition">Mix (treemap)</button>
+          </div>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          <b class="text-primary">Enterprise</b> now drives ~48% of MRR and is the fastest-growing tier; the
+          Starter→Pro self-serve path remains the volume engine. Switch to the treemap for this week's mix.
+        </p>
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div x-show="tab==='stack'"><div id="planStackChart" role="img" aria-label="Stacked bar of MRR by plan over 8 weeks" style="height:340px"></div></div>
+          <div x-show="tab==='tree'" x-cloak><div id="planTreeChart" role="img" aria-label="Treemap of current MRR share by plan" style="height:340px"></div></div>
+        </div>
+      </section>
+
+      <!-- ===== Goal gauge + health callouts ===== -->
+      <section id="health" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-12">
+          <i data-lucide="target" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Quarterly Goal &amp; Health</h2>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          We're at <b class="text-primary">82%</b> of the Q2 net-new-MRR goal with two weeks left — on track if expansion holds.
+        </p>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16">
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <div id="gaugeChart" role="img" aria-label="Gauge showing 82 percent of quarterly net new MRR goal attained" style="height:300px"></div>
+          </div>
+          <div class="grid grid-cols-1 gap-12">
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16 flex items-start gap-12">
+              <span class="inline-flex items-center justify-center w-32 h-32 rounded-small bg-positive/10 shrink-0"><i data-lucide="trending-up" class="w-18 h-18 text-positive"></i></span>
+              <div>
+                <p class="text-body-14 font-semibold">Expansion is the engine</p>
+                <p class="text-body-14 text-secondary">$71K expansion beat all new business combined; NRR 112%.</p>
+              </div>
+            </div>
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16 flex items-start gap-12">
+              <span class="inline-flex items-center justify-center w-32 h-32 rounded-small bg-cautionary/15 shrink-0"><i data-lucide="alert-triangle" class="w-18 h-18 text-cautionary"></i></span>
+              <div>
+                <p class="text-body-14 font-semibold">New-logo velocity softening</p>
+                <p class="text-body-14 text-secondary">34 net new logos, down 5 WoW; paid conversion 3.6% (−0.4pp).</p>
+              </div>
+            </div>
+            <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16 flex items-start gap-12">
+              <span class="inline-flex items-center justify-center w-32 h-32 rounded-small bg-critical/10 shrink-0"><i data-lucide="alert-octagon" class="w-18 h-18 text-critical"></i></span>
+              <div>
+                <p class="text-body-14 font-semibold">Churn creeping up</p>
+                <p class="text-body-14 text-secondary">11 accounts churned ($28K, +14% WoW). Two were Enterprise — review save plays.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Top accounts (Grid.js) ===== -->
+      <section id="accounts" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-12">
+          <i data-lucide="building-2" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Top Accounts by Net MRR Δ</h2>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">
+          Sortable and searchable — rank by any column. Expansion is concentrated: the top 4 accounts drove
+          over half of this week's $71K expansion.
+        </p>
+        <div id="accountsTable"></div>
+      </section>
+
+      <!-- ===== Glossary ===== -->
+      <section id="glossary" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-12">
+          <i data-lucide="book-open" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Glossary</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-12">
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+            <p class="text-body-14 font-semibold">MRR / ARR</p>
+            <p class="text-body-14 text-secondary">Monthly / Annual Recurring Revenue — normalized subscription revenue. ARR = MRR × 12.</p>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+            <p class="text-body-14 font-semibold">NRR</p>
+            <p class="text-body-14 text-secondary">Net Revenue Retention — existing-customer revenue incl. expansion, net of contraction &amp; churn. >100% = base grows alone.</p>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+            <p class="text-body-14 font-semibold">Churn</p>
+            <p class="text-body-14 text-secondary">Revenue or logos lost to downgrades and cancellations. Gross = losses only; net = expansion minus losses.</p>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-16">
+            <p class="text-body-14 font-semibold">Activation</p>
+            <p class="text-body-14 text-secondary">Share of signups reaching the 'aha' milestone (project created + teammate invited) within 7 days.</p>
+          </div>
+        </div>
+      </section>
+
+      <footer class="pt-24 border-t border-line-weak text-caption-12 text-text-disabled">
+        Generated Jun 15, 2026 · Source: Acme Cloud billing + product analytics warehouse · Figures are illustrative.
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  // ---- locale-aware number helpers ----
+  const L = window.REPORT_LOCALE || { number:'en-US', currency:'USD', symbol:'$', bigUnits:false };
+  const nf = new Intl.NumberFormat(L.number);
+
+  // ---- shared ECharts theme ----
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const ACCENT = css('--accent'), ACCENT_STRONG = css('--accent-strong'), ACCENT_WEAK = css('--accent-weak');
+  const C_LINE = css('--c-line-weak') || '#E4E4E7', C_SECONDARY = css('--c-secondary') || '#52525B';
+  const C_NEUTRAL = css('--c-disabled') || '#A1A1AA';
+  const C_POSITIVE = css('--c-positive'), C_CRITICAL = css('--c-critical');
+  const FONT = css('--font-family') || 'Inter, sans-serif';
+  const hexToRgb = (hex) => { let h = (hex||'#000').replace('#',''); if (h.length===3) h = h.split('').map(c=>c+c).join(''); return [parseInt(h.slice(0,2),16),parseInt(h.slice(2,4),16),parseInt(h.slice(4,6),16)]; };
+  const accentRgba = (a) => { const [r,g,b]=hexToRgb(ACCENT); return `rgba(${r},${g},${b},${a})`; };
+  const tint = (hex, t) => { const [r,g,b]=hexToRgb(hex); const m=(c)=>Math.round(c+(255-c)*t); return `rgb(${m(r)},${m(g)},${m(b)})`; };
+  const PLAN_COLORS = { Enterprise:ACCENT_STRONG, Pro:ACCENT, Team:tint(ACCENT,0.40), Starter:tint(ACCENT,0.68) };
+
+  const charts = [];
+  const track = (c) => { charts.push(c); return c; };
+
+  // ---- KPI count-up + sparklines ----
+  function initCards(){
+    document.querySelectorAll('[data-countup]').forEach(el => {
+      const end = parseFloat(el.dataset.countup);
+      const dec = el.dataset.decimals !== undefined ? parseInt(el.dataset.decimals) : (end%1?2:0);
+      new countUp.CountUp(el, end, { duration:1.4, decimalPlaces:dec,
+        prefix:el.dataset.prefix||'', suffix:el.dataset.suffix||'' }).start();
+    });
+    document.querySelectorAll('[data-spark]').forEach(el => {
+      const data = JSON.parse(el.dataset.spark);
+      const c = track(echarts.init(el));
+      c.setOption({ grid:{ left:0, right:0, top:2, bottom:2 },
+        xAxis:{ type:'category', show:false, data:data.map((_,i)=>i) },
+        yAxis:{ type:'value', show:false, scale:true },
+        series:[{ type:'line', data, smooth:true, symbol:'none',
+          lineStyle:{ width:2, color:ACCENT },
+          areaStyle:{ color:accentRgba(0.10) } }] });
+    });
+  }
+
+  // ---- MRR bridge / waterfall (stacked-bar trick) ----
+  function renderBridge(){
+    const cats = ['Starting','New','Expansion','Reactiv.','Contraction','Churn','Ending'];
+    const deltas = [null, 58, 71, 9, -18, -28, null];
+    const start = 1377;
+    const base = [], inc = [], dec = [], tot = [];
+    let running = start;
+    cats.forEach((c,i) => {
+      if (i===0){ base.push('-'); inc.push('-'); dec.push('-'); tot.push(start); return; }
+      if (i===cats.length-1){ base.push('-'); inc.push('-'); dec.push('-'); tot.push(running); return; }
+      const d = deltas[i];
+      if (d>=0){ base.push(running); inc.push(d); dec.push('-'); tot.push('-'); running+=d; }
+      else { running+=d; base.push(running); inc.push('-'); dec.push(-d); tot.push('-'); }
+    });
+    const c = track(echarts.init(document.getElementById('bridgeChart')));
+    c.setOption({
+      textStyle:{ fontFamily:FONT },
+      grid:{ left:8, right:16, top:36, bottom:8, containLabel:true },
+      tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' },
+        formatter:(ps)=>{ const i=ps[0].dataIndex; const d=deltas[i];
+          if (i===0||i===cats.length-1) return `${cats[i]}<br/><b>$${nf.format(tot[i])}K</b>`;
+          return `${cats[i]}<br/><b>${d>=0?'+':'−'}$${nf.format(Math.abs(d))}K</b>`; } },
+      xAxis:{ type:'category', data:cats, axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY, interval:0, fontSize:11 } },
+      yAxis:{ type:'value', min:1300, splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY, formatter:(v)=>'$'+v+'K' } },
+      series:[
+        { name:'base', type:'bar', stack:'t', itemStyle:{ color:'transparent' }, emphasis:{ disabled:true }, data:base, silent:true, barWidth:'52%' },
+        { name:'total', type:'bar', stack:'t', itemStyle:{ color:C_SECONDARY, borderRadius:[3,3,0,0] }, data:tot, barWidth:'52%',
+          label:{ show:true, position:'top', color:C_SECONDARY, fontWeight:'bold', formatter:(p)=> (typeof p.value==='number')? '$'+nf.format(p.value)+'K':'' } },
+        { name:'increase', type:'bar', stack:'t', itemStyle:{ color:C_POSITIVE, borderRadius:[3,3,0,0] }, data:inc,
+          label:{ show:true, position:'top', color:C_POSITIVE, fontSize:11, formatter:(p)=> (typeof p.value==='number')? '+'+p.value:'' } },
+        { name:'decrease', type:'bar', stack:'t', itemStyle:{ color:C_CRITICAL, borderRadius:[3,3,0,0] }, data:dec,
+          label:{ show:true, position:'top', color:C_CRITICAL, fontSize:11, formatter:(p)=> (typeof p.value==='number')? '−'+p.value:'' } },
+      ],
+    });
+  }
+
+  // ---- MRR trend (area + dataZoom + markLine target/avg) ----
+  const WEEKS = Array.from({length:26}, (_,i)=>'W'+(i+1));
+  const MRR = [1010,1028,1041,1063,1080,1095,1112,1128,1141,1160,1175,1188,1203,1221,1238,1252,1268,1281,1305,1332,1351,1372,1389,1402,1411,1420];
+  let trendChart;
+  function renderTrend(mode){
+    if (!trendChart) trendChart = track(echarts.init(document.getElementById('trendChart')));
+    const mult = mode==='arr' ? 12 : 1;
+    const data = MRR.map(v=>v*mult);
+    const avg = data.slice(-13).reduce((a,b)=>a+b,0)/13;
+    const target = (mode==='arr'?1500*12:1500);
+    const unit = mode==='arr' ? 'ARR' : 'MRR';
+    trendChart.setOption({
+      textStyle:{ fontFamily:FONT },
+      grid:{ left:8, right:18, top:24, bottom:64, containLabel:true },
+      tooltip:{ trigger:'axis', valueFormatter:(v)=>'$'+nf.format(v)+'K' },
+      xAxis:{ type:'category', data:WEEKS, boundaryGap:false, axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      yAxis:{ type:'value', scale:true, splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY, formatter:(v)=> '$'+(v>=1000?(v/1000).toFixed(2)+'M':v+'K') } },
+      dataZoom:[{ type:'inside', start:35, end:100 }, { type:'slider', height:18, bottom:10, start:35, end:100, borderColor:C_LINE, fillerColor:accentRgba(0.12), handleStyle:{ color:ACCENT } }],
+      series:[{ name:unit, type:'line', data, smooth:true, symbol:'circle', symbolSize:5, showSymbol:false,
+        lineStyle:{ width:2.5, color:ACCENT },
+        areaStyle:{ color:new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:accentRgba(0.28)},{offset:1,color:accentRgba(0.02)}]) },
+        markLine:{ symbol:'none',
+          data:[
+            { yAxis:avg, lineStyle:{ type:'dashed', color:C_NEUTRAL }, label:{ position:'insideStartTop', formatter:'13-wk avg', color:C_SECONDARY } },
+            { yAxis:target, lineStyle:{ type:'solid', color:ACCENT_STRONG, width:1.5 }, label:{ position:'insideEndTop', formatter:'Target $'+(mode==='arr'?'18M':'1.5M'), color:ACCENT_STRONG } },
+          ] } }],
+    }, true);
+  }
+  function fillTrendTable(){
+    if (window.gridjs && !document.getElementById('trendTable').dataset.done){
+      new gridjs.Grid({
+        columns:['Week', { name:'MRR ($K)', sort:true }, { name:'WoW Δ', sort:true }],
+        data: MRR.map((v,i)=>['W'+(i+1), nf.format(v), i? (((v-MRR[i-1])/MRR[i-1])*100).toFixed(1)+'%' : '—']),
+        sort:true, pagination:{ limit:8 }, className:{ table:'text-body-14' },
+      }).render(document.getElementById('trendTable'));
+      document.getElementById('trendTable').dataset.done = '1';
+    }
+  }
+
+  // ---- Funnel ----
+  let funnelChart;
+  function renderFunnel(){
+    if (funnelChart) return;
+    funnelChart = track(echarts.init(document.getElementById('funnelChart')));
+    funnelChart.setOption({
+      textStyle:{ fontFamily:FONT },
+      tooltip:{ trigger:'item', formatter:(p)=>`${p.name}<br/><b>${nf.format(p.value)}</b>` },
+      series:[{ type:'funnel', top:10, bottom:10, left:'5%', width:'90%', minSize:'24%', gap:2,
+        label:{ color:'#fff', fontWeight:600, formatter:(p)=>`${p.name}  ${nf.format(p.value)}` },
+        labelLine:{ show:false },
+        itemStyle:{ borderColor:'#fff', borderWidth:1 },
+        data:[
+          { value:48200, name:'Visitor',   itemStyle:{ color:tint(ACCENT,0.72) } },
+          { value:6140,  name:'Signup',     itemStyle:{ color:tint(ACCENT,0.52) } },
+          { value:3830,  name:'Activated',  itemStyle:{ color:tint(ACCENT,0.28) } },
+          { value:1420,  name:'Paid',       itemStyle:{ color:ACCENT } },
+          { value:540,   name:'Expanded',   itemStyle:{ color:ACCENT_STRONG } },
+        ] }],
+    });
+  }
+
+  // ---- Cohort retention heatmap ----
+  const COHORTS = ['Dec','Jan','Feb','Mar','Apr','May'];
+  const MONTHS = ['M0','M1','M2','M3','M4','M5'];
+  const RET = {
+    Dec:[100,88,80,71,66,62], Jan:[100,90,82,74,69,null],
+    Feb:[100,91,84,77,null,null], Mar:[100,93,86,84,null,null],
+    Apr:[100,94,88,null,null,null], May:[100,95,null,null,null,null],
+  };
+  let cohortChart;
+  function renderCohort(){
+    if (cohortChart) return;
+    const data = [];
+    COHORTS.forEach((co,ci) => RET[co].forEach((v,mi) => { if (v!==null) data.push([mi, ci, v]); }));
+    cohortChart = track(echarts.init(document.getElementById('cohortChart')));
+    cohortChart.setOption({
+      textStyle:{ fontFamily:FONT },
+      tooltip:{ position:'top', formatter:(p)=>`${COHORTS[p.value[1]]} cohort · ${MONTHS[p.value[0]]}<br/><b>${p.value[2]}%</b> retained` },
+      grid:{ left:8, right:16, top:16, bottom:64, containLabel:true },
+      xAxis:{ type:'category', data:MONTHS, splitArea:{ show:true }, axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      yAxis:{ type:'category', data:COHORTS, splitArea:{ show:true }, axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      visualMap:{ min:55, max:100, calculable:true, orient:'horizontal', left:'center', bottom:8,
+        inRange:{ color:[tint(ACCENT,0.85), tint(ACCENT,0.45), ACCENT, ACCENT_STRONG] },
+        textStyle:{ color:C_SECONDARY }, text:['100%','55%'] },
+      series:[{ name:'Retention', type:'heatmap', data,
+        label:{ show:true, formatter:(p)=>p.value[2]+'%', color:'#fff', fontWeight:600, fontSize:11 },
+        itemStyle:{ borderColor:'#fff', borderWidth:2 },
+        emphasis:{ itemStyle:{ shadowBlur:8, shadowColor:'rgba(0,0,0,0.2)' } } }],
+    });
+  }
+  function fillCohortTable(){
+    const el = document.getElementById('cohortTable');
+    if (el.dataset.done) return;
+    const head = '<tr><th class="py-8 pr-12 text-left font-medium">Cohort</th>'+MONTHS.map(m=>`<th class="py-8 px-8 text-right font-medium">${m}</th>`).join('')+'</tr>';
+    const rows = COHORTS.map(co=>`<tr><td class="py-8 pr-12">${co}</td>`+RET[co].map(v=>`<td class="py-8 px-8 text-right">${v===null?'—':v+'%'}</td>`).join('')+'</tr>').join('');
+    el.innerHTML = `<table class="w-full text-body-14 nums"><caption class="sr-only">Cohort retention percent by month</caption><thead class="text-secondary">${head}</thead><tbody class="divide-y divide-line-weak">${rows}</tbody></table>`;
+    el.dataset.done = '1';
+  }
+
+  // ---- Revenue by plan: stacked bar + treemap (lazy-inited tabs) ----
+  const PLAN_WEEKS = ['W19','W20','W21','W22','W23','W24','W25','W26'];
+  const PLAN_SERIES = {
+    Enterprise:[560,572,588,601,618,635,654,682],
+    Pro:[430,438,445,452,460,468,475,483],
+    Team:[210,214,218,221,225,228,231,168],
+    Starter:[101,108,100,98,68,41,49,87],
+  };
+  let planStackChart, planTreeChart;
+  function renderPlanStack(){
+    if (planStackChart) return;
+    planStackChart = track(echarts.init(document.getElementById('planStackChart')));
+    const names = ['Enterprise','Pro','Team','Starter'];
+    planStackChart.setOption({
+      textStyle:{ fontFamily:FONT },
+      legend:{ data:names, textStyle:{ color:C_SECONDARY }, top:0 },
+      tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' }, valueFormatter:(v)=>'$'+nf.format(v)+'K' },
+      grid:{ left:8, right:16, top:36, bottom:64, containLabel:true },
+      xAxis:{ type:'category', data:PLAN_WEEKS, axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      yAxis:{ type:'value', splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY, formatter:(v)=>'$'+v+'K' } },
+      dataZoom:[{ type:'inside' }, { type:'slider', height:18, bottom:10, borderColor:C_LINE, fillerColor:accentRgba(0.12), handleStyle:{ color:ACCENT } }],
+      series: names.map(n=>({ name:n, type:'bar', stack:'mrr', barWidth:'52%', itemStyle:{ color:PLAN_COLORS[n] }, emphasis:{ focus:'series' }, data:PLAN_SERIES[n] })),
+    });
+  }
+  function renderPlanTree(){
+    if (planTreeChart) return;
+    planTreeChart = track(echarts.init(document.getElementById('planTreeChart')));
+    const last = (a)=>a[a.length-1];
+    planTreeChart.setOption({
+      textStyle:{ fontFamily:FONT },
+      tooltip:{ formatter:(p)=>`${p.name}<br/><b>$${nf.format(p.value)}K</b>` },
+      series:[{ type:'treemap', roam:false, nodeClick:false, breadcrumb:{ show:false },
+        label:{ show:true, formatter:(p)=>`${p.name}\n$${nf.format(p.value)}K`, color:'#fff', fontFamily:FONT, fontSize:13, fontWeight:600 },
+        itemStyle:{ borderColor:'#fff', borderWidth:2, gapWidth:2 },
+        data:[
+          { name:'Enterprise', value:last(PLAN_SERIES.Enterprise), itemStyle:{ color:PLAN_COLORS.Enterprise } },
+          { name:'Pro', value:last(PLAN_SERIES.Pro), itemStyle:{ color:PLAN_COLORS.Pro } },
+          { name:'Team', value:last(PLAN_SERIES.Team), itemStyle:{ color:PLAN_COLORS.Team } },
+          { name:'Starter', value:last(PLAN_SERIES.Starter), itemStyle:{ color:PLAN_COLORS.Starter } },
+        ] }],
+    });
+  }
+  function showPlanTab(t){
+    if (t==='stack'){ renderPlanStack(); planStackChart && requestAnimationFrame(()=>planStackChart.resize()); }
+    else { renderPlanTree(); planTreeChart && requestAnimationFrame(()=>planTreeChart.resize()); }
+  }
+
+  // ---- Goal gauge ----
+  function renderGauge(){
+    const c = track(echarts.init(document.getElementById('gaugeChart')));
+    c.setOption({
+      textStyle:{ fontFamily:FONT },
+      series:[{ type:'gauge', startAngle:215, endAngle:-35, min:0, max:100, radius:'80%', center:['50%','52%'],
+        progress:{ show:true, width:18, roundCap:true, itemStyle:{ color:ACCENT } },
+        axisLine:{ lineStyle:{ width:18, color:[[1, ACCENT_WEAK]] } },
+        axisTick:{ show:false }, splitLine:{ show:false },
+        axisLabel:{ show:false },
+        pointer:{ width:5, length:'62%', itemStyle:{ color:ACCENT_STRONG } },
+        anchor:{ show:true, size:12, itemStyle:{ color:ACCENT_STRONG } },
+        title:{ offsetCenter:[0,'52%'], color:C_SECONDARY, fontSize:13, fontFamily:FONT },
+        detail:{ offsetCenter:[0,'18%'], fontSize:36, fontWeight:'bold', color:ACCENT_STRONG, fontFamily:FONT, formatter:'{value}%' },
+        data:[{ value:82, name:'Q2 net-new-MRR goal' }] }],
+    });
+  }
+
+  // ---- Top accounts (Grid.js) ----
+  function renderAccounts(){
+    if (!window.gridjs || document.getElementById('accountsTable').dataset.done) return;
+    const fmt = (v)=> v>=0 ? gridjs.html(`<span class="pos">+$${nf.format(v)}K</span>`) : gridjs.html(`<span class="neg">−$${nf.format(Math.abs(v))}K</span>`);
+    new gridjs.Grid({
+      columns:[
+        'Account', 'Plan', 'Segment',
+        { name:'MRR ($K)', sort:true },
+        { name:'Net Δ ($K)', sort:{ compare:(a,b)=>a-b }, formatter:(c)=>fmt(c) },
+        { name:'Seats', sort:true },
+        { name:'Health', formatter:(c)=>gridjs.html(c) },
+      ],
+      data:[
+        ['Northwind Trading','Enterprise','Mid-market', 84, 12, 240, '<span style="color:var(--c-positive)">● Good</span>'],
+        ['Globex Corp','Enterprise','Enterprise', 121, 9, 410, '<span style="color:var(--c-positive)">● Good</span>'],
+        ['Initech','Pro','SMB', 22, 6, 48, '<span style="color:var(--c-positive)">● Good</span>'],
+        ['Soylent Inc','Team','SMB', 14, 5, 31, '<span style="color:var(--c-cautionary)">● Watch</span>'],
+        ['Umbrella Co','Enterprise','Enterprise', 96, 4, 320, '<span style="color:var(--c-positive)">● Good</span>'],
+        ['Wonka Labs','Pro','Mid-market', 31, 3, 64, '<span style="color:var(--c-positive)">● Good</span>'],
+        ['Acme Anvils','Team','SMB', 12, 2, 28, '<span style="color:var(--c-cautionary)">● Watch</span>'],
+        ['Stark Industries','Enterprise','Enterprise', 142, 1, 480, '<span style="color:var(--c-positive)">● Good</span>'],
+        ['Hooli','Pro','Mid-market', 27, -2, 55, '<span style="color:var(--c-cautionary)">● Watch</span>'],
+        ['Pied Piper','Team','SMB', 9, -4, 19, '<span style="color:var(--c-critical)">● At risk</span>'],
+        ['Vandelay Ind.','Pro','SMB', 18, -6, 40, '<span style="color:var(--c-critical)">● At risk</span>'],
+        ['Bluth Company','Starter','SMB', 4, -7, 9, '<span style="color:var(--c-critical)">● At risk</span>'],
+      ],
+      sort:true, search:true, pagination:{ limit:8 },
+      className:{ table:'text-body-14' },
+    }).render(document.getElementById('accountsTable'));
+    document.getElementById('accountsTable').dataset.done = '1';
+  }
+
+  // ---- TOC active-section highlight ----
+  function initToc(){
+    const links = [...document.querySelectorAll('#toc a')];
+    const setActive = (id) => links.forEach(a => {
+      const on = a.getAttribute('href') === '#'+id;
+      a.classList.toggle('text-accent', on); a.classList.toggle('bg-accent-weak', on);
+      a.classList.toggle('font-semibold', on); a.classList.toggle('text-secondary', !on);
+    });
+    const obs = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) setActive(e.target.id); }),
+      { rootMargin:'-35% 0px -60% 0px' });
+    document.querySelectorAll('main section[id]').forEach(s => obs.observe(s));
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) lucide.createIcons();
+    initCards();
+    renderBridge();
+    renderTrend('mrr'); fillTrendTable();
+    renderFunnel();
+    renderCohort(); fillCohortTable();
+    renderPlanStack();   // default visible tab
+    renderGauge();
+    renderAccounts();
+    initToc();
+    if (window.tippy) tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus' });
+    window.addEventListener('resize', () => charts.forEach(c=>c.resize()));
+  });
+</script>
+</body>
+</html>

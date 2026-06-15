@@ -1,0 +1,493 @@
+<!doctype html>
+<!--
+  API Latency Incident — Postmortem (SEV-2). Built from the html-report skill template.
+  Theme applied last via scripts/apply-theme.py (sentry preset).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>API Latency Incident — Postmortem</title>
+
+<!-- THEME — preset: Persimmon. Swap this block to re-theme (see assets/theme-studio.html). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
+    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;
+    --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
+    --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+  }
+</style>
+<script>window.REPORT_LOCALE = {'number': 'en-US', 'currency': 'USD', 'symbol': '$', 'bigUnits': false};</script>
+<!-- end THEME -->
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/countup.js@2/dist/countUp.umd.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- Grid.js — sortable/searchable action-items table -->
+<link rel="stylesheet" href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css">
+<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+
+<!-- Glossary tooltips (Tippy.js + Popper) — dotted-underline jargon → plain-language definition on hover/focus -->
+<link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+<script src="https://unpkg.com/@popperjs/core@2"></script>
+<script src="https://unpkg.com/tippy.js@6"></script>
+
+<style>
+  html{ scroll-behavior:smooth; }
+  body{ font-family:var(--font-family); letter-spacing:-0.01em; }
+  .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  .prose-measure{ max-width:68ch; }
+  [x-cloak]{ display:none !important; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+  .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
+  .tippy-box[data-theme~='report']{ background:var(--c-primary); color:#fff; border-radius:12px; font-size:13px; line-height:1.5; }
+  .tippy-box[data-theme~='report'] .tippy-content{ padding:10px 12px; }
+  .tippy-box[data-theme~='report'] .tippy-arrow{ color:var(--c-primary); }
+
+  /* Grid.js — themed to the accent + report neutrals */
+  #actionsGrid .gridjs-wrapper{ box-shadow:none; border-color:var(--c-line-weak); border-radius:12px; }
+  #actionsGrid table.gridjs-table{ font-family:var(--font-family); }
+  #actionsGrid .gridjs-th{ background:var(--c-disabled-bg); color:var(--c-secondary); font-weight:500; border-color:var(--c-line-weak); }
+  #actionsGrid .gridjs-td{ color:var(--c-primary); border-color:var(--c-line-weak); }
+  #actionsGrid .gridjs-search-input{ border-color:var(--c-line); border-radius:8px; }
+  #actionsGrid .gridjs-search-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); outline:none; }
+  #actionsGrid .gridjs-pagination .gridjs-currentPage{ background:var(--accent); color:var(--accent-on); }
+  #actionsGrid .gridjs-pagination button{ border-radius:8px; }
+  .ai-status{ display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:500; line-height:16px; }
+
+  /* causal-chain connector spine */
+  .chain-step{ position:relative; }
+  .chain-step:not(:last-child)::after{
+    content:""; position:absolute; left:23px; top:52px; bottom:-20px; width:2px;
+    background:linear-gradient(var(--accent), var(--accent-weak));
+  }
+</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      bg:'var(--c-bg)', surface:'var(--c-surface)', primary:'var(--c-primary)', secondary:'var(--c-secondary)',
+      'text-disabled':'var(--c-disabled)', placeholder:'var(--c-placeholder)',
+      line:'var(--c-line)', 'line-weak':'var(--c-line-weak)', 'disabled-bg':'var(--c-disabled-bg)',
+      critical:'var(--c-critical)', cautionary:'var(--c-cautionary)', positive:'var(--c-positive)', informative:'var(--c-informative)',
+      accent:'var(--accent)', 'accent-strong':'var(--accent-strong)',
+      'accent-weak':'var(--accent-weak)', 'accent-on':'var(--accent-on)',
+    },
+    borderColor:{ DEFAULT:'var(--c-line-weak)' },
+    borderRadius:{ xxs:'4px', xs:'8px', small:'12px', medium:'16px', large:'24px', xlarge:'32px' },
+    boxShadow:{ xs:'0 1px 2px rgba(0,0,0,0.5)', sm:'0 2px 8px rgba(0,0,0,0.15)',
+                md:'0 8px 20px rgba(0,0,0,0.12)', lg:'0 7px 30px rgba(0,0,0,0.2)' },
+    spacing:{ '2':'2px','4':'4px','6':'6px','8':'8px','10':'10px','12':'12px','16':'16px',
+              '20':'20px','24':'24px','28':'28px','32':'32px','40':'40px','44':'44px','48':'48px',
+              '56':'56px','64':'64px','72':'72px' },
+    fontSize:{ 'caption-12':['12px','16px'],'body-14':['14px','20px'],'body-16':['16px','24px'],
+               'body-18':['18px','26px'],'title-20':['20px','28px'],'title-24':['24px','30px'],
+               'title-28':['28px','36px'],'headline-36':['36px','44px'],'headline-48':['48px','56px'] },
+  } } }
+</script>
+</head>
+<body class="bg-bg text-primary">
+<div class="mx-auto max-w-[1400px] px-24">
+  <div class="flex flex-row-reverse gap-40">
+
+    <!-- ===== TOC sidebar — right rail ===== -->
+    <nav class="hidden lg:block w-[190px] shrink-0">
+      <div class="sticky top-24 py-40">
+        <p class="text-caption-12 text-text-disabled mb-12 pl-12">Contents</p>
+        <ul id="toc" class="space-y-2 text-body-14">
+          <li><a href="#impact"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Impact</a></li>
+          <li><a href="#timeline" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Timeline</a></li>
+          <li><a href="#latency"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Latency Curve</a></li>
+          <li><a href="#cause"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Root Cause</a></li>
+          <li><a href="#actions"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Action Items</a></li>
+          <li><a href="#lessons"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Lessons</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- ===== main column ===== -->
+    <main class="min-w-0 flex-1 py-40">
+
+      <!-- header -->
+      <header class="mb-40">
+        <div class="flex flex-wrap items-center gap-8 mb-16">
+          <span class="px-10 py-4 rounded-xxs bg-critical text-white text-caption-12 font-semibold inline-flex items-center gap-4"><i data-lucide="alert-octagon" class="w-12 h-12"></i>SEV-2</span>
+          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12 nums">2026-06-10</span>
+          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12 nums">09:12–10:48 UTC</span>
+          <span class="px-10 py-4 rounded-xxs bg-accent-weak text-accent-strong text-caption-12 font-medium inline-flex items-center gap-4"><i data-lucide="clock" class="w-12 h-12"></i>1h 36m</span>
+          <span class="px-10 py-4 rounded-xxs bg-positive/10 text-positive text-caption-12 font-medium inline-flex items-center gap-4"><i data-lucide="check-circle-2" class="w-12 h-12"></i>Resolved</span>
+        </div>
+        <h1 class="text-headline-36 font-bold tracking-tight">API Latency Incident — Postmortem</h1>
+        <p class="mt-12 text-body-18 text-secondary prose-measure">
+          A one-line config typo in the v2.31 deploy capped the database
+          <span class="gloss" tabindex="0" role="button" data-tippy-content="A connection pool is a small set of reusable database connections shared across requests. Capping its size too low means requests must wait in line for a free connection — that wait shows up as request latency.">connection pool</span>
+          at 10 connections. The pool saturated under normal traffic, queueing requests until checkout calls timed out. Rolled back to v2.30; latency returned to baseline.
+        </p>
+      </header>
+
+      <!-- ===== section: impact KPI cards ===== -->
+      <section id="impact" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="activity" width="20" height="20" class="w-20 h-20 text-accent shrink-0"></i>
+          <h2 class="text-title-24 font-bold">Impact</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-16">
+
+          <!-- duration -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <div class="flex items-center gap-6 text-secondary"><i data-lucide="timer" width="18" height="18" class="w-[18px] h-[18px] shrink-0"></i><p class="text-body-14">Duration</p></div>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap"><span data-countup="96">0</span><span class="text-title-20 text-secondary font-semibold">m</span></span>
+            </div>
+            <p class="mt-10 text-caption-12 text-secondary">09:12 → 10:48 UTC · detection took 22m</p>
+          </div>
+
+          <!-- p99 peak -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <div class="flex items-center gap-6 text-secondary"><i data-lucide="gauge" width="18" height="18" class="w-[18px] h-[18px] shrink-0"></i><p class="text-body-14"><span class="gloss" tabindex="0" role="button" data-tippy-content="p99 is the 99th-percentile latency: 99% of requests were faster than this value and the slowest 1% were slower. It captures the worst real user experiences, not the typical one (which is the median, p50).">p99</span> latency peak</p></div>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap text-critical"><span data-countup="4.2">0</span><span class="text-title-20 font-semibold">s</span></span>
+              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-critical">
+                <i data-lucide="arrow-up-right" class="w-12 h-12"></i> 23×
+              </span>
+            </div>
+            <p class="mt-10 text-caption-12 text-secondary">Baseline 180ms · 23× normal</p>
+          </div>
+
+          <!-- lost orders -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <div class="flex items-center gap-6 text-secondary"><i data-lucide="shopping-cart" width="18" height="18" class="w-[18px] h-[18px] shrink-0"></i><p class="text-body-14">Est. lost orders</p></div>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap text-cautionary">$<span data-countup="23">0</span><span class="text-title-20 font-semibold">k</span></span>
+            </div>
+            <p class="mt-10 text-caption-12 text-secondary">14% of checkout requests timed out</p>
+          </div>
+
+          <!-- users affected -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <div class="flex items-center gap-6 text-secondary"><i data-lucide="users" width="18" height="18" class="w-[18px] h-[18px] shrink-0"></i><p class="text-body-14">Users affected</p></div>
+            <div class="flex items-end gap-8 mt-8">
+              <span class="text-headline-36 font-bold nums leading-none" data-countup="2100">0</span>
+            </div>
+            <p class="mt-10 text-caption-12 text-secondary">Saw errors or &gt;1s checkout</p>
+          </div>
+        </div>
+
+        <!-- impact callout -->
+        <div class="mt-16 flex items-start gap-12 rounded-medium border border-critical/20 bg-critical/5 p-16">
+          <i data-lucide="alert-triangle" width="20" height="20" class="w-20 h-20 text-critical shrink-0 mt-2"></i>
+          <p class="text-body-14 text-primary prose-measure">
+            <span class="font-semibold">Customer impact was concentrated in checkout.</span> Checkout makes three database queries per request, so it exhausted the starved pool first — these were the requests that timed out and the orders we lost.
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== section: interactive expandable timeline ===== -->
+      <section id="timeline" class="scroll-mt-24 mb-56">
+        <div class="flex items-center justify-between gap-12 mb-8">
+          <div class="flex items-center gap-8">
+            <i data-lucide="list-ordered" width="20" height="20" class="w-20 h-20 text-accent shrink-0"></i>
+            <h2 class="text-title-24 font-bold">Timeline</h2>
+          </div>
+        </div>
+        <p class="text-body-14 text-secondary mb-20 prose-measure">All times UTC. Click any entry to expand the detail. Detection lagged the deploy by 22 minutes; rollback was the fix.</p>
+
+        <div x-data="{ open:0 }" class="bg-surface border border-line-weak rounded-medium shadow-sm divide-y divide-line-weak overflow-hidden">
+          <template x-for="(ev,i) in [
+            {t:'09:12', kind:'deploy',  icon:'rocket',         title:'v2.31 deployed', sub:'New connection-pool config ships', detail:'Release v2.31 rolls out to all API pods. Among unrelated changes it carries a new database connection-pool config block — the change that caused the incident.'},
+            {t:'09:20', kind:'warn',    icon:'trending-up',    title:'p99 climbs past 1s', sub:'Latency degrading, no alert yet', detail:'Within 8 minutes of the deploy, p99 latency crosses 1s (baseline 180ms). No threshold had fired yet, so the on-call was not paged. Pool wait time was already the dominant cost.'},
+            {t:'09:34', kind:'page',    icon:'bell-ring',      title:'PagerDuty alert fires', sub:'error_rate > 5% threshold breached', detail:'The error-rate monitor (error_rate > 5%) trips and pages the on-call engineer — 22 minutes after the deploy. There was no direct pool-saturation alert, so error rate was the first signal to fire.'},
+            {t:'09:51', kind:'found',   icon:'search-check',   title:'Root cause identified', sub:'pool max-connections = 10, exhausted', detail:'Engineer correlates the latency onset with the v2.31 deploy, inspects the config diff, and finds db pool max-connections set to 10 (down from 100). Under load the pool is fully saturated and requests queue for a free connection.'},
+            {t:'10:15', kind:'fix',     icon:'rotate-ccw',     title:'Rollback to v2.30 started', sub:'Reverting the bad config', detail:'Decision made to roll back rather than hot-patch the config, to restore a known-good state. The v2.30 redeploy begins across the fleet.'},
+            {t:'10:48', kind:'resolved',icon:'check-circle-2', title:'Baseline restored · incident closed', sub:'p99 back to 180ms', detail:'Rollout of v2.30 completes, the pool returns to 100 connections, queueing clears, and p99 settles back to ~180ms. Incident declared resolved at 10:48 UTC.'},
+          ]" :key="i">
+            <div>
+              <button @click="open = open===i ? null : i" class="w-full flex items-center gap-16 px-16 py-16 text-left hover:bg-disabled-bg/40 transition">
+                <span class="nums text-body-14 font-semibold text-secondary w-44 shrink-0" x-text="ev.t"></span>
+                <span class="shrink-0 inline-flex items-center justify-center w-32 h-32 rounded-full"
+                      :class="{
+                        'bg-accent-weak text-accent-strong': ev.kind==='deploy' || ev.kind==='fix',
+                        'bg-cautionary/15 text-cautionary': ev.kind==='warn',
+                        'bg-critical/10 text-critical': ev.kind==='page',
+                        'bg-informative/10 text-informative': ev.kind==='found',
+                        'bg-positive/10 text-positive': ev.kind==='resolved'
+                      }">
+                  <i :data-lucide="ev.icon" class="w-16 h-16"></i>
+                </span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-body-16 font-semibold text-primary truncate" x-text="ev.title"></span>
+                  <span class="block text-caption-12 text-secondary truncate" x-text="ev.sub"></span>
+                </span>
+                <i data-lucide="chevron-down" class="w-16 h-16 text-text-disabled shrink-0 transition-transform" :class="open===i && 'rotate-180'"></i>
+              </button>
+              <div x-show="open===i" x-collapse x-cloak>
+                <p class="px-16 pb-16 pl-72 text-body-14 text-secondary prose-measure" x-text="ev.detail"></p>
+              </div>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <!-- ===== section: latency curve chart ===== -->
+      <section id="latency" class="scroll-mt-24 mb-56" x-data="{ table:false }">
+        <div class="flex items-center justify-between gap-12 mb-8">
+          <div class="flex items-center gap-8">
+            <i data-lucide="line-chart" width="20" height="20" class="w-20 h-20 text-accent shrink-0"></i>
+            <h2 class="text-title-24 font-bold">Latency Curve</h2>
+          </div>
+          <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? 'Chart view' : 'Table view'"></button>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">p99 spiked within minutes of the 09:12 deploy, breached the 1s SLO by 09:20, and only fell back to the 180ms baseline (dashed line) after the 10:15 rollback. Hover the curve for exact values.</p>
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div x-show="!table"><div id="latencyChart" role="img" aria-label="p99 latency over the incident window, spiking to 4.2s after the v2.31 deploy and returning to 180ms baseline after rollback" class="h-72" style="height:340px"></div></div>
+          <div x-show="table" x-cloak>
+            <table class="w-full text-body-14 nums">
+              <caption class="sr-only">p99 latency by time during the incident</caption>
+              <thead class="text-secondary text-left"><tr><th class="py-8 font-medium">Time (UTC)</th><th class="py-8 font-medium text-right">p99 latency</th><th class="py-8 font-medium">Phase</th></tr></thead>
+              <tbody id="latencyTableBody" class="divide-y divide-line-weak"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== section: causal chain (stacked numbered cards) ===== -->
+      <section id="cause" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-8">
+          <i data-lucide="git-branch" width="20" height="20" class="w-20 h-20 text-accent shrink-0"></i>
+          <h2 class="text-title-24 font-bold">Root Cause — Causal Chain</h2>
+        </div>
+        <p class="text-body-14 text-secondary mb-24 prose-measure">A single mistyped number propagated into customer-visible timeouts. Each step caused the next:</p>
+
+        <div class="space-y-20">
+          <!-- step 1 -->
+          <div class="chain-step flex gap-16">
+            <div class="shrink-0 w-48 h-48 rounded-full bg-critical text-white flex items-center justify-center text-title-20 font-bold nums shadow-sm">1</div>
+            <div class="flex-1 bg-surface border border-critical/30 rounded-medium shadow-sm p-20">
+              <div class="flex items-center gap-8 mb-6"><i data-lucide="file-warning" class="w-16 h-16 text-critical"></i><h3 class="text-body-18 font-semibold">Config typo lowered the pool cap</h3></div>
+              <p class="text-body-14 text-secondary prose-measure">v2.31 set the database pool <code class="px-6 py-2 rounded-xxs bg-disabled-bg text-primary text-caption-12 nums">max-connections</code> from <span class="font-semibold text-primary nums">100 → 10</span> — a typo in the config, not an intended change.</p>
+            </div>
+          </div>
+          <!-- step 2 -->
+          <div class="chain-step flex gap-16">
+            <div class="shrink-0 w-48 h-48 rounded-full bg-accent text-accent-on flex items-center justify-center text-title-20 font-bold nums shadow-sm">2</div>
+            <div class="flex-1 bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+              <div class="flex items-center gap-8 mb-6"><i data-lucide="battery-warning" class="w-16 h-16 text-accent"></i><h3 class="text-body-18 font-semibold">Pool saturated under normal traffic</h3></div>
+              <p class="text-body-14 text-secondary prose-measure">No traffic spike was needed. Ten connections could not cover steady-state concurrency, so the pool ran fully checked-out almost immediately.</p>
+            </div>
+          </div>
+          <!-- step 3 -->
+          <div class="chain-step flex gap-16">
+            <div class="shrink-0 w-48 h-48 rounded-full bg-accent text-accent-on flex items-center justify-center text-title-20 font-bold nums shadow-sm">3</div>
+            <div class="flex-1 bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+              <div class="flex items-center gap-8 mb-6"><i data-lucide="hourglass" class="w-16 h-16 text-accent"></i><h3 class="text-body-18 font-semibold">Requests queued waiting for a connection</h3></div>
+              <p class="text-body-14 text-secondary prose-measure">With every connection busy, new requests blocked in the pool's wait queue until one freed up, instead of failing fast.</p>
+            </div>
+          </div>
+          <!-- step 4 -->
+          <div class="chain-step flex gap-16">
+            <div class="shrink-0 w-48 h-48 rounded-full bg-accent text-accent-on flex items-center justify-center text-title-20 font-bold nums shadow-sm">4</div>
+            <div class="flex-1 bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+              <div class="flex items-center gap-8 mb-6"><i data-lucide="timer" class="w-16 h-16 text-accent"></i><h3 class="text-body-18 font-semibold">Queue time surfaced as request latency</h3></div>
+              <p class="text-body-14 text-secondary prose-measure">Time spent waiting for a connection is counted inside the request, so p99 climbed from 180ms toward 4.2s as queue depth grew.</p>
+            </div>
+          </div>
+          <!-- step 5 -->
+          <div class="chain-step flex gap-16">
+            <div class="shrink-0 w-48 h-48 rounded-full bg-cautionary text-white flex items-center justify-center text-title-20 font-bold nums shadow-sm">5</div>
+            <div class="flex-1 bg-surface border border-cautionary/30 rounded-medium shadow-sm p-20">
+              <div class="flex items-center gap-8 mb-6"><i data-lucide="shopping-cart" class="w-16 h-16 text-cautionary"></i><h3 class="text-body-18 font-semibold">Checkout timed out first</h3></div>
+              <p class="text-body-14 text-secondary prose-measure">Checkout runs <span class="font-semibold text-primary">three queries per request</span>, so it accumulated the most queue time and crossed the timeout threshold before lighter endpoints — which is why 14% of checkouts failed.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== section: action items table ===== -->
+      <section id="actions" class="scroll-mt-24 mb-56">
+        <div class="flex items-center justify-between gap-12 mb-8 flex-wrap">
+          <div class="flex items-center gap-8">
+            <i data-lucide="clipboard-check" width="20" height="20" class="w-20 h-20 text-accent shrink-0"></i>
+            <h2 class="text-title-24 font-bold">Action Items</h2>
+          </div>
+        </div>
+        <p class="text-body-14 text-secondary mb-16 prose-measure">Sort by any column or search to find an item. The config revert is shipped; guardrails to prevent a repeat are tracked below.</p>
+
+        <div id="actionsGrid"></div>
+      </section>
+
+      <!-- ===== section: lessons ===== -->
+      <section id="lessons" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="lightbulb" width="20" height="20" class="w-20 h-20 text-accent shrink-0"></i>
+          <h2 class="text-title-24 font-bold">Lessons Learned</h2>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-16">
+          <div class="flex items-start gap-12 rounded-medium border border-line-weak bg-surface shadow-sm p-20">
+            <i data-lucide="type" width="20" height="20" class="w-20 h-20 text-accent shrink-0 mt-2"></i>
+            <div>
+              <h3 class="text-body-16 font-semibold mb-4">A one-line typo had outsized impact</h3>
+              <p class="text-body-14 text-secondary">Changing a single number — <span class="nums">100</span> to <span class="nums">10</span> — degraded the whole API and cost ~$23k in orders. Small config edits are not low-risk by default.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-12 rounded-medium border border-line-weak bg-surface shadow-sm p-20">
+            <i data-lucide="shield-check" width="20" height="20" class="w-20 h-20 text-accent shrink-0 mt-2"></i>
+            <div>
+              <h3 class="text-body-16 font-semibold mb-4">Guardrails beat review for resource limits</h3>
+              <p class="text-body-14 text-secondary">Code review did not catch the change. Resource-limit edits need machine guardrails — diff gates, saturation alerts, staging load tests — not just a human glance.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer class="pt-24 border-t border-line-weak text-caption-12 text-text-disabled">
+        SEV-2 postmortem · API Latency Incident · 2026-06-10 · Status: Resolved · Example report generated with the html-report skill
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  // ---- locale-aware number helpers ----
+  const L = window.REPORT_LOCALE || { number:'en-US', currency:'USD', symbol:'$', bigUnits:false };
+  const nf = new Intl.NumberFormat(L.number);
+
+  // ---- shared ECharts theme ----
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const ACCENT = css('--accent'), ACCENT_STRONG = css('--accent-strong');
+  const C_LINE = css('--c-line-weak') || '#E4E4E7', C_SECONDARY = css('--c-secondary') || '#52525B';
+  const C_NEUTRAL = css('--c-disabled') || '#A1A1AA';
+  const C_CRITICAL = css('--c-critical') || '#DC2626';
+  const FONT = css('--font-family') || 'Inter, sans-serif';
+  const accentRgba = (a) => {
+    let h = ACCENT.replace('#','');
+    if (h.length === 3) h = h.split('').map(c=>c+c).join('');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+
+  // ---- KPI count-up ----
+  function initCards(){
+    document.querySelectorAll('[data-countup]').forEach(el => {
+      const end = parseFloat(el.dataset.countup);
+      new countUp.CountUp(el, end, { duration:1.4, decimalPlaces:(end%1?1:0),
+        prefix:el.dataset.prefix||'', suffix:el.dataset.suffix||'' }).start();
+    });
+  }
+
+  // ---- latency curve data ----
+  // p99 latency (ms) across the incident window; phases annotate the table view
+  const LAT = {
+    t:    ['09:00','09:12','09:20','09:34','09:51','10:05','10:15','10:30','10:40','10:48','11:00'],
+    p99:  [   180,    195,   1080,   2600,   4200,   4150,   3800,   1500,    520,    185,    180 ],
+    phase:['Baseline','v2.31 deploy','SLO breach','PagerDuty','Peak','Investigating','Rollback start','Recovering','Recovering','Resolved','Baseline'],
+  };
+  let latencyChart;
+  function renderLatency(){
+    latencyChart.setOption({
+      color:[ACCENT],
+      textStyle:{ fontFamily:FONT },
+      grid:{ left:8, right:24, top:28, bottom:48, containLabel:true },
+      dataZoom:[{ type:'inside' }, { type:'slider', height:18, bottom:6 }],
+      tooltip:{ trigger:'axis',
+        formatter:(ps)=>{ const p=ps[0]; const i=p.dataIndex;
+          return `${LAT.t[i]} UTC<br/><b>${(LAT.p99[i]/1000).toFixed(2)}s</b> p99 · ${LAT.phase[i]}`; } },
+      xAxis:{ type:'category', data:LAT.t, boundaryGap:false,
+        axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      yAxis:{ type:'value', name:'p99', nameTextStyle:{ color:C_SECONDARY, align:'left' },
+        splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY, formatter:(v)=> v>=1000 ? (v/1000)+'s' : v+'ms' } },
+      series:[{ type:'line', data:LAT.p99, smooth:true, symbol:'circle', symbolSize:6, showSymbol:false,
+        lineStyle:{ width:3, color:ACCENT },
+        areaStyle:{ color:{ type:'linear', x:0,y:0,x2:0,y2:1, colorStops:[
+          { offset:0, color:accentRgba(0.28) }, { offset:1, color:accentRgba(0.02) } ] } },
+        markLine:{ symbol:'none', silent:true,
+          data:[
+            { yAxis:180, lineStyle:{ type:'dashed', color:C_NEUTRAL },
+              label:{ position:'insideEndTop', formatter:'baseline 180ms', color:C_SECONDARY, fontSize:11 } },
+            { yAxis:1000, lineStyle:{ type:'dashed', color:C_CRITICAL, opacity:0.7 },
+              label:{ position:'insideStartBottom', formatter:'1s SLO', color:C_CRITICAL, fontSize:11 } },
+          ] },
+        markArea:{ silent:true, itemStyle:{ color:accentRgba(0.06) },
+          data:[[ { name:'Incident window', xAxis:'09:12', label:{ color:C_SECONDARY, fontSize:11, position:'insideTop' } }, { xAxis:'10:48' } ]] },
+      }],
+    }, true);
+  }
+
+  // ---- action items (Grid.js) ----
+  // status tag: color + icon + label, never color alone
+  const STATUS = {
+    done:        { label:'Done',        icon:'M5 13l4 4L19 7',        fg:'var(--c-positive)',    bg:'rgba(22,163,74,0.10)' },
+    'in progress':{ label:'In progress', icon:'M12 6v6l4 2',          fg:'var(--c-informative)', bg:'rgba(37,99,235,0.10)' },
+    todo:        { label:'To do',        icon:'',                     fg:'var(--c-secondary)',   bg:'var(--c-disabled-bg)' },
+  };
+  function statusTag(key){
+    const s = STATUS[key] || STATUS.todo;
+    const icon = s.icon
+      ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="${s.icon}"/></svg>`
+      : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="9"/></svg>`;
+    return `<span class="ai-status" style="color:${s.fg};background:${s.bg}">${icon}${s.label}</span>`;
+  }
+  const ACTIONS = [
+    [1, 'Revert pool config to max-connections = 100', 'SRE on-call', '2026-06-10', 'done'],
+    [2, 'Add a pool-saturation alert (utilization > 80%)', 'Platform', '2026-06-17', 'todo'],
+    [3, 'Add a config-diff review gate to deploys', 'Infra', '2026-06-24', 'todo'],
+    [4, 'Load-test pool changes in staging', 'Platform', '—', 'in progress'],
+  ];
+  function renderActionsGrid(){
+    const el = document.getElementById('actionsGrid');
+    if (!el || !window.gridjs) return;
+    new gridjs.Grid({
+      columns:[
+        { name:'#', width:'56px' },
+        { name:'Action' },
+        { name:'Owner', width:'120px' },
+        { name:'Due', width:'120px' },
+        { name:'Status', width:'140px',
+          formatter:(cell)=> gridjs.html(statusTag(cell)),
+          sort:{ compare:(a,b)=> (STATUS[a]?.label||a).localeCompare(STATUS[b]?.label||b) } },
+      ],
+      data: ACTIONS,
+      sort:true, search:true,
+      className:{ table:'text-body-14' },
+    }).render(el);
+  }
+
+  function fillLatencyTable(){
+    const body = document.getElementById('latencyTableBody');
+    if (!body) return;
+    body.innerHTML = LAT.t.map((t,i) =>
+      `<tr><td class="py-8">${t}</td><td class="py-8 text-right">${(LAT.p99[i]/1000).toFixed(2)}s</td><td class="py-8 text-secondary">${LAT.phase[i]}</td></tr>`).join('');
+  }
+
+  // ---- TOC active-section highlight ----
+  function initToc(){
+    const links = [...document.querySelectorAll('#toc a')];
+    const setActive = (id) => links.forEach(a => {
+      const on = a.getAttribute('href') === '#'+id;
+      a.classList.toggle('text-accent', on); a.classList.toggle('bg-accent-weak', on);
+      a.classList.toggle('font-semibold', on); a.classList.toggle('text-secondary', !on);
+    });
+    const obs = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) setActive(e.target.id); }),
+      { rootMargin:'-35% 0px -60% 0px' });
+    document.querySelectorAll('main section[id]').forEach(s => obs.observe(s));
+  }
+
+  function refreshIcons(){ if (window.lucide) lucide.createIcons(); }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    refreshIcons();
+    latencyChart = echarts.init(document.getElementById('latencyChart'));
+    initCards(); renderLatency(); fillLatencyTable(); renderActionsGrid(); initToc();
+    if (window.tippy) tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus' });
+    window.addEventListener('resize', () => { latencyChart.resize(); });
+  });
+  // Alpine renders the timeline (x-for) and action rows after load — re-draw icons then.
+  document.addEventListener('alpine:initialized', () => setTimeout(refreshIcons, 50));
+</script>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- GitHub Pages landing / live gallery for cookiebite. Served from the repo root. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>cookiebite — live examples</title>
+<meta name="description" content="Live, interactive example reports built with the cookiebite skill — open them, zoom the charts, click through the walkthroughs." />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root{ --accent:#4F46E5; --accent-weak:#EEF0FD; }
+  body{ font-family:'Inter',-apple-system,system-ui,sans-serif; letter-spacing:-0.01em; background:#FAFAFB; color:#18181B; }
+  .card{ transition:transform .15s ease, box-shadow .15s ease; }
+  .card:hover{ transform:translateY(-3px); box-shadow:0 12px 28px rgba(24,24,40,.12); }
+  .shot{ aspect-ratio:16/10; object-fit:cover; object-position:top; }
+</style>
+</head>
+<body>
+<main class="mx-auto max-w-[1080px] px-6 py-14">
+
+  <!-- header -->
+  <header class="text-center mb-12">
+    <img src="docs/banner.png" alt="cookiebite" class="mx-auto w-full max-w-[760px] rounded-2xl border border-zinc-200 shadow-sm" />
+    <p class="mt-7 text-lg text-zinc-600 max-w-[620px] mx-auto">
+      Live, interactive reports built with the
+      <a href="https://github.com/korECM/cookiebite" class="text-[color:var(--accent)] font-semibold hover:underline">cookiebite</a>
+      skill. Open one — zoom a chart, click through a walkthrough, sort a table. Every one is a single self-contained HTML file.
+    </p>
+    <div class="mt-6 flex items-center justify-center gap-3 text-sm">
+      <a href="https://github.com/korECM/cookiebite" class="px-4 py-2 rounded-lg bg-zinc-900 text-white font-medium hover:bg-zinc-800">GitHub repo</a>
+      <a href="assets/theme-studio.html" class="px-4 py-2 rounded-lg border border-zinc-300 font-medium hover:bg-white">Open the theme studio</a>
+    </div>
+  </header>
+
+  <!-- example gallery -->
+  <section class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+    <a href="docs/examples/weekly-revenue.html" class="card block bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <img src="docs/screenshots/example-metrics.png" alt="Weekly growth dashboard" class="shot w-full border-b border-zinc-100" />
+      <div class="p-4">
+        <h2 class="font-semibold">Weekly growth dashboard</h2>
+        <p class="text-sm text-zinc-500 mt-1">MRR waterfall, signup funnel, cohort retention heatmap, goal gauge, sortable accounts table.</p>
+      </div>
+    </a>
+    <a href="docs/examples/incident-postmortem.html" class="card block bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <img src="docs/screenshots/example-postmortem.png" alt="Incident postmortem" class="shot w-full border-b border-zinc-100" />
+      <div class="p-4">
+        <h2 class="font-semibold">Incident postmortem</h2>
+        <p class="text-sm text-zinc-500 mt-1">Impact cards, an expandable timeline, a zoomable latency curve, a numbered root-cause chain.</p>
+      </div>
+    </a>
+    <a href="docs/examples/circuit-breaker.html" class="card block bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <img src="docs/screenshots/example-flow.png" alt="Circuit-breaker explainer" class="shot w-full border-b border-zinc-100" />
+      <div class="p-4">
+        <h2 class="font-semibold">Circuit-breaker explainer</h2>
+        <p class="text-sm text-zinc-500 mt-1">A Mermaid state diagram, a click-through walkthrough, glossary tooltips.</p>
+      </div>
+    </a>
+  </section>
+
+  <p class="text-center text-sm text-zinc-400 mt-12">
+    Built with <a href="https://github.com/korECM/cookiebite" class="hover:underline">cookiebite</a> · MIT
+  </p>
+</main>
+</body>
+</html>

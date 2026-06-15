@@ -1,0 +1,10 @@
+{
+  "name": "stripe",
+  "label": "Stripe",
+  "source": "voltagent/awesome-design-md",
+  "font": { "family": "Inter", "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", "fallback": "-apple-system, system-ui, sans-serif" },
+  "colors": { "accent":"#533afd","accentStrong":"#4434d4","accentWeak":"#ecebfe","accentOn":"#FFFFFF",
+    "bg":"#f6f9fc","surface":"#FFFFFF","primary":"#0d253d","secondary":"#64748d","disabled":"#a3b0c2","placeholder":"#8a98ac","line":"#e3e8ee","lineWeak":"#f0f3f7","disabledBg":"#f2f5f9",
+    "critical":"#ea2261","cautionary":"#D97706","positive":"#16A34A","informative":"#2563EB" },
+  "locale": { "number":"en-US","currency":"USD","symbol":"$","bigUnits":false }
+}

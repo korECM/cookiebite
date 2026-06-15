@@ -1,0 +1,527 @@
+<!doctype html>
+<!--
+  SHOWCASE — Circuit Breaker pattern explainer.
+  Centerpiece: Mermaid state diagram + step-synced highlight + calm state-badge pulse.
+  Built from assets/template.html. Theme applied last via scripts/apply-theme.py (Linear).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Circuit Breaker Pattern</title>
+
+<!-- THEME — preset: Persimmon. Swap this block to re-theme (see assets/theme-studio.html). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
+    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;
+    --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
+    --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+  }
+</style>
+<script>window.REPORT_LOCALE = {'number': 'en-US', 'currency': 'USD', 'symbol': '$', 'bigUnits': false};</script>
+<!-- end THEME -->
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+
+<!-- Glossary tooltips (Tippy.js + Popper) -->
+<link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
+<script src="https://unpkg.com/@popperjs/core@2"></script>
+<script src="https://unpkg.com/tippy.js@6"></script>
+
+<style>
+  html{ scroll-behavior:smooth; }
+  body{ font-family:var(--font-family); letter-spacing:-0.01em; }
+  .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  .prose-measure{ max-width:68ch; }
+  [x-cloak]{ display:none !important; }
+  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+  .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
+  .tippy-box[data-theme~='report']{ background:var(--c-primary); color:#fff; border-radius:12px; font-size:13px; line-height:1.5; }
+  .tippy-box[data-theme~='report'] .tippy-content{ padding:10px 12px; }
+  .tippy-box[data-theme~='report'] .tippy-arrow{ color:var(--c-primary); }
+
+  /* ===== state-badge row: the calm animation. One active badge gently glows; ===== */
+  /* connectors brighten between the previous and current state. Driven by one JS clock. */
+  .breaker-badge{
+    position:relative; border:1.5px solid var(--c-line); background:var(--c-surface);
+    transition:border-color .5s ease, box-shadow .5s ease, background-color .5s ease, color .5s ease;
+  }
+  .breaker-badge .dot{ transition:background-color .5s ease, box-shadow .5s ease; background:var(--c-disabled); }
+  .breaker-badge.active{ border-color:var(--accent); background:var(--accent-weak); color:var(--accent-strong); }
+  .breaker-badge.active .dot{ background:var(--accent); box-shadow:0 0 0 0 var(--accent); animation:badgePulse 2.4s ease-out infinite; }
+  @keyframes badgePulse{
+    0%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    70%{ box-shadow:0 0 0 10px color-mix(in srgb, var(--accent) 0%, transparent); }
+    100%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+  }
+  .breaker-conn{ height:2px; background:var(--c-line-weak); transition:background-color .5s ease; border-radius:2px; }
+  .breaker-conn.lit{ background:var(--accent); }
+  @media (prefers-reduced-motion: reduce){
+    .breaker-badge.active .dot{ animation:none; }
+    .breaker-badge, .breaker-badge .dot, .breaker-conn{ transition:none; }
+  }
+
+  /* Mermaid: highlight the node tied to the active walkthrough step */
+  #diagram svg{ max-width:100%; height:auto; }
+  #diagram .node.cb-active rect,
+  #diagram .node.cb-active polygon,
+  #diagram .node.cb-active circle{
+    stroke:var(--accent) !important; stroke-width:3px !important;
+    filter:drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 45%, transparent));
+  }
+  #diagram .node.cb-active tspan{ fill:var(--accent-strong) !important; font-weight:700; }
+
+  .step-dot{ transition:background-color .3s, transform .3s; }
+</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      bg:'var(--c-bg)', surface:'var(--c-surface)', primary:'var(--c-primary)', secondary:'var(--c-secondary)',
+      'text-disabled':'var(--c-disabled)', placeholder:'var(--c-placeholder)',
+      line:'var(--c-line)', 'line-weak':'var(--c-line-weak)', 'disabled-bg':'var(--c-disabled-bg)',
+      critical:'var(--c-critical)', cautionary:'var(--c-cautionary)', positive:'var(--c-positive)', informative:'var(--c-informative)',
+      accent:'var(--accent)', 'accent-strong':'var(--accent-strong)',
+      'accent-weak':'var(--accent-weak)', 'accent-on':'var(--accent-on)',
+    },
+    borderColor:{ DEFAULT:'var(--c-line-weak)' },
+    borderRadius:{ xxs:'4px', xs:'8px', small:'12px', medium:'16px', large:'24px', xlarge:'32px' },
+    boxShadow:{ xs:'0 1px 2px rgba(0,0,0,0.5)', sm:'0 2px 8px rgba(0,0,0,0.15)',
+                md:'0 8px 20px rgba(0,0,0,0.12)', lg:'0 7px 30px rgba(0,0,0,0.2)' },
+    spacing:{ '2':'2px','4':'4px','6':'6px','8':'8px','10':'10px','12':'12px','16':'16px',
+              '20':'20px','24':'24px','28':'28px','32':'32px','40':'40px','48':'48px',
+              '56':'56px','64':'64px','72':'72px' },
+    fontSize:{ 'caption-12':['12px','16px'],'body-14':['14px','20px'],'body-16':['16px','24px'],
+               'body-18':['18px','26px'],'title-20':['20px','28px'],'title-24':['24px','30px'],
+               'title-28':['28px','36px'],'headline-36':['36px','44px'],'headline-48':['48px','56px'] },
+  } } }
+</script>
+</head>
+<body class="bg-bg text-primary">
+<div class="mx-auto max-w-[1400px] px-24">
+  <div class="flex flex-row-reverse gap-40">
+
+    <!-- ===== TOC sidebar ===== -->
+    <nav class="hidden lg:block w-[190px] shrink-0">
+      <div class="sticky top-24 py-40">
+        <p class="text-caption-12 text-text-disabled mb-12 pl-12">Contents</p>
+        <ul id="toc" class="space-y-2 text-body-14">
+          <li><a href="#tldr"     class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">TL;DR</a></li>
+          <li><a href="#diagram-s"class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">State machine</a></li>
+          <li><a href="#walk"     class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Walkthrough</a></li>
+          <li><a href="#why"      class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Why it matters</a></li>
+          <li><a href="#chart"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Error rate</a></li>
+          <li><a href="#glossary" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">Glossary</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- ===== main column ===== -->
+    <main class="min-w-0 flex-1 py-40">
+
+      <!-- header -->
+      <header class="mb-40">
+        <div class="flex flex-wrap items-center gap-8 mb-16">
+          <span class="px-10 py-4 rounded-xxs bg-accent text-accent-on text-caption-12 font-semibold">Resilience pattern</span>
+          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12">Explainer</span>
+        </div>
+        <h1 class="text-headline-36 font-bold tracking-tight">The Circuit Breaker Pattern</h1>
+        <p class="mt-12 text-body-18 text-secondary prose-measure">
+          A small state machine that sits in front of a flaky dependency, stops hammering it once
+          failures pile up, and lets it recover — turning a slow cascade into a fast, contained failure.
+        </p>
+      </header>
+
+      <!-- ===== TL;DR ===== -->
+      <section id="tldr" class="scroll-mt-24 mb-56">
+        <div class="bg-accent-weak border border-line-weak rounded-medium p-24">
+          <div class="flex items-center gap-8 mb-12">
+            <i data-lucide="zap" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-20 font-bold">TL;DR</h2>
+          </div>
+          <p class="text-body-16 text-secondary prose-measure">
+            Wrap a remote call in a breaker with three states. <b class="text-primary">Closed</b>: traffic flows and
+            failures are counted. Cross the failure threshold and it trips to <b class="text-primary">Open</b>, where
+            every call <span class="gloss" tabindex="0" role="button" data-tippy-content="Fail-fast: return an error immediately instead of waiting on a call that is very likely to fail or time out. It frees threads, memory, and connections that would otherwise pile up.">fails fast</span>
+            with no wait. After a cooldown it moves to <b class="text-primary">Half-Open</b> and lets a single
+            <span class="gloss" tabindex="0" role="button" data-tippy-content="Half-open: a probing state. The breaker permits one trial request through to test whether the dependency has recovered, then decides whether to close (recovered) or re-open (still failing).">trial request</span>
+            through — success closes the breaker, failure re-opens it.
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== state machine: badges (animated) + mermaid diagram ===== -->
+      <section id="diagram-s" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="git-branch" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">The state machine</h2>
+        </div>
+        <p class="text-body-14 text-secondary mb-20 prose-measure">
+          Three states, four transitions. The badges below trace the calm happy-path loop
+          (Closed → Open → Half-Open → Closed); the diagram is the full structural reference.
+        </p>
+
+        <!-- animated state badges (the ONE tasteful effect) -->
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-24 mb-20">
+          <div class="flex items-center justify-center gap-0 flex-wrap">
+            <div id="badge-closed" class="breaker-badge flex items-center gap-8 px-16 py-12 rounded-small">
+              <span class="dot w-8 h-8 rounded-full inline-block"></span>
+              <span class="font-semibold text-body-14">Closed</span>
+            </div>
+            <div class="breaker-conn lit-target w-24 sm:w-40 mx-4" data-conn="0"></div>
+            <div id="badge-open" class="breaker-badge flex items-center gap-8 px-16 py-12 rounded-small">
+              <span class="dot w-8 h-8 rounded-full inline-block"></span>
+              <span class="font-semibold text-body-14">Open</span>
+            </div>
+            <div class="breaker-conn w-24 sm:w-40 mx-4" data-conn="1"></div>
+            <div id="badge-half" class="breaker-badge flex items-center gap-8 px-16 py-12 rounded-small">
+              <span class="dot w-8 h-8 rounded-full inline-block"></span>
+              <span class="font-semibold text-body-14">Half-Open</span>
+            </div>
+            <div class="breaker-conn w-24 sm:w-40 mx-4" data-conn="2"></div>
+            <div id="badge-back" class="breaker-badge flex items-center gap-8 px-16 py-12 rounded-small opacity-90">
+              <span class="dot w-8 h-8 rounded-full inline-block"></span>
+              <span class="font-semibold text-body-14">Closed</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- mermaid diagram -->
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-24">
+          <div id="diagram" role="img" aria-label="Circuit breaker state diagram: Closed trips to Open on failure threshold, Open moves to Half-Open after a timeout, Half-Open closes on success or re-opens on failure." class="flex justify-center"></div>
+        </div>
+      </section>
+
+      <!-- ===== walkthrough (the heart) ===== -->
+      <section id="walk" class="scroll-mt-24 mb-56"
+        x-data="walkthrough()" x-init="init()">
+        <div class="flex items-center justify-between gap-12 mb-20 flex-wrap">
+          <div class="flex items-center gap-8">
+            <i data-lucide="footprints" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-24 font-bold">Walk it through, step by step</h2>
+          </div>
+          <button @click="toggleAuto()"
+            class="inline-flex items-center gap-6 px-12 py-6 rounded-small text-body-14 transition"
+            :class="auto ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'">
+            <i data-lucide="play" class="w-16 h-16" x-show="!auto"></i>
+            <i data-lucide="pause" class="w-16 h-16" x-show="auto"></i>
+            <span x-text="auto ? 'Auto-playing' : 'Auto-play'"></span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-16 items-stretch">
+          <!-- the step card -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-24 flex flex-col">
+            <div class="flex items-center gap-12 mb-16">
+              <span class="inline-flex items-center justify-center w-32 h-32 rounded-full bg-accent text-accent-on font-bold nums" x-text="i+1"></span>
+              <span class="px-10 py-4 rounded-xxs text-caption-12 font-semibold"
+                :class="{
+                  'bg-positive/10 text-positive': steps[i].state==='Closed',
+                  'bg-critical/10 text-critical': steps[i].state==='Open',
+                  'bg-cautionary/15 text-cautionary': steps[i].state==='Half-Open'
+                }" x-text="steps[i].state"></span>
+              <span class="text-caption-12 text-text-disabled nums" x-text="(i+1)+' / '+steps.length"></span>
+            </div>
+            <h3 class="text-title-20 font-bold mb-8" x-text="steps[i].title"></h3>
+            <p class="text-body-16 text-secondary prose-measure flex-1" x-text="steps[i].body"></p>
+
+            <!-- progress dots + controls -->
+            <div class="flex items-center justify-between mt-24 pt-16 border-t border-line-weak">
+              <div class="flex items-center gap-6">
+                <template x-for="(s,idx) in steps" :key="idx">
+                  <button @click="go(idx)" :aria-label="'Go to step '+(idx+1)"
+                    class="step-dot w-8 h-8 rounded-full"
+                    :class="idx===i ? 'bg-accent scale-125' : 'bg-line hover:bg-secondary'"></button>
+                </template>
+              </div>
+              <div class="flex items-center gap-8">
+                <button @click="prev()" :disabled="i===0"
+                  class="inline-flex items-center gap-4 px-12 py-8 rounded-small text-body-14 bg-disabled-bg text-secondary hover:text-primary disabled:opacity-40 disabled:cursor-not-allowed transition">
+                  <i data-lucide="arrow-left" class="w-16 h-16"></i> Prev
+                </button>
+                <button @click="next()"
+                  class="inline-flex items-center gap-4 px-16 py-8 rounded-small text-body-14 bg-accent text-accent-on hover:bg-accent-strong transition">
+                  <span x-text="i===steps.length-1 ? 'Restart' : 'Next'"></span>
+                  <i data-lucide="arrow-right" class="w-16 h-16" x-show="i!==steps.length-1"></i>
+                  <i data-lucide="rotate-ccw" class="w-16 h-16" x-show="i===steps.length-1"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- mini live state on the right -->
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20 lg:w-[220px] flex flex-col justify-center items-center text-center">
+            <p class="text-caption-12 text-text-disabled mb-12">Breaker is now</p>
+            <div class="inline-flex items-center gap-8 px-16 py-12 rounded-small mb-12"
+              :class="{
+                'bg-positive/10 text-positive': steps[i].state==='Closed',
+                'bg-critical/10 text-critical': steps[i].state==='Open',
+                'bg-cautionary/15 text-cautionary': steps[i].state==='Half-Open'
+              }">
+              <i :data-lucide="steps[i].state==='Closed' ? 'check-circle' : steps[i].state==='Open' ? 'x-circle' : 'help-circle'" class="w-20 h-20"></i>
+              <span class="font-bold text-title-20" x-text="steps[i].state"></span>
+            </div>
+            <p class="text-caption-12 text-secondary" x-text="steps[i].note"></p>
+          </div>
+        </div>
+        <p class="text-caption-12 text-text-disabled mt-12">Tip: use ← / → arrow keys, the dots, or auto-play. The diagram above highlights the matching state.</p>
+      </section>
+
+      <!-- ===== why it matters ===== -->
+      <section id="why" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="shield-check" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Why it matters</h2>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-16">
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <i data-lucide="waves" class="w-24 h-24 text-accent mb-12"></i>
+            <h3 class="text-body-16 font-bold mb-6">Stops the cascade</h3>
+            <p class="text-body-14 text-secondary">A slow dependency ties up threads and connections until the caller falls over too. Opening the breaker cuts the rope before the failure spreads upstream.</p>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <i data-lucide="timer" class="w-24 h-24 text-accent mb-12"></i>
+            <h3 class="text-body-16 font-bold mb-6">Fails in milliseconds</h3>
+            <p class="text-body-14 text-secondary">While Open, calls return instantly instead of waiting out a 30-second timeout. Users get a quick error or a fallback, not a hung spinner.</p>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+            <i data-lucide="heart-pulse" class="w-24 h-24 text-accent mb-12"></i>
+            <h3 class="text-body-16 font-bold mb-6">Lets it heal</h3>
+            <p class="text-body-14 text-secondary">The cooldown gives the struggling service breathing room, and Half-Open probes gently — one request, not a thundering herd — so recovery is tested without re-overloading it.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== error-rate chart ===== -->
+      <section id="chart" class="scroll-mt-24 mb-56" x-data="{ table:false }">
+        <div class="flex items-center justify-between gap-12 mb-12">
+          <div class="flex items-center gap-8">
+            <i data-lucide="activity" class="w-20 h-20 text-accent"></i>
+            <h2 class="text-title-24 font-bold">Error rate over time</h2>
+          </div>
+          <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? 'Chart view' : 'Table view'"></button>
+        </div>
+        <p class="text-body-14 text-secondary mb-12 prose-measure">
+          Errors climb past the 50% threshold (dashed line); the breaker trips Open, traffic stops hitting the
+          dependency, and after the cooldown a Half-Open probe confirms recovery — then the rate settles back down.
+        </p>
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div x-show="!table"><div id="errChart" role="img" aria-label="Error rate over time crossing the breaker threshold" class="h-72" style="height:320px"></div></div>
+          <div x-show="table" x-cloak>
+            <table class="w-full text-body-14 nums">
+              <caption class="sr-only">Error rate percent by time, with breaker state</caption>
+              <thead class="text-secondary text-left"><tr><th class="py-8 font-medium">t (s)</th><th class="py-8 font-medium text-right">Error rate %</th><th class="py-8 font-medium">Breaker</th></tr></thead>
+              <tbody id="errTableBody" class="divide-y divide-line-weak"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== glossary ===== -->
+      <section id="glossary" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="book-open" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">Glossary</h2>
+        </div>
+        <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-24 gap-y-16">
+          <div class="bg-surface border border-line-weak rounded-medium p-16">
+            <dt class="font-bold text-body-16 mb-4">Failure threshold</dt>
+            <dd class="text-body-14 text-secondary">The count or percentage of failures within a window that trips the breaker from Closed to Open (e.g. 50% over the last 20 calls).</dd>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium p-16">
+            <dt class="font-bold text-body-16 mb-4">Half-open</dt>
+            <dd class="text-body-14 text-secondary">A probing state. After the cooldown the breaker lets one trial request through to test recovery, then closes (success) or re-opens (failure).</dd>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium p-16">
+            <dt class="font-bold text-body-16 mb-4">Fail-fast</dt>
+            <dd class="text-body-14 text-secondary">Returning an error immediately rather than waiting on a call that is almost certain to fail, freeing resources for healthy work.</dd>
+          </div>
+          <div class="bg-surface border border-line-weak rounded-medium p-16">
+            <dt class="font-bold text-body-16 mb-4">Cooldown / reset timeout</dt>
+            <dd class="text-body-14 text-secondary">How long the breaker stays Open before allowing a probe — long enough for the dependency to recover, short enough to retry promptly.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <footer class="pt-24 border-t border-line-weak text-caption-12 text-text-disabled">
+        Illustrative explainer · Inspired by Nygard's "Release It!" and the Resilience4j / Polly implementations.
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- Mermaid (ESM) — themed from CSS vars; sets a global once rendered -->
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  mermaid.initialize({
+    startOnLoad:false,
+    theme:'base',
+    themeVariables:{
+      fontFamily: css('--font-family'),
+      primaryColor: css('--accent-weak'),
+      primaryBorderColor: css('--accent'),
+      primaryTextColor: css('--c-primary'),
+      lineColor: css('--c-secondary'),
+      tertiaryColor: css('--c-surface'),
+      fontSize: '15px',
+    },
+  });
+  const graph = [
+    'stateDiagram-v2',
+    'direction LR',
+    '[*] --> Closed',
+    'Closed --> Open: failures exceed threshold',
+    'Open --> HalfOpen: after reset timeout',
+    'HalfOpen --> Closed: trial succeeds',
+    'HalfOpen --> Open: trial fails',
+    'Closed: Closed — requests flow',
+    'Open: Open — fail fast',
+    'HalfOpen: Half-Open — one trial request',
+  ].join('\n');
+  const host = document.getElementById('diagram');
+  const { svg } = await mermaid.render('cbDiagram', graph);
+  host.innerHTML = svg;
+  // tag each state node with a stable key so the walkthrough can highlight it
+  host.querySelectorAll('.node').forEach(node => {
+    const label = (node.textContent || '').toLowerCase();
+    if (label.includes('half')) node.dataset.cbState = 'Half-Open';
+    else if (label.includes('open')) node.dataset.cbState = 'Open';
+    else if (label.includes('closed')) node.dataset.cbState = 'Closed';
+  });
+  window.__cbHighlight = (state) => {
+    host.querySelectorAll('.node').forEach(n => n.classList.toggle('cb-active', n.dataset.cbState === state));
+  };
+  window.dispatchEvent(new CustomEvent('cb:diagram-ready'));
+</script>
+
+<script>
+  // ---- shared ECharts theme ----
+  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const ACCENT = css('--accent'), ACCENT_STRONG = css('--accent-strong');
+  const C_LINE = css('--c-line-weak') || '#E4E4E7', C_SECONDARY = css('--c-secondary') || '#52525B';
+  const C_NEUTRAL = css('--c-disabled') || '#A1A1AA', C_CRIT = css('--c-critical') || '#CE2C31';
+  const FONT = css('--font-family') || 'Inter, sans-serif';
+  const accentRgba = (a) => {
+    let h = ACCENT.replace('#',''); if (h.length === 3) h = h.split('').map(c=>c+c).join('');
+    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
+    return `rgba(${r},${g},${b},${a})`;
+  };
+
+  // ---- error-rate data ----
+  const ERR_T = Array.from({length:25}, (_,i)=>i*2); // 0..48s
+  const ERR_V = [4,5,6,8,12,18,26,38,52,64,71,0,0,0,0,0,0,0,18,9,6,5,4,4,3];
+  const ERR_STATE = ERR_T.map((t,i)=> i<8 ? 'Closed' : (i>=8 && i<=10) ? 'Closed' : (i>=11 && i<=17) ? 'Open' : (i===18) ? 'Half-Open' : 'Closed');
+  const THRESHOLD = 50;
+  let errChart;
+  function renderErr(){
+    errChart.setOption({
+      color:[ACCENT], textStyle:{ fontFamily:FONT },
+      grid:{ left:8, right:16, top:24, bottom:54, containLabel:true },
+      tooltip:{ trigger:'axis',
+        formatter:(p)=>{ const x=p[0]; return `t=${ERR_T[x.dataIndex]}s<br/>error rate <b>${x.value}%</b><br/>breaker: ${ERR_STATE[x.dataIndex]}`; } },
+      xAxis:{ type:'category', data:ERR_T, name:'seconds', nameLocation:'middle', nameGap:30,
+        axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      yAxis:{ type:'value', max:100, axisLabel:{ color:C_SECONDARY, formatter:'{value}%' }, splitLine:{ lineStyle:{ color:C_LINE } } },
+      dataZoom:[{ type:'inside' }, { type:'slider', height:18, bottom:8 }],
+      series:[{
+        type:'line', data:ERR_V, smooth:true, symbol:'circle', symbolSize:5,
+        lineStyle:{ width:2.5, color:ACCENT }, areaStyle:{ color:accentRgba(0.12) },
+        markLine:{ symbol:'none', lineStyle:{ type:'dashed', color:C_CRIT },
+          label:{ position:'insideStartTop', formatter:'threshold 50%', color:C_CRIT },
+          data:[{ yAxis:THRESHOLD }] },
+        markArea:{ itemStyle:{ color:accentRgba(0.06) },
+          data:[[{ name:'breaker Open', xAxis:11 },{ xAxis:17 }]] },
+      }],
+    });
+  }
+  function fillErrTable(){
+    const body = document.getElementById('errTableBody'); if (!body) return;
+    body.innerHTML = ERR_T.map((t,i)=>
+      `<tr><td class="py-6">${t}</td><td class="py-6 text-right">${ERR_V[i]}%</td><td class="py-6">${ERR_STATE[i]}</td></tr>`).join('');
+  }
+
+  // ---- TOC active-section highlight ----
+  function initToc(){
+    const links = [...document.querySelectorAll('#toc a')];
+    const setActive = (id) => links.forEach(a => {
+      const on = a.getAttribute('href') === '#'+id;
+      a.classList.toggle('text-accent', on); a.classList.toggle('bg-accent-weak', on);
+      a.classList.toggle('font-semibold', on); a.classList.toggle('text-secondary', !on);
+    });
+    const obs = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) setActive(e.target.id); }),
+      { rootMargin:'-35% 0px -60% 0px' });
+    document.querySelectorAll('main section[id]').forEach(s => obs.observe(s));
+  }
+
+  // ---- calm badge loop (Closed -> Open -> Half-Open -> Closed) ----
+  function initBadgeLoop(){
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const badges = ['badge-closed','badge-open','badge-half','badge-back'].map(id=>document.getElementById(id));
+    const conns = [...document.querySelectorAll('.breaker-conn')];
+    let k = 0;
+    const tick = () => {
+      badges.forEach((b,idx)=> b.classList.toggle('active', idx===k));
+      conns.forEach((c,idx)=> c.classList.toggle('lit', idx===k-1));
+      k = (k+1) % badges.length;
+    };
+    tick();
+    if (!reduce) setInterval(tick, 1600);
+  }
+
+  // ---- walkthrough (Alpine component) ----
+  function walkthrough(){
+    return {
+      i:0, auto:false, _timer:null,
+      steps:[
+        { state:'Closed', title:'Closed — requests flow normally', note:'Traffic passes through.',
+          body:'The breaker is closed and every request passes straight through to the dependency. Each outcome is recorded, so the breaker always knows the recent success and failure rate.' },
+        { state:'Closed', title:'Failures start to climb', note:'Counting failures.',
+          body:'The dependency gets slow or starts erroring. The breaker keeps forwarding calls but the failure count inside its rolling window rises toward the configured threshold.' },
+        { state:'Open', title:'Threshold tripped → Open', note:'Breaker tripped.',
+          body:'Failures cross the threshold, so the breaker trips to Open. It assumes the dependency is unhealthy and stops sending it traffic to give it room to recover.' },
+        { state:'Open', title:'Open — fail fast', note:'No calls go through.',
+          body:'While Open, every incoming call returns immediately with an error or a fallback — no network wait, no piled-up threads. The protected service stays responsive even though the dependency is down.' },
+        { state:'Half-Open', title:'Cooldown elapsed → Half-Open', note:'Probing recovery.',
+          body:'After the reset timeout the breaker moves to Half-Open. It permits a single trial request through to probe whether the dependency has recovered, while still blocking the rest.' },
+        { state:'Half-Open', title:'Trial request decides', note:'Success closes; failure re-opens.',
+          body:'If the trial succeeds the breaker closes and normal traffic resumes. If it fails, the breaker snaps back to Open and waits out another cooldown before probing again.' },
+      ],
+      init(){
+        this.sync();
+        window.addEventListener('keydown', (e)=>{
+          if (e.key==='ArrowRight'){ this.next(); } else if (e.key==='ArrowLeft'){ this.prev(); }
+        });
+        // re-highlight once the diagram finishes rendering (it's async)
+        window.addEventListener('cb:diagram-ready', ()=> this.sync());
+      },
+      sync(){ if (window.__cbHighlight) window.__cbHighlight(this.steps[this.i].state); if (window.lucide) lucide.createIcons(); },
+      go(idx){ this.i = idx; this.sync(); },
+      next(){ this.i = (this.i+1) % this.steps.length; this.sync(); },
+      prev(){ if (this.i>0){ this.i--; this.sync(); } },
+      toggleAuto(){
+        this.auto = !this.auto;
+        if (this.auto){ this._timer = setInterval(()=>this.next(), 2600); }
+        else { clearInterval(this._timer); }
+        this.$nextTick(()=>{ if (window.lucide) lucide.createIcons(); });
+      },
+    };
+  }
+  window.walkthrough = walkthrough;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) lucide.createIcons();
+    errChart = echarts.init(document.getElementById('errChart'));
+    renderErr(); fillErrTable(); initToc(); initBadgeLoop();
+    if (window.tippy) tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus' });
+    window.addEventListener('resize', () => { errChart && errChart.resize(); });
+  });
+</script>
+</body>
+</html>

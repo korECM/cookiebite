@@ -1,0 +1,111 @@
+<svg width="960" height="320" viewBox="0 0 960 320" xmlns="http://www.w3.org/2000/svg"
+     font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFF4EE"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#FF6A2B"/>
+      <stop offset="1" stop-color="#FA4D02"/>
+    </linearGradient>
+    <filter id="card" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="18" flood-color="#7A2A00" flood-opacity="0.14"/>
+    </filter>
+    <!-- a cookie with a bite taken out of the top-right -->
+    <clipPath id="bite">
+      <path d="M0 0 H38 V38 H0 Z M30 4 m-9,0 a9,9 0 1,0 18,0 a9,9 0 1,0 -18,0" fill-rule="evenodd"/>
+    </clipPath>
+  </defs>
+
+  <rect width="960" height="320" rx="22" fill="url(#bg)"/>
+
+  <!-- ===== left: wordmark + copy ===== -->
+  <g transform="translate(60,68)">
+    <!-- icon chip -->
+    <rect x="0" y="0" width="42" height="42" rx="11" fill="#FA4D02"/>
+    <g transform="translate(2,2)">
+      <!-- cookie (cream) with a bite cut from the top-right, plus chips -->
+      <g clip-path="url(#bite)">
+        <circle cx="19" cy="20" r="13.5" fill="#FFE6C7"/>
+      </g>
+      <circle cx="14" cy="18" r="1.8" fill="#7A3B12"/>
+      <circle cx="21" cy="24" r="1.8" fill="#7A3B12"/>
+      <circle cx="15.5" cy="25" r="1.4" fill="#7A3B12"/>
+    </g>
+    <text x="56" y="31" font-size="38" font-weight="800" letter-spacing="-1.6" fill="#18181B">cookie<tspan fill="#FA4D02">bite</tspan></text>
+  </g>
+
+  <text x="60" y="152" font-size="20" font-weight="600" fill="#27272A">Bite-sized reports, baked from your data.</text>
+  <text x="60" y="180" font-size="14.5" fill="#7A6A60">Single-file, interactive HTML reports from a swappable design system.</text>
+
+  <!-- feature pills -->
+  <g font-size="12.5" font-weight="600">
+    <g transform="translate(60,200)">
+      <rect width="86" height="26" rx="13" fill="#FFEDE6"/>
+      <text x="43" y="17" text-anchor="middle" fill="#C23A02">no build step</text>
+    </g>
+    <g transform="translate(154,200)">
+      <rect width="78" height="26" rx="13" fill="#FFEDE6"/>
+      <text x="39" y="17" text-anchor="middle" fill="#C23A02">10 themes</text>
+    </g>
+    <g transform="translate(240,200)">
+      <rect width="138" height="26" rx="13" fill="#FFEDE6"/>
+      <text x="69" y="17" text-anchor="middle" fill="#C23A02">charts + interactivity</text>
+    </g>
+  </g>
+
+  <!-- theme swatch strip -->
+  <g transform="translate(60,248)">
+    <text x="0" y="0" font-size="11" font-weight="600" fill="#B7A99F" letter-spacing="0.5">THEMES</text>
+    <g transform="translate(0,10)">
+      <rect x="0"   width="30" height="12" rx="4" fill="#4F46E5"/>
+      <rect x="36"  width="30" height="12" rx="4" fill="#533afd"/>
+      <rect x="72"  width="30" height="12" rx="4" fill="#171717"/>
+      <rect x="108" width="30" height="12" rx="4" fill="#5E6AD2"/>
+      <rect x="144" width="30" height="12" rx="4" fill="#5645D4"/>
+      <rect x="180" width="30" height="12" rx="4" fill="#3ECF8E"/>
+      <rect x="216" width="30" height="12" rx="4" fill="#6A5FC1"/>
+      <rect x="252" width="30" height="12" rx="4" fill="#1A1A1A"/>
+      <rect x="288" width="30" height="12" rx="4" fill="#FF5C5C"/>
+      <rect x="324" width="30" height="12" rx="4" fill="#FA4D02"/>
+    </g>
+  </g>
+
+  <!-- ===== right: mini report card ===== -->
+  <g transform="translate(612,46)" filter="url(#card)">
+    <rect width="312" height="228" rx="16" fill="#FFFFFF" stroke="#F0E4DC"/>
+    <!-- header -->
+    <rect x="22" y="24" width="120" height="11" rx="5.5" fill="#27272A"/>
+    <rect x="22" y="42" width="70" height="7" rx="3.5" fill="#E6D5C8"/>
+    <!-- stat chips -->
+    <g transform="translate(22,64)">
+      <rect width="80" height="46" rx="9" fill="#FFF6F1"/>
+      <rect x="10" y="11" width="34" height="9" rx="4.5" fill="#FA4D02"/>
+      <rect x="10" y="27" width="46" height="6" rx="3" fill="#E6D5C8"/>
+    </g>
+    <g transform="translate(110,64)">
+      <rect width="80" height="46" rx="9" fill="#FFF6F1"/>
+      <rect x="10" y="11" width="30" height="9" rx="4.5" fill="#16A34A"/>
+      <rect x="10" y="27" width="46" height="6" rx="3" fill="#E6D5C8"/>
+    </g>
+    <g transform="translate(198,64)">
+      <rect width="92" height="46" rx="9" fill="#FFF6F1"/>
+      <rect x="10" y="11" width="40" height="9" rx="4.5" fill="#27272A"/>
+      <rect x="10" y="27" width="52" height="6" rx="3" fill="#E6D5C8"/>
+    </g>
+    <!-- bar chart -->
+    <g transform="translate(22,196)">
+      <rect x="0"   y="-44" width="22" height="44" rx="3" fill="url(#bar)"/>
+      <rect x="34"  y="-30" width="22" height="30" rx="3" fill="url(#bar)"/>
+      <rect x="68"  y="-58" width="22" height="58" rx="3" fill="url(#bar)"/>
+      <rect x="102" y="-50" width="22" height="50" rx="3" fill="url(#bar)"/>
+      <rect x="136" y="-68" width="22" height="68" rx="3" fill="url(#bar)"/>
+      <rect x="170" y="-38" width="22" height="38" rx="3" fill="#FCC9AE"/>
+      <rect x="204" y="-26" width="22" height="26" rx="3" fill="#FCC9AE"/>
+      <line x1="-4" y1="-46" x2="246" y2="-46" stroke="#C9B8AC" stroke-width="1.5" stroke-dasharray="4 4"/>
+      <circle cx="258" cy="-20" r="20" fill="none" stroke="#FA4D02" stroke-width="7"/>
+      <circle cx="258" cy="-20" r="20" fill="none" stroke="#F0E4DC" stroke-width="7" stroke-dasharray="38 200" transform="rotate(-90 258 -20)"/>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,34 @@
+{
+  "name": "persimmon",
+  "label": "Persimmon",
+  "font": {
+    "family": "Pretendard",
+    "url": "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#FA4D02",
+    "accentStrong": "#D63E00",
+    "accentWeak": "#FFEDE6",
+    "accentOn": "#FFFFFF",
+    "bg": "#FCFCFC",
+    "surface": "#FFFFFF",
+    "primary": "#222222",
+    "secondary": "#555555",
+    "disabled": "#B0B0B0",
+    "placeholder": "#C7C7C7",
+    "line": "#C7C7C7",
+    "lineWeak": "#E4E4E4",
+    "disabledBg": "#F0F0F0",
+    "critical": "#CE2C31",
+    "cautionary": "#FBB800",
+    "positive": "#3E9B4F",
+    "informative": "#0588F0"
+  },
+  "locale": {
+    "number": "ko-KR",
+    "currency": "KRW",
+    "symbol": "₩",
+    "bigUnits": true
+  }
+}

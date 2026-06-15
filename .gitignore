@@ -1,0 +1,17 @@
+# user state: the saved global default theme (not shipped)
+assets/presets/default.json
+
+# verify-report.sh render output
+**/.verify/
+*.verify/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# logs / temp
+*.log
+tmp/

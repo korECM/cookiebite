@@ -1,0 +1,979 @@
+<!doctype html>
+<!--
+  Theme Studio — interactive theme editor for the WDS HTML-report skill.
+  Single self-contained file. Tailwind Play CDN only, no build step.
+  Edit tokens on the left, see a live mini-report on the right.
+  Export "Copy CSS" / "Download theme.json", auto-persisted to localStorage.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Theme Studio — HTML Report</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<!-- Dynamically-swapped font stylesheet for the PREVIEW -->
+<link id="preview-font-link" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<!-- Editor chrome itself uses Inter so it stays stable regardless of theme -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" />
+<style>
+  :root{
+    /* === THE TOKEN CONTRACT — these names are the export contract === */
+    --font-family:'Inter',-apple-system,system-ui,sans-serif;
+    --accent:#4F46E5; --accent-strong:#4338CA; --accent-weak:#EEF0FD; --accent-on:#FFFFFF;
+    --c-bg:#FCFCFD; --c-surface:#FFFFFF; --c-primary:#18181B; --c-secondary:#52525B;
+    --c-disabled:#A1A1AA; --c-placeholder:#C4C4CC; --c-line:#C4C4CC; --c-line-weak:#E4E4E7;
+    --c-disabled-bg:#F4F4F5;
+    --c-critical:#DC2626; --c-cautionary:#D97706; --c-positive:#16A34A; --c-informative:#2563EB;
+  }
+  html{ scroll-behavior:smooth; }
+  body{ font-family:'Inter',-apple-system,system-ui,sans-serif; letter-spacing:-0.01em; -webkit-font-smoothing:antialiased; }
+  .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+  /* The preview surface reads --font-family so the chosen theme font applies there only */
+  .preview-root{ font-family:var(--font-family); }
+  /* tidy native color swatches */
+  input[type=color]{ -webkit-appearance:none; appearance:none; border:none; padding:0; background:none; cursor:pointer; }
+  input[type=color]::-webkit-color-swatch-wrapper{ padding:0; }
+  input[type=color]::-webkit-color-swatch{ border:1px solid rgba(0,0,0,.12); border-radius:8px; }
+  input[type=color]::-moz-color-swatch{ border:1px solid rgba(0,0,0,.12); border-radius:8px; }
+  .swatch{ width:34px; height:34px; flex:0 0 auto; border-radius:8px; }
+  .hexin{ width:90px; }
+  /* subtle scrollbar for the controls rail */
+  .rail::-webkit-scrollbar{ width:8px; }
+  .rail::-webkit-scrollbar-thumb{ background:#D4D4D8; border-radius:8px; }
+  /* active preset card */
+  .preset-card.is-active{ border-color:#18181B; box-shadow:0 0 0 1px #18181B; background:#fff; }
+  /* language toggle — segmented control */
+  .lang-btn{ color:#71717A; background:transparent; border:0; cursor:pointer; }
+  .lang-btn:hover:not(.is-active){ color:#18181B; background:#fff; }
+  .lang-btn.is-active{ background:#18181B; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+</style>
+<script>
+  tailwind.config = { theme: { extend: {
+    colors: {
+      ink:'#18181B', sub:'#52525B', faint:'#71717A',
+      hair:'#E4E4E7', hairsoft:'#F1F1F3', wash:'#FAFAFA',
+    },
+    borderRadius:{ xs:'8px', sm:'10px', md:'12px', lg:'16px', xl:'20px' },
+    boxShadow:{ card:'0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.10)',
+                pop:'0 8px 24px rgba(16,24,40,.12)' },
+    spacing:{ '2':'2px','4':'4px','6':'6px','8':'8px','10':'10px','12':'12px',
+              '14':'14px','16':'16px','20':'20px','24':'24px','28':'28px',
+              '32':'32px','40':'40px','48':'48px','56':'56px','64':'64px','72':'72px' },
+  } } }
+</script>
+</head>
+<body class="bg-wash text-ink">
+
+<!-- ===== top bar ===== -->
+<header class="sticky top-0 z-30 bg-white/90 backdrop-blur border-b border-hair">
+  <div class="mx-auto max-w-[1500px] px-24 h-[60px] flex items-center justify-between gap-16">
+    <div class="flex items-center gap-12 min-w-0">
+      <div class="w-[30px] h-[30px] rounded-sm grid place-items-center text-white text-[15px] font-bold" style="background:var(--accent)">T</div>
+      <div class="min-w-0">
+        <div class="text-[15px] font-semibold leading-tight">Theme Studio</div>
+        <div class="text-[11px] text-faint leading-tight truncate" data-i18n="tagline">Design tokens for HTML reports · live preview</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-8">
+      <!-- language toggle — segmented control, buttons rendered from Object.keys(STRINGS) -->
+      <div id="lang-toggle" class="flex items-center gap-2 rounded-xs border border-hair p-2 bg-wash" role="group" aria-label="Language"></div>
+      <button id="btn-reset" data-i18n-title="reset_tip" title="Reset all tokens back to the Neutral preset" class="h-[34px] px-12 rounded-xs border border-hair text-[13px] font-medium text-sub hover:bg-wash transition" data-i18n="reset">Reset</button>
+      <button id="btn-copy" data-i18n-title="copy_css_tip" title="Copy a paste-ready <link>+<style>+<script> block for your report's THEME section" class="h-[34px] px-14 rounded-xs text-[13px] font-semibold text-white transition" style="background:var(--accent)" data-i18n="copy_css">Copy CSS</button>
+      <button id="btn-json" data-i18n-title="download_json_tip" title="Download the raw theme.json token file" class="h-[34px] px-14 rounded-xs border border-hair text-[13px] font-semibold text-ink hover:bg-wash transition" data-i18n="download_json">Download theme.json</button>
+    </div>
+  </div>
+</header>
+
+<div class="mx-auto max-w-[1500px] px-24 py-24">
+  <div class="grid grid-cols-1 lg:grid-cols-[420px_minmax(0,1fr)] gap-24 items-start">
+
+    <!-- ============ LEFT: CONTROLS ============ -->
+    <section class="rail lg:max-h-[calc(100vh-108px)] lg:overflow-y-auto lg:pr-8 space-y-16">
+
+      <!-- presets -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <div class="flex items-center justify-between mb-10">
+          <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint" data-i18n="presets">Presets</h2>
+          <span class="text-[11px] text-faint" data-i18n="presets_hint">click to apply · then tweak any token</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2" id="preset-row"></div>
+      </div>
+
+      <!-- accent -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="accent">Accent</h2>
+        <div class="space-y-10" id="accent-group"></div>
+        <p class="mt-10 text-[11px] text-faint leading-relaxed">
+          <span data-i18n="accent_hint">Strong &amp; weak auto-derive from the base accent. Edit them to override.</span>
+          <button id="btn-rederive" class="underline hover:text-ink" data-i18n="rederive">Re-derive</button>
+        </p>
+      </div>
+
+      <!-- font -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="font">Font</h2>
+        <label class="block text-[12px] text-sub mb-6" data-i18n="font_family">Family</label>
+        <select id="font-select" class="w-full h-[36px] px-10 rounded-xs border border-hair text-[13px] bg-white"></select>
+        <div class="mt-10 grid grid-cols-1 gap-8">
+          <div>
+            <label class="block text-[12px] text-sub mb-4" data-i18n="font_custom_name">Custom name (optional)</label>
+            <input id="font-name" type="text" placeholder="e.g. Source Sans 3" class="w-full h-[34px] px-10 rounded-xs border border-hair text-[13px]" />
+          </div>
+          <div>
+            <label class="block text-[12px] text-sub mb-4" data-i18n="font_custom_url">Custom stylesheet URL (optional)</label>
+            <input id="font-url" type="text" placeholder="https://fonts.googleapis.com/css2?family=..." class="w-full h-[34px] px-10 rounded-xs border border-hair text-[12px]" />
+          </div>
+        </div>
+      </div>
+
+      <!-- neutrals -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="neutrals">Neutrals</h2>
+        <div class="space-y-8" id="neutral-group"></div>
+      </div>
+
+      <!-- semantic -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="semantic">Semantic</h2>
+        <div class="space-y-8" id="semantic-group"></div>
+      </div>
+
+      <!-- locale -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="locale">Locale &amp; numbers</h2>
+        <div class="grid grid-cols-2 gap-10">
+          <div>
+            <label class="block text-[12px] text-sub mb-4" data-i18n="loc_number">Number format</label>
+            <select id="loc-number" class="w-full h-[34px] px-8 rounded-xs border border-hair text-[13px] bg-white">
+              <option value="en-US">en-US</option>
+              <option value="ko-KR">ko-KR</option>
+              <option value="ja-JP">ja-JP</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[12px] text-sub mb-4" data-i18n="loc_currency">Currency code</label>
+            <input id="loc-currency" type="text" class="w-full h-[34px] px-8 rounded-xs border border-hair text-[13px]" />
+          </div>
+          <div>
+            <label class="block text-[12px] text-sub mb-4" data-i18n="loc_symbol">Symbol</label>
+            <input id="loc-symbol" type="text" class="w-full h-[34px] px-8 rounded-xs border border-hair text-[13px]" />
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="inline-flex items-center gap-8 text-[13px] text-sub cursor-pointer select-none">
+              <input id="loc-bigunits" type="checkbox" class="w-[16px] h-[16px] accent-current" />
+              <span data-i18n="loc_bigunits">Big units (만/억)</span>
+            </label>
+          </div>
+        </div>
+        <p class="mt-8 text-[11px] text-faint" data-i18n="loc_hint">Off = K / M / B scale. On = East-Asian 만 / 억 scale.</p>
+      </div>
+
+      <!-- how to use this theme -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="how_to_use">How to use this theme</h2>
+
+        <!-- theme name -->
+        <div class="mb-14">
+          <label class="block text-[12px] text-sub mb-4" data-i18n="theme_name">Theme name</label>
+          <input id="theme-name" type="text" placeholder="custom" class="w-full h-[34px] px-10 rounded-xs border border-hair text-[13px]" />
+          <p class="mt-4 text-[11px] text-faint" data-i18n="theme_name_hint">Used for the filename and the commands below: <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]"><span data-themename>custom</span>.json</code></p>
+        </div>
+
+        <ol class="space-y-10 text-[13px] text-sub leading-relaxed">
+          <li class="flex gap-10">
+            <span class="flex-none w-[20px] h-[20px] rounded-full grid place-items-center text-[11px] font-bold text-white" style="background:var(--accent)">1</span>
+            <span data-i18n="step1">Pick a preset above, then tweak any token until the live preview looks right.</span>
+          </li>
+          <li class="flex gap-10">
+            <span class="flex-none w-[20px] h-[20px] rounded-full grid place-items-center text-[11px] font-bold text-white" style="background:var(--accent)">2</span>
+            <span data-i18n="step2">Name your theme.</span>
+          </li>
+          <li class="flex gap-10">
+            <span class="flex-none w-[20px] h-[20px] rounded-full grid place-items-center text-[11px] font-bold text-white" style="background:var(--accent)">3</span>
+            <span data-i18n="step3">Click <b>Copy for agent</b> and paste it to your AI agent (with the cookiebite skill) — it applies the theme to that report. To make it your default for every report, use <b>Set as my default</b> instead. Or use <b>Download theme.json</b> / <b>Copy CSS</b> for manual use.</span>
+          </li>
+          <li class="flex gap-10">
+            <span class="flex-none w-[20px] h-[20px] rounded-full grid place-items-center text-[11px] font-bold text-white" style="background:var(--accent)">4</span>
+            <span data-i18n="step4"><b>Reuse by name:</b> save the json as <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">assets/presets/<span data-themename>custom</span>.json</code>, then just say "use the <span data-themename>custom</span> theme".</span>
+          </li>
+        </ol>
+
+        <div class="mt-16 grid grid-cols-1 gap-10">
+          <!-- copy for agent (primary — themes ONE report) -->
+          <button id="btn-copy-agent" class="w-full h-[40px] px-14 rounded-xs text-[13px] font-semibold text-white transition flex items-center justify-center gap-8" style="background:var(--accent)" data-i18n="copy_agent">Copy for agent</button>
+          <p class="text-[12px] text-faint leading-relaxed -mt-4" data-i18n="copy_agent_hint">Copies a self-contained prompt with the full theme.json inline — paste it to your AI agent (with the cookiebite skill) and it applies the theme.</p>
+
+          <!-- set as default (themes EVERY future report) -->
+          <button id="btn-set-default" class="w-full h-[40px] px-14 rounded-xs border-2 text-[13px] font-semibold transition flex items-center justify-center gap-8" style="border-color:var(--accent); color:var(--accent-strong); background:var(--accent-weak)" data-i18n="set_default">Set as my default</button>
+          <p class="text-[12px] text-faint leading-relaxed -mt-4" data-i18n="set_default_hint">Copies a prompt that saves this theme as your global default, so every future report uses it (until you change it). "Copy for agent" themes just one report; this themes them all.</p>
+
+          <!-- download -->
+          <button id="btn-json-2" class="w-full h-[40px] px-14 rounded-xs border border-hair text-[13px] font-semibold text-ink hover:bg-wash transition" data-i18n="download_json">Download theme.json</button>
+          <p class="text-[12px] text-faint leading-relaxed -mt-4" data-i18n="download_json_hint">Saves the raw token file for reuse — drop it into <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">assets/presets/</code> to apply it by name later.</p>
+
+          <!-- CSS fallback -->
+          <button id="btn-copy-2" class="w-full h-[40px] px-14 rounded-xs border border-hair text-[13px] font-semibold text-ink hover:bg-wash transition" data-i18n="copy_css">Copy CSS</button>
+          <p class="text-[12px] text-faint leading-relaxed -mt-4" data-i18n="copy_css_hint">Manual fallback: paste this <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;link&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;style&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;script&gt;</code> block straight into the report's THEME block.</p>
+        </div>
+      </div>
+
+      <!-- theme.json preview -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <div class="flex items-center justify-between mb-8">
+          <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint">theme.json</h2>
+          <span class="text-[11px] text-faint" data-i18n="readonly">live · read-only</span>
+        </div>
+        <pre id="json-out" class="text-[11px] leading-relaxed bg-[#0E1117] text-[#C9D1D9] rounded-sm p-12 overflow-x-auto max-h-[260px]"></pre>
+      </div>
+
+    </section>
+
+    <!-- ============ RIGHT: LIVE PREVIEW (sticky) ============ -->
+    <section class="lg:sticky lg:top-[84px]">
+      <div class="flex items-center justify-between mb-10">
+        <span class="text-[12px] font-semibold uppercase tracking-wide text-faint" data-i18n="live_preview">Live preview</span>
+        <span id="toast" class="text-[12px] font-medium text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+      </div>
+
+      <!-- the preview reads exclusively from CSS variables -->
+      <div class="preview-root rounded-lg border overflow-hidden shadow-pop"
+           style="background:var(--c-bg); border-color:var(--c-line-weak); color:var(--c-primary)">
+        <div class="p-24 md:p-28">
+
+          <!-- header -->
+          <div class="flex flex-wrap items-center gap-8 mb-12">
+            <span class="px-10 py-4 rounded-md text-[12px] font-semibold"
+                  style="background:var(--accent); color:var(--accent-on)">Q2 FY26</span>
+            <span class="px-10 py-4 rounded-md text-[12px] font-medium"
+                  style="background:var(--accent-weak); color:var(--accent-strong)">Revenue</span>
+          </div>
+          <h1 class="text-[26px] font-bold tracking-tight" style="color:var(--c-primary)">Quarterly Performance</h1>
+          <p class="text-[14px] mt-6" style="color:var(--c-secondary)">Automated summary generated from the data pipeline.</p>
+
+          <!-- KPI cards -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-12 mt-20" id="kpi-row"></div>
+
+          <!-- chart -->
+          <div class="mt-20 rounded-md p-16 border" style="background:var(--c-surface); border-color:var(--c-line-weak)">
+            <div class="flex items-center justify-between mb-12">
+              <h3 class="text-[14px] font-semibold" style="color:var(--c-primary)">Weekly bookings</h3>
+              <span class="text-[12px]" style="color:var(--c-secondary)">last 8 weeks</span>
+            </div>
+            <div id="bars" style="display:grid; grid-template-columns:repeat(8,1fr); gap:8px; align-items:end; height:140px"></div>
+            <div id="bar-labels" class="mt-6 text-[11px]" style="display:grid; grid-template-columns:repeat(8,1fr); gap:8px; color:var(--c-placeholder)"></div>
+          </div>
+
+          <!-- table -->
+          <div class="mt-20 rounded-md border overflow-hidden" style="background:var(--c-surface); border-color:var(--c-line-weak)">
+            <table class="w-full text-[13px] nums" style="color:var(--c-primary)">
+              <thead>
+                <tr style="background:var(--c-disabled-bg); color:var(--c-secondary)">
+                  <th class="text-left font-semibold px-14 py-10">Channel</th>
+                  <th class="text-right font-semibold px-14 py-10">Amount</th>
+                  <th class="text-right font-semibold px-14 py-10">Status</th>
+                </tr>
+              </thead>
+              <tbody id="table-body"></tbody>
+            </table>
+          </div>
+
+          <!-- buttons -->
+          <div class="mt-20 flex flex-wrap gap-10">
+            <button class="h-[38px] px-16 rounded-md text-[13px] font-semibold"
+                    style="background:var(--accent); color:var(--accent-on)">Primary action</button>
+            <button class="h-[38px] px-16 rounded-md text-[13px] font-semibold bg-transparent border"
+                    style="color:var(--accent-strong); border-color:var(--accent)">Outline</button>
+            <button class="h-[38px] px-16 rounded-md text-[13px] font-medium bg-transparent"
+                    style="color:var(--c-disabled); border:1px solid var(--c-line)">Disabled</button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Token model + presets
+   ============================================================ */
+const COLOR_KEYS = [
+  // key, css var, label, group
+  ["accent","--accent","Accent","accent"],
+  ["accentStrong","--accent-strong","Accent strong","accent"],
+  ["accentWeak","--accent-weak","Accent weak","accent"],
+  ["accentOn","--accent-on","Accent on (text)","accent"],
+  ["bg","--c-bg","Background","neutral"],
+  ["surface","--c-surface","Surface","neutral"],
+  ["primary","--c-primary","Primary text","neutral"],
+  ["secondary","--c-secondary","Secondary text","neutral"],
+  ["disabled","--c-disabled","Disabled","neutral"],
+  ["placeholder","--c-placeholder","Placeholder","neutral"],
+  ["line","--c-line","Line","neutral"],
+  ["lineWeak","--c-line-weak","Line weak","neutral"],
+  ["disabledBg","--c-disabled-bg","Disabled bg","neutral"],
+  ["critical","--c-critical","Critical","semantic"],
+  ["cautionary","--c-cautionary","Cautionary","semantic"],
+  ["positive","--c-positive","Positive","semantic"],
+  ["informative","--c-informative","Informative","semantic"],
+];
+const CVAR = Object.fromEntries(COLOR_KEYS.map(([k,v])=>[k,v]));
+
+const FONTS = [
+  { name:"Inter",        url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+  { name:"Pretendard",   url:"https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css", fallback:"-apple-system, system-ui, sans-serif" },
+  { name:"Geist",        url:"https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+  { name:"Rubik",        url:"https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+  { name:"Roboto",       url:"https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap", fallback:"system-ui, sans-serif" },
+  { name:"Noto Sans KR", url:"https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap", fallback:"system-ui, sans-serif" },
+  { name:"system-ui",    url:"", fallback:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
+];
+
+/* ============================================================
+   Preset library — embedded from assets/presets/*.json
+   (kept inline so the file stays self-contained under file://)
+   Order = gallery order. Neutral is first / default.
+   ============================================================ */
+const PRESET_LIST = [
+  { name:"neutral", label:"Neutral",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#4F46E5", accentStrong:"#4338CA", accentWeak:"#EEF0FD", accentOn:"#FFFFFF",
+      bg:"#FCFCFD", surface:"#FFFFFF", primary:"#18181B", secondary:"#52525B", disabled:"#A1A1AA",
+      placeholder:"#C4C4CC", line:"#C4C4CC", lineWeak:"#E4E4E7", disabledBg:"#F4F4F5",
+      critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"stripe", label:"Stripe",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#533afd", accentStrong:"#4434d4", accentWeak:"#ecebfe", accentOn:"#FFFFFF",
+      bg:"#f6f9fc", surface:"#FFFFFF", primary:"#0d253d", secondary:"#64748d", disabled:"#a3b0c2",
+      placeholder:"#8a98ac", line:"#e3e8ee", lineWeak:"#f0f3f7", disabledBg:"#f2f5f9",
+      critical:"#ea2261", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"vercel", label:"Vercel",
+    font:{ family:"Geist", url:"https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#171717", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
+      bg:"#FAFAFA", surface:"#FFFFFF", primary:"#171717", secondary:"#4D4D4D", disabled:"#888888",
+      placeholder:"#888888", line:"#EBEBEB", lineWeak:"#F2F2F2", disabledBg:"#F5F5F5",
+      critical:"#EE0000", cautionary:"#F5A623", positive:"#16A34A", informative:"#0070F3" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"linear", label:"Linear",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#5E6AD2", accentStrong:"#5360B8", accentWeak:"#EEF0FB", accentOn:"#FFFFFF",
+      bg:"#FCFCFD", surface:"#FFFFFF", primary:"#0F1011", secondary:"#62666D", disabled:"#A0A4AD",
+      placeholder:"#8A8F98", line:"#E4E6EB", lineWeak:"#F0F1F4", disabledBg:"#F5F6F7",
+      critical:"#DC2626", cautionary:"#D97706", positive:"#27A644", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"notion", label:"Notion",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#5645D4", accentStrong:"#4534B3", accentWeak:"#E6E0F5", accentOn:"#FFFFFF",
+      bg:"#FAFAF9", surface:"#FFFFFF", primary:"#1A1A1A", secondary:"#5D5B54", disabled:"#BBB8B1",
+      placeholder:"#A4A097", line:"#E5E3DF", lineWeak:"#EDE9E4", disabledBg:"#F6F5F4",
+      critical:"#E03131", cautionary:"#DD5B00", positive:"#1AAE39", informative:"#0075DE" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"supabase", label:"Supabase",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#3ECF8E", accentStrong:"#24B47E", accentWeak:"#E6F9F0", accentOn:"#0A2E1F",
+      bg:"#FCFCFD", surface:"#FFFFFF", primary:"#171717", secondary:"#707070", disabled:"#B2B2B2",
+      placeholder:"#9A9A9A", line:"#DFDFDF", lineWeak:"#EDEDED", disabledBg:"#FAFAFA",
+      critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"sentry", label:"Sentry",
+    font:{ family:"Rubik", url:"https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#6A5FC1", accentStrong:"#5D539F", accentWeak:"#EFEDF8", accentOn:"#FFFFFF",
+      bg:"#FCFCFD", surface:"#FFFFFF", primary:"#1F1633", secondary:"#6B6577", disabled:"#A8A2B5",
+      placeholder:"#9690A1", line:"#E5E7EB", lineWeak:"#F0F0F0", disabledBg:"#F4F3F7",
+      critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"resend", label:"Resend",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#1A1A1A", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
+      bg:"#FCFCFD", surface:"#FFFFFF", primary:"#0A0A0A", secondary:"#6B7280", disabled:"#9CA3AF",
+      placeholder:"#A1A4A5", line:"#E5E7EB", lineWeak:"#F1F3F5", disabledBg:"#F4F4F5",
+      critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"raycast", label:"Raycast",
+    font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#FF5C5C", accentStrong:"#E04545", accentWeak:"#FFECEC", accentOn:"#FFFFFF",
+      bg:"#FCFCFD", surface:"#FFFFFF", primary:"#0D0D0F", secondary:"#5C5C5E", disabled:"#9C9C9D",
+      placeholder:"#B5B5B6", line:"#E6E6E8", lineWeak:"#F1F1F3", disabledBg:"#F4F4F6",
+      critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
+  { name:"persimmon", label:"Persimmon",
+    font:{ family:"Pretendard", url:"https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css", fallback:"-apple-system, system-ui, sans-serif" },
+    colors:{ accent:"#FA4D02", accentStrong:"#D63E00", accentWeak:"#FFEDE6", accentOn:"#FFFFFF",
+      bg:"#FCFCFC", surface:"#FFFFFF", primary:"#222222", secondary:"#555555", disabled:"#B0B0B0",
+      placeholder:"#C7C7C7", line:"#C7C7C7", lineWeak:"#E4E4E4", disabledBg:"#F0F0F0",
+      critical:"#CE2C31", cautionary:"#FBB800", positive:"#3E9B4F", informative:"#0588F0" },
+    locale:{ number:"ko-KR", currency:"KRW", symbol:"₩", bigUnits:true } },
+];
+// keyed lookup; first entry (Neutral) is the default
+const PRESETS = Object.fromEntries(PRESET_LIST.map(p=>[p.name, p]));
+const DEFAULT_PRESET = PRESET_LIST[0];
+
+/* ============================================================
+   Color helpers (hex <-> rgb, derive strong/weak)
+   ============================================================ */
+function clampHex(h){
+  h = (h||"").trim();
+  if(!h.startsWith("#")) h = "#"+h;
+  if(/^#([0-9a-fA-F]{3})$/.test(h)){ // expand shorthand
+    h = "#"+h.slice(1).split("").map(c=>c+c).join("");
+  }
+  return /^#([0-9a-fA-F]{6})$/.test(h) ? h.toUpperCase() : null;
+}
+function toRGB(hex){ const h=clampHex(hex)||"#000000"; return { r:parseInt(h.slice(1,3),16), g:parseInt(h.slice(3,5),16), b:parseInt(h.slice(5,7),16) }; }
+function toHex({r,g,b}){ const c=v=>Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,"0"); return ("#"+c(r)+c(g)+c(b)).toUpperCase(); }
+function darken(hex, amt){ const {r,g,b}=toRGB(hex); return toHex({ r:r*(1-amt), g:g*(1-amt), b:b*(1-amt) }); }
+function lightenTint(hex, amt){ const {r,g,b}=toRGB(hex); return toHex({ r:r+(255-r)*amt, g:g+(255-g)*amt, b:b+(255-b)*amt }); }
+function deriveStrong(accent){ return darken(accent, 0.12); }   // ~12% darker
+function deriveWeak(accent){ return lightenTint(accent, 0.92); } // ~92% lightened tint
+
+/* ============================================================
+   State
+   ============================================================ */
+const STORAGE_KEY = "wds-report-theme";
+let theme = null;
+
+function loadInitial(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){ const t = JSON.parse(raw); if(t && t.colors && t.font && t.locale) return t; }
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_PRESET));
+}
+
+/* ============================================================
+   Apply theme -> DOM (CSS vars + font link + preview re-render)
+   ============================================================ */
+function fontFamilyValue(t){
+  const fam = t.font.family || "system-ui";
+  const fb = t.font.fallback || "system-ui, sans-serif";
+  // quote multi-word family names
+  const quoted = /\s/.test(fam) ? `'${fam}'` : fam;
+  return `${quoted}, ${fb}`;
+}
+
+function applyTheme(){
+  const root = document.documentElement.style;
+  for(const [key,cssVar] of COLOR_KEYS){ root.setProperty(cssVar, theme.colors[key]); }
+  root.setProperty("--font-family", fontFamilyValue(theme));
+
+  // swap preview font stylesheet
+  const link = document.getElementById("preview-font-link");
+  const url = theme.font.url || "";
+  if(link.getAttribute("href") !== url){ link.setAttribute("href", url); }
+
+  // accent-colored chrome bits that aren't CSS-var driven
+  document.querySelectorAll("[style*='var(--accent)']").forEach(()=>{}); // (already var-driven)
+
+  window.REPORT_LOCALE = { ...theme.locale };
+  renderPreview();
+  renderJSON();
+  markActivePreset();
+  persist();
+}
+
+function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(theme)); }catch(e){} }
+
+/* ============================================================
+   Number formatting for the preview (mirrors report runtime)
+   ============================================================ */
+function fmtMoney(v){
+  const loc = theme.locale;
+  if(loc.bigUnits){
+    if(v >= 1e8) return loc.symbol + (v/1e8).toFixed(1).replace(/\.0$/,"") + "억";
+    if(v >= 1e4) return loc.symbol + (v/1e4).toFixed(1).replace(/\.0$/,"") + "만";
+    return loc.symbol + v.toLocaleString(loc.number);
+  }
+  if(v >= 1e9) return loc.symbol + (v/1e9).toFixed(1).replace(/\.0$/,"") + "B";
+  if(v >= 1e6) return loc.symbol + (v/1e6).toFixed(1).replace(/\.0$/,"") + "M";
+  if(v >= 1e3) return loc.symbol + (v/1e3).toFixed(1).replace(/\.0$/,"") + "K";
+  return loc.symbol + v.toLocaleString(loc.number);
+}
+
+/* ============================================================
+   Preview render
+   ============================================================ */
+const KPIS = [
+  { label:"Net revenue", value:1284000, delta:"+12.4%", sem:"positive" },
+  { label:"Active users", value:48230,   delta:"+3.1%",  sem:"informative" },
+  { label:"Refund rate",  value:21400,   delta:"-0.8%",  sem:"cautionary" },
+];
+const BARS = [62, 48, 71, 55, 83, 67, 92, 78];
+const ROWS = [
+  { ch:"App Store",  amt:642000, st:"Settled",  sem:"positive" },
+  { ch:"Google Play",amt:418000, st:"Settled",  sem:"positive" },
+  { ch:"Web",        amt:224000, st:"Pending",  sem:"cautionary" },
+];
+
+function renderPreview(){
+  // KPI cards
+  const kpi = KPIS.map(k=>`
+    <div class="rounded-md border p-14 min-w-0" style="background:var(--c-surface); border-color:var(--c-line-weak)">
+      <div class="text-[12px] whitespace-nowrap overflow-hidden text-ellipsis" style="color:var(--c-secondary)">${k.label}</div>
+      <div class="text-[22px] leading-tight font-bold mt-6 nums whitespace-nowrap" style="color:var(--accent)">${fmtMoney(k.value)}</div>
+      <span class="inline-block mt-8 px-8 py-2 rounded text-[11px] font-semibold whitespace-nowrap"
+            style="background:var(--c-${k.sem}); color:#fff">${k.delta}</span>
+    </div>`).join("");
+  document.getElementById("kpi-row").innerHTML = kpi;
+
+  // bars
+  const max = Math.max(...BARS);
+  document.getElementById("bars").innerHTML = BARS.map((b,i)=>{
+    const h = Math.round(b/max*100);
+    // last bar = solid accent (highlight); others = a visible accent tint via color-mix
+    const c = i===BARS.length-1
+      ? "var(--accent)"
+      : "color-mix(in srgb, var(--accent) 38%, var(--c-surface))";
+    // grid parent sizes columns; each bar just needs its height + color
+    return `<div style="height:${h}%; min-height:6px; border-radius:4px 4px 0 0; background:${c}"></div>`;
+  }).join("");
+  document.getElementById("bar-labels").innerHTML = BARS.map((_,i)=>`<div style="text-align:center">W${i+1}</div>`).join("");
+
+  // table
+  document.getElementById("table-body").innerHTML = ROWS.map((r,i)=>`
+    <tr style="border-top:1px solid var(--c-line-weak)">
+      <td class="px-14 py-10" style="color:var(--c-primary)">${r.ch}</td>
+      <td class="px-14 py-10 text-right" style="color:var(--c-secondary)">${fmtMoney(r.amt)}</td>
+      <td class="px-14 py-10 text-right">
+        <span class="px-8 py-2 rounded text-[11px] font-semibold"
+              style="background:color-mix(in srgb, var(--c-${r.sem}) 14%, transparent); color:var(--c-${r.sem})">${r.st}</span>
+      </td>
+    </tr>`).join("");
+}
+
+/* ============================================================
+   theme.json output
+   ============================================================ */
+function buildExport(){
+  return {
+    name: theme.name || "custom",
+    font: { family: theme.font.family, url: theme.font.url, fallback: theme.font.fallback },
+    colors: { ...theme.colors },
+    locale: { ...theme.locale },
+  };
+}
+function renderJSON(){
+  document.getElementById("json-out").textContent = JSON.stringify(buildExport(), null, 2);
+}
+
+/* ============================================================
+   Copy-paste CSS block
+   ============================================================ */
+function buildCSS(){
+  const c = theme.colors;
+  const vars = [
+    `--font-family:${fontFamilyValue(theme)}`,
+    `--accent:${c.accent}`, `--accent-strong:${c.accentStrong}`, `--accent-weak:${c.accentWeak}`, `--accent-on:${c.accentOn}`,
+    `--c-bg:${c.bg}`, `--c-surface:${c.surface}`, `--c-primary:${c.primary}`, `--c-secondary:${c.secondary}`,
+    `--c-disabled:${c.disabled}`, `--c-placeholder:${c.placeholder}`, `--c-line:${c.line}`, `--c-line-weak:${c.lineWeak}`,
+    `--c-disabled-bg:${c.disabledBg}`,
+    `--c-critical:${c.critical}`, `--c-cautionary:${c.cautionary}`, `--c-positive:${c.positive}`, `--c-informative:${c.informative}`,
+  ].join("; ");
+  const linkLine = theme.font.url ? `<link rel="stylesheet" href="${theme.font.url}">\n` : "";
+  return `${linkLine}<style>:root{ ${vars}; }</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
+}
+
+/* ============================================================
+   Build controls
+   ============================================================ */
+function colorRow(key, label){
+  const wrap = document.createElement("div");
+  wrap.className = "flex items-center gap-10";
+  wrap.innerHTML = `
+    <input type="color" class="swatch" data-color="${key}" />
+    <div class="min-w-0 flex-1">
+      <div class="text-[12px] text-sub leading-tight">${label}</div>
+      <code class="text-[11px] text-faint">${CVAR[key]}</code>
+    </div>
+    <input type="text" class="hexin h-[30px] px-8 rounded-xs border border-hair text-[12px] nums uppercase" data-hex="${key}" />`;
+  return wrap;
+}
+
+function buildControls(){
+  // preset gallery
+  const prow = document.getElementById("preset-row");
+  prow.innerHTML = "";
+  PRESET_LIST.forEach(p=>{
+    const c = p.colors;
+    const btn = document.createElement("button");
+    btn.className = "preset-card group text-left rounded-sm border border-hair hover:border-faint hover:bg-wash transition";
+    btn.dataset.preset = p.name;
+    btn.title = p.label;
+    // inline styles only (JS-injected Tailwind classes aren't reliably picked up by
+    // the Play CDN). The color strip is a gradient, not flex — flex children
+    // collapsed to 0px width inside the shrink-wrapped button.
+    btn.style.cssText = "display:block;width:100%;padding:10px";
+    btn.innerHTML = `
+      <div style="height:18px;border-radius:5px;margin-bottom:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);background:linear-gradient(90deg, ${c.accent} 0 64%, ${c.bg} 64% 82%, ${c.primary} 82% 100%)"></div>
+      <div style="display:flex;align-items:center;gap:6px;min-width:0">
+        <span style="width:8px;height:8px;border-radius:9999px;flex:0 0 auto;background:${c.accent}"></span>
+        <span style="font-size:12px;font-weight:500;line-height:1.2;color:#18181B;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.label}</span>
+      </div>`;
+    btn.addEventListener("click", ()=>{
+      theme = JSON.parse(JSON.stringify(p));
+      syncInputsFromTheme();
+      applyTheme();
+      markActivePreset();
+    });
+    prow.appendChild(btn);
+  });
+
+  // accent group
+  const ag = document.getElementById("accent-group");
+  ag.innerHTML = "";
+  ["accent","accentStrong","accentWeak","accentOn"].forEach(k=>{
+    const label = COLOR_KEYS.find(x=>x[0]===k)[2];
+    ag.appendChild(colorRow(k, label));
+  });
+
+  // neutral group
+  const ng = document.getElementById("neutral-group");
+  ng.innerHTML = "";
+  COLOR_KEYS.filter(x=>x[3]==="neutral").forEach(([k,,label])=> ng.appendChild(colorRow(k,label)));
+
+  // semantic group
+  const sg = document.getElementById("semantic-group");
+  sg.innerHTML = "";
+  COLOR_KEYS.filter(x=>x[3]==="semantic").forEach(([k,,label])=> sg.appendChild(colorRow(k,label)));
+
+  // font select
+  const fs = document.getElementById("font-select");
+  fs.innerHTML = FONTS.map(f=>`<option value="${f.name}">${f.name}</option>`).join("") + `<option value="__custom">Custom…</option>`;
+
+  // ---- wire color inputs ----
+  document.querySelectorAll("input[data-color]").forEach(inp=>{
+    inp.addEventListener("input", e=>{
+      const key = e.target.dataset.color;
+      const hex = clampHex(e.target.value) || "#000000";
+      setColor(key, hex, /*fromAccent*/ key==="accent");
+    });
+  });
+  document.querySelectorAll("input[data-hex]").forEach(inp=>{
+    inp.addEventListener("change", e=>{
+      const key = e.target.dataset.hex;
+      const hex = clampHex(e.target.value);
+      if(!hex){ syncInputsFromTheme(); return; } // revert invalid
+      setColor(key, hex, key==="accent");
+    });
+  });
+
+  // font select
+  fs.addEventListener("change", e=>{
+    const v = e.target.value;
+    if(v==="__custom"){ /* user fills custom fields below */ return; }
+    const f = FONTS.find(x=>x.name===v);
+    if(f){ theme.font = { family:f.name, url:f.url, fallback:f.fallback }; syncFontInputs(); applyTheme(); }
+  });
+  document.getElementById("font-name").addEventListener("change", e=>{
+    const name = e.target.value.trim();
+    if(name){ theme.font.family = name; document.getElementById("font-select").value="__custom"; applyTheme(); }
+  });
+  document.getElementById("font-url").addEventListener("change", e=>{
+    theme.font.url = e.target.value.trim();
+    document.getElementById("font-select").value="__custom";
+    applyTheme();
+  });
+
+  // locale
+  document.getElementById("loc-number").addEventListener("change", e=>{ theme.locale.number=e.target.value; applyTheme(); });
+  document.getElementById("loc-currency").addEventListener("change", e=>{ theme.locale.currency=e.target.value.trim(); applyTheme(); });
+  document.getElementById("loc-symbol").addEventListener("input", e=>{ theme.locale.symbol=e.target.value; applyTheme(); });
+  document.getElementById("loc-bigunits").addEventListener("change", e=>{ theme.locale.bigUnits=e.target.checked; applyTheme(); });
+
+  // re-derive strong/weak from accent
+  document.getElementById("btn-rederive").addEventListener("click", ()=>{
+    theme.colors.accentStrong = deriveStrong(theme.colors.accent);
+    theme.colors.accentWeak   = deriveWeak(theme.colors.accent);
+    syncInputsFromTheme(); applyTheme();
+  });
+}
+
+function setColor(key, hex, fromAccent){
+  theme.colors[key] = hex;
+  if(fromAccent){
+    // auto-derive strong/weak when base accent changes
+    theme.colors.accentStrong = deriveStrong(hex);
+    theme.colors.accentWeak   = deriveWeak(hex);
+  }
+  syncInputsFromTheme();
+  applyTheme();
+}
+
+/* ============================================================
+   Sync inputs <- theme
+   ============================================================ */
+/* Highlight the gallery card matching the current theme (if any) */
+function matchPresetName(){
+  for(const p of PRESET_LIST){
+    const c = p.colors, t = theme.colors;
+    if(c.accent===t.accent && c.primary===t.primary && c.bg===t.bg && p.font.family===theme.font.family){
+      return p.name;
+    }
+  }
+  return null;
+}
+function markActivePreset(){
+  const active = matchPresetName();
+  document.querySelectorAll(".preset-card").forEach(el=>{
+    el.classList.toggle("is-active", el.dataset.preset===active);
+  });
+}
+
+function syncFontInputs(){
+  const sel = document.getElementById("font-select");
+  const known = FONTS.find(f=>f.name===theme.font.family && f.url===theme.font.url);
+  sel.value = known ? theme.font.family : "__custom";
+  document.getElementById("font-name").value = known ? "" : (theme.font.family||"");
+  document.getElementById("font-url").value = theme.font.url || "";
+}
+function syncInputsFromTheme(){
+  for(const [key] of COLOR_KEYS){
+    const hex = theme.colors[key];
+    const cInp = document.querySelector(`input[data-color="${key}"]`);
+    const hInp = document.querySelector(`input[data-hex="${key}"]`);
+    if(cInp) cInp.value = clampHex(hex) || "#000000";
+    if(hInp) hInp.value = hex;
+  }
+  syncFontInputs();
+  document.getElementById("loc-number").value = theme.locale.number;
+  document.getElementById("loc-currency").value = theme.locale.currency;
+  document.getElementById("loc-symbol").value = theme.locale.symbol;
+  document.getElementById("loc-bigunits").checked = !!theme.locale.bigUnits;
+  const nameInput = document.getElementById("theme-name");
+  if(nameInput) nameInput.value = theme.name || "";
+  renderThemeNameSpans();
+}
+
+/* ============================================================
+   Export actions
+   ============================================================ */
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.opacity = "1";
+  setTimeout(()=>{ t.style.opacity="0"; }, 1600);
+}
+function copyText(text, okKey){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>showToast(t(okKey)), ()=>fallbackCopy(text, okKey));
+  } else fallbackCopy(text, okKey);
+}
+function fallbackCopy(text, okKey){
+  const ta = document.createElement("textarea");
+  ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); showToast(t(okKey)); }catch(e){ showToast(t("t_copy_failed")); }
+  document.body.removeChild(ta);
+}
+function copyCSS(){ copyText(buildCSS(), "t_css_copied"); }
+function copyAgentPrompt(){ copyText(buildAgentPrompt(), "t_prompt_copied"); }
+function copyDefaultPrompt(){ copyText(buildDefaultPrompt(), "t_prompt_copied"); }
+function downloadJSON(){
+  const blob = new Blob([JSON.stringify(buildExport(), null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `${themeName()}.json`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(t("t_json"));
+}
+
+/* ============================================================
+   i18n — UI chrome strings (EN / KO). Preview demo data stays English.
+   ============================================================ */
+const STRINGS = {
+  en: {
+    tagline: "Design tokens for HTML reports · live preview",
+    reset: "Reset", copy_css: "Copy CSS", download_json: "Download theme.json",
+    reset_tip: "Reset all tokens back to the Neutral preset",
+    copy_css_tip: "Copy a paste-ready <link>+<style>+<script> block for your report's THEME section",
+    download_json_tip: "Download the raw theme.json token file",
+    presets: "Presets", presets_hint: "click to apply · then tweak any token",
+    accent: "Accent",
+    accent_hint: "Strong & weak auto-derive from the base accent. Edit them to override.",
+    rederive: "Re-derive",
+    font: "Font", font_family: "Family",
+    font_custom_name: "Custom name (optional)", font_custom_url: "Custom stylesheet URL (optional)",
+    neutrals: "Neutrals", semantic: "Semantic",
+    locale: "Locale & numbers", loc_number: "Number format", loc_currency: "Currency code",
+    loc_symbol: "Symbol", loc_bigunits: "Big units (만/억)",
+    loc_hint: "Off = K / M / B scale. On = East-Asian 만 / 억 scale.",
+    how_to_use: "How to use this theme",
+    theme_name: "Theme name",
+    theme_name_hint: 'Used for the filename and the json <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]">name</code>: <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]"><span data-themename>custom</span>.json</code>',
+    step1: "Pick a preset above, then tweak any token until the live preview looks right.",
+    step2: "Name your theme.",
+    step3: "Click <b>Copy for agent</b> and paste it to your AI agent (with the cookiebite skill) — it applies the theme to that report. To make it your default for every report, use <b>Set as my default</b> instead. Or use <b>Download theme.json</b> / <b>Copy CSS</b> for manual use.",
+    step4: '<b>Reuse by name:</b> save the json as <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">assets/presets/<span data-themename>custom</span>.json</code>, then just say "use the <span data-themename>custom</span> theme".',
+    copy_agent: "Copy for agent",
+    copy_agent_hint: "Copies a self-contained prompt with the full theme.json inline — paste it to your AI agent (with the cookiebite skill) and it applies the theme.",
+    set_default: "Set as my default",
+    set_default_hint: 'Copies a prompt that saves this theme as your global default, so every future report uses it (until you change it). "Copy for agent" themes just one report; this themes them all.',
+    default_prompt_intro: "Set this as my default cookiebite theme — save it to the cookiebite skill's assets/presets/default.json so all my future reports use it (until I change it).",
+    download_json_hint: 'Saves the raw token file for reuse — drop it into <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">assets/presets/</code> to apply it by name later.',
+    copy_css_hint: 'Manual fallback: paste this <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;link&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;style&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;script&gt;</code> block straight into the report\'s THEME block.',
+    agent_prompt_intro: "Use this design theme for my report — apply it as the report's THEME block (font, accent, neutrals, semantic colors, locale). If you're creating a new report, build it with this theme.",
+    readonly: "live · read-only", live_preview: "Live preview",
+    // toasts
+    t_css_copied: "CSS copied!",
+    t_prompt_copied: "Copied ✓", t_json: "theme.json downloaded",
+    t_reset: "Reset to Neutral", t_copy_failed: "Copy failed",
+  },
+  ko: {
+    tagline: "HTML 리포트용 디자인 토큰 · 실시간 미리보기",
+    reset: "초기화", copy_css: "CSS 복사", download_json: "theme.json 내려받기",
+    reset_tip: "모든 토큰을 Neutral 프리셋으로 되돌려요",
+    copy_css_tip: "리포트 THEME 영역에 바로 붙여넣을 <link>+<style>+<script> 블록을 복사해요",
+    download_json_tip: "원본 theme.json 토큰 파일을 내려받아요",
+    presets: "프리셋", presets_hint: "눌러서 적용 · 이후 토큰 자유롭게 조정",
+    accent: "강조색",
+    accent_hint: "Strong · weak는 기본 강조색에서 자동으로 계산돼요. 직접 바꾸면 덮어써요.",
+    rederive: "다시 계산",
+    font: "폰트", font_family: "글꼴",
+    font_custom_name: "직접 입력 (선택)", font_custom_url: "스타일시트 URL 직접 입력 (선택)",
+    neutrals: "중립색", semantic: "의미색",
+    locale: "지역 · 숫자", loc_number: "숫자 형식", loc_currency: "통화 코드",
+    loc_symbol: "기호", loc_bigunits: "큰 단위 (만/억)",
+    loc_hint: "끄면 K / M / B 단위, 켜면 동아시아 만 / 억 단위로 표시해요.",
+    how_to_use: "이 테마 사용법",
+    theme_name: "테마 이름",
+    theme_name_hint: '파일 이름과 json <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]">name</code>에 쓰여요: <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]"><span data-themename>custom</span>.json</code>',
+    step1: "위에서 프리셋을 고르고, 미리보기가 마음에 들 때까지 토큰을 조정해요.",
+    step2: "테마 이름을 정해요.",
+    step3: "<b>에이전트용 복사</b>를 눌러 AI 에이전트(cookiebite 스킬 사용)에 붙여넣으면 그 리포트에 테마가 적용돼요. 앞으로 만드는 모든 리포트의 기본값으로 쓰려면 <b>내 기본 테마로 설정</b>을 써요. 직접 쓰려면 <b>theme.json 내려받기</b>나 <b>CSS 복사</b>를 써요.",
+    step4: '<b>이름으로 재사용:</b> json을 <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">assets/presets/<span data-themename>custom</span>.json</code>으로 저장하고, "<span data-themename>custom</span> 테마 써줘"라고만 말하면 돼요.',
+    copy_agent: "에이전트용 복사",
+    copy_agent_hint: "전체 theme.json이 그대로 들어간 프롬프트를 복사해요. AI 에이전트(cookiebite 스킬 사용)에 붙여넣으면 테마를 적용해줘요.",
+    set_default: "내 기본 테마로 설정",
+    set_default_hint: '이 테마를 전역 기본값으로 저장하는 프롬프트를 복사해요. 앞으로 만드는 모든 리포트가 이 테마를 써요 (바꾸기 전까지). "에이전트용 복사"는 리포트 하나만, 이건 전부에 적용돼요.',
+    default_prompt_intro: "이걸 내 cookiebite 기본 테마로 설정해줘 — cookiebite 스킬의 assets/presets/default.json 에 저장해서 앞으로 만드는 모든 리포트가 이 테마를 쓰게 해줘 (바꾸기 전까지).",
+    download_json_hint: '재사용할 원본 토큰 파일을 저장해요. <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">assets/presets/</code>에 넣으면 나중에 이름으로 적용할 수 있어요.',
+    copy_css_hint: '수동 대안: 이 <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;link&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;style&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;script&gt;</code> 블록을 리포트 THEME 블록에 직접 붙여넣어요.',
+    agent_prompt_intro: "이 디자인 테마를 내 리포트에 적용해줘 — 리포트의 THEME 블록(폰트·강조색·중립색·시맨틱·로케일)을 이 토큰으로 설정해줘. 새 리포트를 만드는 거면 이 테마로 만들어줘.",
+    readonly: "실시간 · 읽기 전용", live_preview: "실시간 미리보기",
+    // toasts
+    t_css_copied: "CSS 복사됨!",
+    t_prompt_copied: "복사됨 ✓", t_json: "theme.json 내려받음",
+    t_reset: "Neutral로 초기화", t_copy_failed: "복사 실패",
+  },
+};
+const LANG_KEY = "ts-lang";
+const FALLBACK_LANG = "en";
+// Display labels for the segmented toggle. Add an entry here when you add a
+// STRINGS[<lang>] block; the new language then appears automatically. A missing
+// label falls back to the uppercased lang code.
+const LANG_LABELS = { en: "EN", ko: "한국어", ja: "日本語" };
+// Available languages are derived from STRINGS, so a new block is auto-detected.
+const LANGS = Object.keys(STRINGS);
+let lang = FALLBACK_LANG;
+
+function langLabel(l){ return LANG_LABELS[l] || l.toUpperCase(); }
+
+// stored override > browser language > English fallback
+function resolveInitialLang(){
+  let stored = null;
+  try{ stored = localStorage.getItem(LANG_KEY); }catch(e){}
+  if(stored && STRINGS[stored]) return stored;
+  const nav = (navigator.language || navigator.userLanguage || "").toLowerCase();
+  const matched = LANGS.find(l => nav.startsWith(l));
+  return matched || FALLBACK_LANG;
+}
+
+function renderLangToggle(){
+  const wrap = document.getElementById("lang-toggle");
+  if(!wrap) return;
+  wrap.innerHTML = "";
+  LANGS.forEach(l=>{
+    const btn = document.createElement("button");
+    btn.className = "lang-btn h-[28px] px-10 rounded-[6px] text-[12px] font-semibold transition";
+    btn.dataset.lang = l;
+    btn.textContent = langLabel(l);
+    btn.setAttribute("aria-pressed", "false");
+    btn.addEventListener("click", ()=> setLang(l, true));
+    wrap.appendChild(btn);
+  });
+}
+
+function t(key){ return (STRINGS[lang] && STRINGS[lang][key]) || (STRINGS[FALLBACK_LANG][key]) || key; }
+
+function setLang(l, persist){
+  lang = STRINGS[l] ? l : FALLBACK_LANG;
+  document.documentElement.lang = lang;
+  // text content (plain) and innerHTML (rich, contains markup) keys
+  const richKeys = new Set(["theme_name_hint","step3","step4","download_json_hint","copy_css_hint"]);
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key = el.getAttribute("data-i18n");
+    const val = t(key);
+    if(richKeys.has(key)) el.innerHTML = val; else el.textContent = val;
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach(el=>{
+    el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
+  });
+  // active control state
+  document.querySelectorAll("#lang-toggle .lang-btn").forEach(btn=>{
+    const on = btn.dataset.lang === lang;
+    btn.classList.toggle("is-active", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  // re-render dynamic name spans that live inside rich strings
+  renderThemeNameSpans();
+  // persist only on explicit user override, so the browser-language default
+  // keeps applying on later visits until the user actually picks a language
+  if(persist){ try{ localStorage.setItem(LANG_KEY, lang); }catch(e){} }
+}
+
+/* ============================================================
+   Theme name + command / prompt builders
+   ============================================================ */
+function themeName(){
+  const raw = (theme && theme.name ? String(theme.name) : "").trim();
+  return raw || "custom";
+}
+function renderThemeNameSpans(){
+  document.querySelectorAll("[data-themename]").forEach(el=>{ el.textContent = themeName(); });
+}
+function buildAgentPrompt(){
+  const json = JSON.stringify(buildExport(), null, 2);
+  return `${t("agent_prompt_intro")}\n\n\`\`\`json\n${json}\n\`\`\``;
+}
+function buildDefaultPrompt(){
+  const json = JSON.stringify(buildExport(), null, 2);
+  return `${t("default_prompt_intro")}\n\n\`\`\`json\n${json}\n\`\`\``;
+}
+
+/* ============================================================
+   Init
+   ============================================================ */
+function init(){
+  theme = loadInitial();
+  buildControls();
+  syncInputsFromTheme();
+  applyTheme();
+
+  // language: build toggle, then resolve stored override > browser language > English
+  renderLangToggle();
+  setLang(resolveInitialLang());
+
+  // theme name input
+  const nameInput = document.getElementById("theme-name");
+  nameInput.addEventListener("input", e=>{
+    theme.name = e.target.value;
+    renderThemeNameSpans(); renderJSON(); persist();
+  });
+
+  document.getElementById("btn-copy").addEventListener("click", copyCSS);
+  document.getElementById("btn-json").addEventListener("click", downloadJSON);
+  document.getElementById("btn-copy-2").addEventListener("click", copyCSS);
+  document.getElementById("btn-json-2").addEventListener("click", downloadJSON);
+  document.getElementById("btn-copy-agent").addEventListener("click", copyAgentPrompt);
+  document.getElementById("btn-set-default").addEventListener("click", copyDefaultPrompt);
+  document.getElementById("btn-reset").addEventListener("click", ()=>{
+    theme = JSON.parse(JSON.stringify(DEFAULT_PRESET));
+    syncInputsFromTheme(); applyTheme(); markActivePreset(); showToast(t("t_reset"));
+  });
+}
+init();
+</script>
+</body>
+</html>
