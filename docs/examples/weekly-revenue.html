@@ -60,6 +60,11 @@
   input.gridjs-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); }
   .gridjs-pages button.gridjs-currentPage{ background:var(--accent); color:var(--accent-on); border-color:var(--accent); }
   td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-critical); }
+  /* right-align numeric columns (header + cells) so figures line up */
+  #trendTable .gridjs-th:nth-child(n+2),  #trendTable .gridjs-td:nth-child(n+2){ text-align:right; font-variant-numeric:tabular-nums; }
+  #accountsTable .gridjs-th:nth-child(4), #accountsTable .gridjs-td:nth-child(4),
+  #accountsTable .gridjs-th:nth-child(5), #accountsTable .gridjs-td:nth-child(5),
+  #accountsTable .gridjs-th:nth-child(6), #accountsTable .gridjs-td:nth-child(6){ text-align:right; font-variant-numeric:tabular-nums; }
 </style>
 <script>
   tailwind.config = { theme: { extend: {
@@ -569,7 +574,7 @@
       new gridjs.Grid({
         columns:['Week', { name:'MRR ($K)', sort:true }, { name:'WoW Δ', sort:true }],
         data: MRR.map((v,i)=>['W'+(i+1), nf.format(v), i? (((v-MRR[i-1])/MRR[i-1])*100).toFixed(1)+'%' : '—']),
-        sort:true, pagination:{ limit:8 }, className:{ table:'text-body-14' },
+        sort:true, pagination:false, className:{ table:'text-body-14' },
       }).render(document.getElementById('trendTable'));
       document.getElementById('trendTable').dataset.done = '1';
     }
@@ -726,7 +731,7 @@
         ['Vandelay Ind.','Pro','SMB', 18, -6, 40, '<span style="color:var(--c-critical)">● At risk</span>'],
         ['Bluth Company','Starter','SMB', 4, -7, 9, '<span style="color:var(--c-critical)">● At risk</span>'],
       ],
-      sort:true, search:true, pagination:{ limit:8 },
+      sort:true, search:true, pagination:false,
       className:{ table:'text-body-14' },
     }).render(document.getElementById('accountsTable'));
     document.getElementById('accountsTable').dataset.done = '1';

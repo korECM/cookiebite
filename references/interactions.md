@@ -64,17 +64,36 @@ Always `chart.resize()` on `window.resize`.
 
 ## 4. Sortable / searchable table (Grid.js)
 For any table with >8 rows, make it sortable + searchable so the reader can rank by
-the column they care about.
+the column they care about. Three things decide whether it actually *reads* well:
+
+- **Paginate only when the data overflows.** Grid.js renders the pager even for a single
+  page, so a 7-row table ends up with a useless "1–7 / 7 · ‹ 1 ›" strip under it. Turn
+  pagination **off** unless the data clearly outruns the screen (say >15 rows); when you
+  do paginate, set the limit near a full screen, not 8.
+- **Right-align numeric columns — header and cells together.** Grid.js left-aligns
+  everything by default, so figures don't line up and the header drifts away from its
+  numbers. Right-align the numeric columns *and* their headers, with tabular figures.
+- **Keep inline-bar / share columns compact.** A bar + "%" belongs in one fixed-width
+  cell aligned the same way as its header — never a right-aligned header stranded over
+  left-aligned bars.
 
 ```html
 <link rel="stylesheet" href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css">
 <script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
 <div id="tbl"></div>
+<style>
+  /* right-align the numeric columns (here: 2nd + 3rd) — header AND cells */
+  #tbl .gridjs-th:nth-child(n+2), #tbl .gridjs-td:nth-child(n+2){
+    text-align:right; font-variant-numeric:tabular-nums;
+  }
+</style>
 <script>
+  const rows = [['Stripe','98.1%','72,000'], /* … */];
   new gridjs.Grid({
     columns:['PSP', {name:'성공률', sort:true}, {name:'건수', sort:true}],
-    data:[['Stripe','98.1%','72,000'], /* … */],
-    sort:true, search:true, pagination:{limit:10},
+    data: rows,
+    sort:true, search:true,
+    pagination: rows.length > 15 ? { limit:15 } : false,   // pager only when it earns it
     className:{ table:'text-body-14' },
   }).render(document.getElementById('tbl'));
 </script>

@@ -159,12 +159,16 @@ it with real content:
   otherwise — an unsized icon looks oversized and clumsy next to text). One per
   section/card is plenty; never let an icon dwarf the number or label beside it.
 - **Use a real table library for data tables.** Anything beyond a tiny 2–3 row table
-  should be a **Grid.js** table (sortable, searchable, paginated) rather than a
-  hand-rolled `<table>` with custom sort code — it's less code, fewer bugs, and
-  consistent. Theme it with the accent (see `references/interactions.md` §4). Reserve
-  hand-written `<table>` for short, static, display-only tables.
+  should be a **Grid.js** table (sortable, searchable) rather than a hand-rolled
+  `<table>` with custom sort code — it's less code, fewer bugs, and consistent. Theme it
+  with the accent (see `references/interactions.md` §4). **Paginate only when the data
+  overflows the screen** — Grid.js draws the pager even for one page, so a table that
+  fits ends up with a useless "1–7 / 7 · ‹ 1 ›" strip; turn pagination off (>~15 rows
+  before it earns a pager). Reserve hand-written `<table>` for short, static tables.
 - **Align and digit-pad numbers.** Use `tabular-nums` (the `.nums` class) on anything
-  numeric and right-align figures in tables so columns line up and are comparable.
+  numeric and right-align numeric columns **together with their headers** so figures
+  line up and stay comparable — don't let a right-aligned header float over left-aligned
+  cells (Grid.js left-aligns by default; right-align the numeric columns explicitly).
 - **Respect line length and rhythm.** Cap prose width (~68ch, the `.prose-measure`
   class) so paragraphs stay readable; keep consistent vertical spacing between
   sections; let whitespace separate groups instead of borders everywhere.
