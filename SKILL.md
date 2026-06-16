@@ -122,6 +122,12 @@ in — is far more useful than a static one, and it's what makes these feel aliv
 - **Comparison / decision** (which approach/vendor/plan): lay the options side by side
   in columns with the same rows aligned, color the trade-offs with semantic tokens,
   and end with a recommendation. See `references/interactions.md` §12.
+- **Code review / change report** (explain a PR, an incident fix, an audit): lead with a
+  **severity-coded findings list** (sorted worst-first), show the change as a **diff
+  view**, explain non-obvious logic as **pseudocode/annotated code**, and — when the
+  report proposes next steps — let the reader assemble them via a **prompt editor** or
+  **copy-as-diff** export. All six live in `references/components.md`; the editing pieces
+  are `references/interactions.md` §14.
 
 Don't manufacture interactions for data that has nothing to explore — a three-number
 summary doesn't need a data grid. Match depth to the data. But when there's real
@@ -134,6 +140,13 @@ the result out** — a copy-as-markdown or download button that turns the curren
 back into something they can paste or commit (interactions.md §13). An interactive page
 with no export is a dead end. Every interaction should help the reader find, compare,
 or take away something — that keeps it within the report's restraint.
+
+A report may go one step past *reading* into a small **editing interface** — a config
+form that tunes its own numbers, a prompt editor that composes the next-step prompt, a
+reorder-then-copy-as-diff of its own items (`interactions.md` §14). That's in scope as
+long as the artifact stays a report and the editing is about the report's own content.
+Building a standalone tool/app screen ("make me a draggable triage board") is product UI
+and **out of scope** — hand it off. The boundary: edit → preview → export, always.
 
 ## Visual & readability craft
 
@@ -229,14 +242,17 @@ small collisions that matter most:
 
 ```bash
 bash scripts/verify-report.sh <path-to-report>.html
-# captures TWO viewports so responsive breakage shows up too:
+# captures TWO viewports so responsive breakage shows up too, + a dark pass:
 #   <dir>/.verify/full-desktop.png, desktop-tile-00.png, …   (1280px, primary)
 #   <dir>/.verify/full-narrow.png,  narrow-tile-00.png,  …   (768px, responsive)
-#   plus checks-desktop.json / checks-narrow.json
+#   <dir>/.verify/full-dark.png,    dark-tile-00.png,    …   (1280px, dark — if toggle present)
+#   plus checks-desktop.json / checks-narrow.json / checks-dark.json
 ```
 
-Then **Read `full-desktop.png` and every `desktop-tile-*.png`** at legible size, and
-**skim the `narrow-tile-*.png`** to confirm the layout survives a narrow viewport.
+Then **Read `full-desktop.png` and every `desktop-tile-*.png`** at legible size,
+**skim the `narrow-tile-*.png`** to confirm the layout survives a narrow viewport, and
+**skim the `dark-tile-*.png`** (emitted when the report has the dark toggle) to confirm
+dark mode reads — charts re-themed, contrast intact, no status color washed out.
 Scan for:
 
 - **Text/label overlap or collision** — especially chart axis/series labels and long
@@ -273,6 +289,18 @@ The token contract (CSS vars on `:root`, set in the template's THEME block):
 - Semantic: `--c-critical`, `--c-cautionary`, `--c-positive`, `--c-informative`
 - Locale (JS): `window.REPORT_LOCALE = { number, currency, symbol, bigUnits }` drives
   the number helpers (thousands separators, `만/억` vs `K/M/B`).
+
+**Dark mode (built-in, free for every preset).** The template ships a top-right
+light/dark toggle and a generic `html[data-theme="dark"]` layer that lives *outside* the
+swappable THEME block, so it survives preset swaps and works for **any** theme without a
+per-preset dark JSON. It overrides only the neutrals + `--accent-weak` (re-derived from
+`--accent` via `color-mix`); the accent itself stays, so brand identity holds in both
+modes. First load honours `prefers-color-scheme`; the choice persists to `localStorage`.
+Canvas charts don't follow CSS vars, so the template re-reads tokens on toggle
+(`readThemeVars()`) and re-renders — **keep that contract** if you add charts: read colors
+through the `css()`/`readThemeVars` helpers, not hard-coded hexes, or they won't flip.
+The visual self-check captures a dark pass automatically (see below). Light stays the
+default for print/exec PDFs; dark is there for on-screen/shared reading.
 
 **Choosing/changing the theme:**
 
@@ -333,6 +361,10 @@ now on, separate from the per-report "Copy for agent" apply above.
   deleting that file or setting a new default.
 
 ## Building blocks (compose these; don't copy literally)
+
+> For the full declarative cheat-sheet — the unified `tone` contract plus copy-paste
+> Diff / findings / pseudocode / checklist / SVG-flow / quadrant components — see
+> `references/components.md`. The essentials are summarized here.
 
 - **Table of contents (sidebar)**: include a TOC by default on any report with 3+
   sections. Put it in a **right rail** that's `sticky top-24` next to the main column,
@@ -396,12 +428,20 @@ Before handing over, verify:
 - [ ] Every interaction and animation earns its place (helps the reader find/compare); nothing purely decorative or distracting.
 - [ ] Reads as designed and on-theme: restrained surfaces, clear shallow hierarchy, scannable layout.
 - [ ] Has a sticky TOC sidebar when there are 3+ sections, with active-section highlighting.
+- [ ] Status/semantic colors follow the **`tone` contract** (neutral/info/success/warning/critical → the four semantic tokens) consistently across pills, callouts, deltas, findings, and rows — see `references/components.md`.
 - [ ] Responsive: survives the 768px narrow pass (TOC collapses, cards stack, no overflow/clipping).
+- [ ] **Dark mode reads**: the toggle flips cleanly, charts re-theme (axes/grid legible, no blown contrast), and status colors still pass — confirmed in the verify script's dark pass.
 - [ ] **Rendered and visually verified** with `scripts/verify-report.sh`: desktop + narrow tiles read; no label overlap / clipped text / broken charts / edge bleed / copy↔visual mismatch; issues fixed.
 
 ## References
 
 - `assets/template.html` — complete, verified report skeleton. **Copy this to start.**
+  Ships a built-in **light/dark toggle** (see "Theming → Dark mode").
+- `references/components.md` — declarative component cheat-sheet: the unified `tone`
+  contract (neutral/info/success/warning/critical → semantic tokens) plus copy-paste
+  building blocks, including **Diff view, severity-coded findings, pseudocode/annotated
+  code, stateful checklist, themed SVG flow diagram, and a spatial quadrant board**.
+  Read this when assembling sections, especially for code-review / change reports.
 - `assets/theme-studio.html` — interactive theme editor (presets, color/font pickers,
   live preview, export CSS/`theme.json`). Open when the user wants a custom theme.
 - `assets/presets/` — 10 theme-token presets (neutral default, persimmon, + stripe/vercel/

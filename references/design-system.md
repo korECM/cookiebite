@@ -140,6 +140,20 @@ Priority order: project-level components → design-system components/tokens →
 - Don't bypass project components just to use raw primitives.
 - Don't use color alone to communicate state.
 
+## Dark mode (token-derived, free for every theme)
+
+The report template ships a **generic dark layer** — `html[data-theme="dark"]` in the
+non-THEME `<style>` block — and a top-right toggle. It overrides only the **neutrals**
+(bg/surface/text/lines/disabled-bg) plus `--accent-weak`; the **accent stays the same**
+in both modes so brand identity is preserved. `--accent-weak` is re-derived with
+`color-mix(in srgb, var(--accent) 22%, #16161a)`, so the dark variant works for *any*
+preset without a per-preset dark JSON. Semantic hues are nudged brighter to read on a
+dark surface. Because the layer lives outside the swappable THEME block, it survives
+preset swaps. Canvas charts don't follow CSS vars, so the template re-reads the tokens
+on toggle (`readThemeVars()`) and re-renders; keep that contract if you customize the
+template. The first-load theme honours `prefers-color-scheme` and the user's last choice
+is remembered in `localStorage`.
+
 > Note for reports: a standalone HTML report is **not** a console product surface.
 > The token discipline (color/type/spacing/radius) still applies so it reads as
 > the report itself, but reports may use richer data visualization, motion, and graphic

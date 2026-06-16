@@ -38,6 +38,23 @@
 <script src="https://unpkg.com/tippy.js@6"></script>
 
 <style>
+  /* ===== Dark mode (generic; survives THEME swaps) =====
+     Lives OUTSIDE the THEME block on purpose: it derives from --accent via
+     color-mix, so EVERY preset gets a dark variant for free — no per-preset
+     dark JSON to maintain. Only neutrals + accent-weak are overridden; the
+     accent itself stays, keeping brand identity in both modes. Toggle flips
+     html[data-theme]; charts re-theme in JS (readThemeVars/renderTrend). */
+  html[data-theme="dark"]{
+    --accent-weak: color-mix(in srgb, var(--accent) 22%, #16161a);
+    --c-bg:#101013;  --c-surface:#1a1a1f;  --c-primary:#F1F1F4;  --c-secondary:#AEAEB6;
+    --c-disabled:#6E6E78;  --c-placeholder:#5A5A63;  --c-line:#3A3A42;  --c-line-weak:#2A2A30;  --c-disabled-bg:#26262C;
+    /* nudge semantic hues brighter so they read on a dark surface */
+    --c-critical:#F2555A;  --c-cautionary:#F5C544;  --c-positive:#4FBB60;  --c-informative:#4DA3FF;
+  }
+  /* smooth the flip; respect reduced-motion */
+  html:not([data-theme="dark"]) body, html[data-theme="dark"] body{ transition:background-color .25s ease, color .25s ease; }
+  @media (prefers-reduced-motion: reduce){ body{ transition:none !important; } }
+
   html{ scroll-behavior:smooth; }
   body{ font-family:var(--font-family); letter-spacing:-0.01em; }
   /* tabular-nums keeps figures vertically aligned in cards and tables */
@@ -49,8 +66,9 @@
 
   /* glossary term: dotted underline in the accent, themed from CSS vars */
   .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
-  /* theme the tooltip to the report (dark surface from --c-primary, readable) */
-  .tippy-box[data-theme~='report']{ background:var(--c-primary); color:#fff; border-radius:12px; font-size:13px; line-height:1.5; }
+  /* theme the tooltip to the report — bg/text are token-swapped so it stays
+     readable in dark mode too (c-primary↔c-surface invert together). */
+  .tippy-box[data-theme~='report']{ background:var(--c-primary); color:var(--c-surface); border-radius:12px; font-size:13px; line-height:1.5; }
   .tippy-box[data-theme~='report'] .tippy-content{ padding:10px 12px; }
   .tippy-box[data-theme~='report'] .tippy-arrow{ color:var(--c-primary); }
 </style>
@@ -78,6 +96,11 @@
 </script>
 </head>
 <body class="bg-bg text-primary">
+<!-- light/dark toggle — flips html[data-theme]; charts re-theme in JS -->
+<button id="themeToggle" type="button" aria-label="라이트/다크 전환"
+        class="fixed top-16 right-16 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition">
+  <i data-lucide="moon" class="w-20 h-20"></i>
+</button>
 <div class="mx-auto max-w-[1400px] px-24">
   <!-- flex-row-reverse puts the TOC on the RIGHT while keeping it first in DOM order -->
   <div class="flex flex-row-reverse gap-40">
@@ -232,19 +255,26 @@
     : (n>=1e9 ? (n/1e9).toFixed(1).replace(/\.0$/,'')+'B' : n>=1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,'')+'M' : n>=1e3 ? (n/1e3).toFixed(1).replace(/\.0$/,'')+'K' : nf.format(n));
 
   // ---- shared ECharts theme (accent + neutral grid + report font) ----
+  // Canvas charts don't follow CSS vars, so we read the tokens into JS and
+  // re-read them on a dark/light toggle (readThemeVars). Accent is unchanged
+  // across modes; only the neutral grid/axis/text colors flip.
   const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  const ACCENT = css('--accent'), ACCENT_STRONG = css('--accent-strong');
-  const C_LINE = css('--c-line-weak') || '#E4E4E7', C_SECONDARY = css('--c-secondary') || '#52525B';
-  const C_NEUTRAL = css('--c-disabled') || '#A1A1AA';
-  const FONT = css('--font-family') || 'Inter, sans-serif';
-  const baseChart = {
-    color:[ACCENT, ACCENT_STRONG, C_NEUTRAL, C_SECONDARY],
-    textStyle:{ fontFamily:FONT },
-    grid:{ left:8, right:16, top:24, bottom:8, containLabel:true },
-    tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' } },
-    xAxis:{ axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
-    yAxis:{ splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY } },
-  };
+  let ACCENT, ACCENT_STRONG, C_LINE, C_SECONDARY, C_NEUTRAL, FONT, baseChart;
+  function readThemeVars(){
+    ACCENT = css('--accent'); ACCENT_STRONG = css('--accent-strong');
+    C_LINE = css('--c-line-weak') || '#E4E4E7'; C_SECONDARY = css('--c-secondary') || '#52525B';
+    C_NEUTRAL = css('--c-disabled') || '#A1A1AA';
+    FONT = css('--font-family') || 'Inter, sans-serif';
+    baseChart = {
+      color:[ACCENT, ACCENT_STRONG, C_NEUTRAL, C_SECONDARY],
+      textStyle:{ fontFamily:FONT },
+      grid:{ left:8, right:16, top:24, bottom:8, containLabel:true },
+      tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' } },
+      xAxis:{ axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
+      yAxis:{ splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY } },
+    };
+  }
+  readThemeVars();
   // accent as rgba for sparkline fills (handles #RGB and #RRGGBB)
   const accentRgba = (a) => {
     let h = ACCENT.replace('#','');
@@ -278,8 +308,9 @@
   // amount = 일별 매출(만원), count = 일별 환불(건)
   const TREND = { days:['월','화','수','목','금','토','일'],
                   amount:[3200,2980,3450,3600,4100,3800,3050], count:[410,388,455,470,520,510,389] };
-  let trendChart;
+  let trendChart, lastTrendMode = 'amount';
   function renderTrend(mode){
+    lastTrendMode = mode;
     const data = TREND[mode], avg = data.reduce((a,b)=>a+b,0)/data.length;
     const unit = mode==='amount' ? '만원' : '건';
     trendChart.setOption({ ...baseChart,
@@ -317,10 +348,33 @@
       `<tr><td class="py-8">${d}</td><td class="py-8 text-right">${nf.format(TREND.amount[i])}</td><td class="py-8 text-right">${nf.format(TREND.count[i])}</td></tr>`).join('');
   }
 
+  // ---- light/dark toggle ----
+  // Flips html[data-theme]; CSS-var-styled DOM re-themes instantly, canvas charts
+  // are re-themed manually (readThemeVars → re-render). Remembers the choice and
+  // honours the OS preference on first load.
+  function applyTheme(mode){
+    document.documentElement.dataset.theme = mode;       // '' (light) handled as light
+    const btn = document.getElementById('themeToggle');
+    if (btn) btn.querySelector('i')?.setAttribute('data-lucide', mode==='dark' ? 'sun' : 'moon');
+    if (window.lucide) lucide.createIcons();
+    readThemeVars();
+    if (trendChart) renderTrend(lastTrendMode);          // re-color axes/grid/markLine
+  }
+  function initTheme(){
+    let saved = null; try { saved = localStorage.getItem('report-theme'); } catch(e){}
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    document.getElementById('themeToggle')?.addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('report-theme', next); } catch(e){}
+      applyTheme(next);
+    });
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     if (window.lucide) lucide.createIcons();
     trendChart = echarts.init(document.getElementById('trendChart'));
-    initCards(); renderTrend('amount'); fillTrendTable(); initToc();
+    initCards(); renderTrend('amount'); fillTrendTable(); initToc(); initTheme();
     // glossary tooltips — runs after Tippy's script has loaded (synchronous <script> in <head>)
     if (window.tippy) tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus' });
     window.addEventListener('resize', () => { trendChart.resize(); sparks.forEach(c=>c.resize()); });

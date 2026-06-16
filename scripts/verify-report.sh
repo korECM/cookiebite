@@ -68,6 +68,17 @@ EOF
 capture desktop 1280
 capture narrow 768
 
+# Dark pass (only if the report ships a dark toggle) — flip to dark and re-capture
+# at desktop width so dark-mode contrast + re-themed charts get eyeballed too.
+# Calls the page's applyTheme() so canvas charts re-theme, falling back to a raw flip.
+HAS_DARK="$(ab eval "!!document.getElementById('themeToggle')" 2>/dev/null | tr -d '[:space:]')"
+if [ "$HAS_DARK" = "true" ]; then
+  ab eval "window.applyTheme ? applyTheme('dark') : (document.documentElement.dataset.theme='dark')" >/dev/null 2>&1 || true
+  ab wait 400 >/dev/null 2>&1 || true
+  capture dark 1280
+  ab eval "window.applyTheme ? applyTheme('light') : (document.documentElement.dataset.theme='light')" >/dev/null 2>&1 || true
+fi
+
 echo "-> $OUT"
 echo "NEXT: Read full-desktop.png + every desktop-tile-*.png at legible size."
 echo "Then skim narrow-tile-*.png to confirm the layout survives a narrow viewport"

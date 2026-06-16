@@ -307,6 +307,71 @@ For a file instead of the clipboard, build a `Blob` and click a temporary `<a do
 (see the studio's `Download theme.json`). Match the export format to the destination:
 markdown to paste into a doc or back to the agent, CSV for a spreadsheet, JSON to re-load.
 
+## 14. Editing interfaces (let the reader shape the output, then export it)
+
+Sometimes the report's job isn't only to be *read* — it's to let the reader make a
+hard-to-describe edit and hand the result back to the agent. A purpose-built temporary
+UI (a prompt editor, a config form, a reorderable list that emits a diff) turns
+"explain the change you want in prose" into "adjust it directly and copy the result."
+This is §13 taken one step further: the reader doesn't just export state, they *author*
+it.
+
+**Stay inside the boundary.** This skill builds **reading material**, not products. The
+test for whether an editing interface belongs here: *is the artifact still a report, and
+is the editing about the report's own content?* A config form that tunes the numbers in
+**this** report, a prompt editor that composes **this** report's next-step prompt, a
+reorder-and-export-a-diff of **this** report's items — all fine. "Build me a draggable
+triage tool / a standalone app screen" is product UI — out of scope, hand it off. When in
+doubt, keep it to: edit → preview → **export** (clipboard / download / copy-as-diff).
+Every editing UI must end with a way out, or it's a dead end.
+
+### a. Config form → live-updates the report
+A small form (sliders, selects, number inputs) bound with Alpine that recomputes the
+report's figures/chart live — the scenario slider (§8) generalized. Pair with an export
+so the tuned state leaves the page.
+```html
+<div x-data="{ uplift:5, churn:3, get arr(){ return Math.round(1200*(1+this.uplift/100)*(1-this.churn/100)) } }">
+  <label class="block text-caption-12 text-secondary">전환 상승 <b x-text="uplift+'%'"></b></label>
+  <input type="range" min="0" max="20" x-model.number="uplift" class="w-full accent-accent">
+  <label class="block text-caption-12 text-secondary mt-8">이탈 <b x-text="churn+'%'"></b></label>
+  <input type="range" min="0" max="10" x-model.number="churn" class="w-full accent-accent">
+  <p class="mt-12 text-body-16">예상 ARR <b class="text-accent nums" x-text="'$'+arr.toLocaleString()"></b></p>
+</div>
+```
+
+### b. Prompt editor → composes the next-step prompt
+When the report ends in "what should the agent do next," give the reader fields that
+assemble a copy-ready prompt instead of making them write it. Edit the knobs, copy the
+prompt, paste it back to the agent.
+```html
+<div x-data="{ scope:'환불 경로', risk:'중', get prompt(){ return `${this.scope}에 멱등 키를 추가하고 재시도 한도를 적용해줘. 리스크 허용도: ${this.risk}. 변경 후 테스트를 추가하고 diff를 보여줘.` } }">
+  <div class="flex gap-8 flex-wrap text-body-14">
+    <input x-model="scope" class="px-10 py-6 rounded-small border border-line bg-surface" />
+    <select x-model="risk" class="px-10 py-6 rounded-small border border-line bg-surface"><option>낮</option><option>중</option><option>높</option></select>
+  </div>
+  <pre class="mt-12 p-12 rounded-small bg-disabled-bg text-caption-12 whitespace-pre-wrap" x-text="prompt"></pre>
+  <button @click="navigator.clipboard?.writeText(prompt)" class="mt-8 px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">프롬프트 복사</button>
+</div>
+```
+
+### c. Copy-as-diff (reorder/toggle/edit → emit a patch)
+When the reader rearranges or edits a list — reprioritizing action items, selecting which
+findings to fix — let them export the result as a unified **diff** the agent can apply,
+not just prose. This is the report-side mirror of the Diff component
+(`components.md`): the reader's edits become a patch.
+```html
+<div x-data="{
+  before:['retryLimit = ∞','idempotent = false'],
+  after:['retryLimit = 3','idempotent = true'],
+  get diff(){ return this.before.map((b,i)=>`- ${b}\n+ ${this.after[i]}`).join('\n') }
+}">
+  <pre class="p-12 rounded-small bg-disabled-bg font-mono text-caption-12" x-text="diff"></pre>
+  <button @click="navigator.clipboard?.writeText('```diff\n'+diff+'\n```')" class="px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">diff 복사</button>
+</div>
+```
+Wrap the payload in a ```` ```diff ```` fence so it pastes back to the agent as an
+applyable patch. The reader edits `after` (via inputs / reorder); the export reflects it.
+
 ## How much is enough?
 - A **data dashboard**: aim for filters/segment toggle + at least one chart with
   legend/zoom/drilldown + a sortable table. The reader should be able to answer a
