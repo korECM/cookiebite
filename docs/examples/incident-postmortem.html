@@ -198,7 +198,7 @@
         </div>
         <p class="text-body-14 text-secondary mb-20 prose-measure">All times UTC. Click any entry to expand the detail. Detection lagged the deploy by 22 minutes; rollback was the fix.</p>
 
-        <div x-data="{ open:0 }" class="bg-surface border border-line-weak rounded-medium shadow-sm divide-y divide-line-weak overflow-hidden">
+        <div x-data class="bg-surface border border-line-weak rounded-medium shadow-sm divide-y divide-line-weak overflow-hidden">
           <template x-for="(ev,i) in [
             {t:'09:12', kind:'deploy',  icon:'rocket',         title:'v2.31 deployed', sub:'New connection-pool config ships', detail:'Release v2.31 rolls out to all API pods. Among unrelated changes it carries a new database connection-pool config block — the change that caused the incident.'},
             {t:'09:20', kind:'warn',    icon:'trending-up',    title:'p99 climbs past 1s', sub:'Latency degrading, no alert yet', detail:'Within 8 minutes of the deploy, p99 latency crosses 1s (baseline 180ms). No threshold had fired yet, so the on-call was not paged. Pool wait time was already the dominant cost.'},
@@ -207,8 +207,8 @@
             {t:'10:15', kind:'fix',     icon:'rotate-ccw',     title:'Rollback to v2.30 started', sub:'Reverting the bad config', detail:'Decision made to roll back rather than hot-patch the config, to restore a known-good state. The v2.30 redeploy begins across the fleet.'},
             {t:'10:48', kind:'resolved',icon:'check-circle-2', title:'Baseline restored · incident closed', sub:'p99 back to 180ms', detail:'Rollout of v2.30 completes, the pool returns to 100 connections, queueing clears, and p99 settles back to ~180ms. Incident declared resolved at 10:48 UTC.'},
           ]" :key="i">
-            <div>
-              <button @click="open = open===i ? null : i" class="w-full flex items-center gap-16 px-16 py-16 text-left hover:bg-disabled-bg/40 transition">
+            <div x-data="{ open: i===0 }">
+              <button @click="open = !open" class="w-full flex items-center gap-16 px-16 py-16 text-left hover:bg-disabled-bg/40 transition">
                 <span class="nums text-body-14 font-semibold text-secondary w-44 shrink-0" x-text="ev.t"></span>
                 <span class="shrink-0 inline-flex items-center justify-center w-32 h-32 rounded-full"
                       :class="{
@@ -224,9 +224,9 @@
                   <span class="block text-body-16 font-semibold text-primary truncate" x-text="ev.title"></span>
                   <span class="block text-caption-12 text-secondary truncate" x-text="ev.sub"></span>
                 </span>
-                <i data-lucide="chevron-down" class="w-16 h-16 text-text-disabled shrink-0 transition-transform" :class="open===i && 'rotate-180'"></i>
+                <i data-lucide="chevron-down" class="w-16 h-16 text-text-disabled shrink-0 transition-transform" :class="open && 'rotate-180'"></i>
               </button>
-              <div x-show="open===i" x-collapse x-cloak>
+              <div x-show="open" x-collapse x-cloak>
                 <p class="px-16 pb-16 pl-72 text-body-14 text-secondary prose-measure" x-text="ev.detail"></p>
               </div>
             </div>

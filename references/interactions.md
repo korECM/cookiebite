@@ -105,18 +105,19 @@ Keep the page scannable; let the reader open the detail they want. Good for acti
 items, error codes, per-incident notes.
 
 ```html
-<div x-data="{ open:null }">
+<div x-data>
   <template x-for="(item,i) in items" :key="i">
-    <div class="border-b border-line-weak">
-      <button @click="open = open===i ? null : i" class="w-full flex justify-between py-12">
+    <div x-data="{ open:false }" class="border-b border-line-weak">
+      <button @click="open = !open" class="w-full flex justify-between py-12">
         <span x-text="item.title"></span>
-        <span x-text="open===i ? '−' : '+'"></span>
+        <span x-text="open ? '−' : '+'"></span>
       </button>
-      <div x-show="open===i" x-collapse class="pb-12 text-secondary" x-text="item.detail"></div>
+      <div x-show="open" x-collapse class="pb-12 text-secondary" x-text="item.detail"></div>
     </div>
   </template>
 </div>
 ```
+Each row keeps its own `open` state, so multiple panels can stay expanded at once.
 (Add the collapse plugin: `https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3/dist/cdn.min.js`.)
 
 ## 6. Tabbed sections
