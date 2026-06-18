@@ -10,7 +10,7 @@ description: >-
   예쁘게", "lay this out", "visualize these numbers", "for an exec review". Covers
   business/billing/payment metrics (revenue, refunds, success rates, chargebacks),
   sprint retrospectives, research write-ups, and status updates. The look is a swappable
-  theme (neutral default built-in; a Persimmon preset and a theme-studio editor
+  theme (Persimmon/Korean default built-in; a neutral preset and a theme-studio editor
   included). Do NOT use for building product/console/app UI or components, editing
   markdown/prose, fixing code that emits HTML, or transactional email/notification HTML.
 ---
@@ -41,7 +41,7 @@ hold both:
    choices per element. Hold that discipline: one accent color per report, semantic
    colors only for status (never decoration), consistent type/spacing scale. That's
    what makes a report read as designed instead of a generic AI dashboard. The tokens
-   are swappable (see "Theming"): a neutral default ships built-in, a Persimmon preset is
+   are swappable (see "Theming"): a Persimmon (Korean) default ships built-in, a neutral preset is
    included, and `assets/theme-studio.html` lets the user design their own.
 
 3. **Interactive, so the reader can explore.** A static chart answers one question;
@@ -65,7 +65,7 @@ reader get the point in five seconds?"* Aim for yes on both.
 - Default filename: a descriptive kebab-case name from the content
   (e.g. `q2-billing-incident-review.html`), saved where the user is working.
 - Match the copy language to the source (Korean source → Korean copy). The theme's
-  font + locale should match (the Persimmon preset is Korean/Pretendard; the neutral default
+  font + locale should match (the Persimmon default is Korean/Pretendard; the neutral preset
   is Latin/Inter) — see "Theming".
 - After inlining, **open the inlined file** (`open <file>.html` on macOS) so the user
   sees it immediately, and tell them the path.
@@ -201,8 +201,10 @@ it with real content:
 - **Lead each number with meaning, not just a figure.** A KPI is a label + the big
   number + a **delta badge** (`▲/▼` with a semantic color vs the previous period) +
   a **sparkline**. The reader should see the value *and* its direction at a glance.
-  Only show a delta when you actually have a baseline; otherwise show `—`, don't
-  invent one (sentinel over fake zero).
+  Only show a delta when you actually have a baseline; never invent one (sentinel over
+  fake zero). In `COOKIEBITE.kpis`, **omit** the `delta` key for no badge at all; pass
+  `delta: null` to render the `—` sentinel. When *no* KPI has a baseline, omit it on all
+  of them — a row of `—` reads as stray underscores, not data.
 - **Give every chart a one-line takeaway caption** above or below it that says what
   to *notice* ("금·토에 매출이 몰리며 평균을 14% 상회"), not what is plotted. The
   chart shows the data; the caption delivers the point.
@@ -357,10 +359,10 @@ default for print/exec PDFs; dark is there for on-screen/shared reading.
 
 **Choosing/changing the theme:**
 
-- **Default**: the template ships with the **Neutral** preset (Inter, indigo accent,
-  en-US). Use it unless the user wants otherwise.
-- **Preset library**: `assets/presets/*.json` — 10 ready themes: `neutral` (default)
-  and `persimmon` (Pretendard, Tomato accent, ko-KR/₩, East-Asian units), plus brand
+- **Default**: the template ships with the **Persimmon** preset (Pretendard, Tomato
+  accent, ko-KR/₩, East-Asian units). Use it unless the user wants otherwise.
+- **Preset library**: `assets/presets/*.json` — 10 ready themes: `persimmon` (default)
+  and `neutral` (Inter, indigo accent, en-US), plus brand
   presets distilled from real design systems (`stripe`, `vercel`, `linear`, `notion`,
   `supabase`, `sentry`, `resend`, `raycast` — sourced from voltagent/awesome-design-md,
   remapped to a light report surface with a free CDN font). To apply one, set the THEME
@@ -399,7 +401,7 @@ now on, separate from the per-report "Copy for agent" apply above.
 
 1. A theme/preset the user explicitly asks for in this request.
 2. The user's saved default at `assets/presets/default.json` (in this skill's directory).
-3. The template's built-in default (Neutral).
+3. The template's built-in default (Persimmon).
 
 - **Using it.** When the user hasn't asked for a specific theme/preset for a report,
   check whether `assets/presets/default.json` exists in this skill's directory. If it
@@ -540,7 +542,7 @@ Before handing over, verify:
   Read this when assembling sections, especially for code-review / change reports.
 - `assets/theme-studio.html` — interactive theme editor (presets, color/font pickers,
   live preview, export CSS/`theme.json`). Open when the user wants a custom theme.
-- `assets/presets/` — 10 theme-token presets (neutral default, persimmon, + stripe/vercel/
+- `assets/presets/` — 10 theme-token presets (persimmon default, neutral, + stripe/vercel/
   linear/notion/supabase/sentry/resend/raycast). `assets/design-packs/<brand>/DESIGN.md`
   holds each brand's full source design spec for deep-fidelity theming.
 - `scripts/verify-report.sh` — render + sectioned screenshots (desktop + narrow) for

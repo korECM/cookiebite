@@ -4,9 +4,11 @@
    (after the inline THEME :root block, before cookiebite.js).
 
    Sections, in cascade order:
-     (1) default :root tokens (Neutral preset) — fallback if a CDN page omits
-         the inline THEME block. Emitted reports ALWAYS carry the inline block
-         too, which parses first at the same specificity and wins anyway.
+     (1) fallback :root tokens, wrapped in @layer cookiebite-defaults so the
+         per-report (unlayered) :root THEME block ALWAYS wins — even though this
+         stylesheet is inlined AFTER it. Values match the template's default
+         Persimmon HEAD-THEME, so the fallback is never a surprise if it is ever
+         reached (a report whose THEME block omits a token).
      (2) html[data-theme="dark"] color-mix layer + body transition + reduced-motion
      (3) base utilities (scroll-behavior, body font, .nums, .prose-measure,
          [x-cloak], .sr-only)
@@ -16,12 +18,17 @@
    Every rule here is byte-identical across reports today — pure boilerplate.
    ============================================================================ */
 
-/* (1) DEFAULT TOKENS — Neutral preset. Belt-and-suspenders only; see foucSolution. */
-:root{
-  --font-family:'Inter','Pretendard',-apple-system, system-ui, sans-serif;
-  --accent:#3B5BDB;  --accent-strong:#2F49AF;  --accent-weak:#E7ECFB;  --accent-on:#FFFFFF;
-  --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
-  --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+/* (1) FALLBACK TOKENS — matches the template's default Persimmon HEAD-THEME.
+   @layer makes these the LOWEST priority: the report's own unlayered :root THEME
+   block beats them regardless of source order, so this can never silently override
+   an explicit theme. Only reached if a report's THEME block omits a token. */
+@layer cookiebite-defaults {
+  :root{
+    --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
+    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;
+    --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
+    --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+  }
 }
 
 /* (2) Dark mode (generic; survives THEME swaps).

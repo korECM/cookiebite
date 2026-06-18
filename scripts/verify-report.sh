@@ -8,7 +8,8 @@
 # Usage:  verify-report.sh <path-to-html> [out-dir]
 # Output: <out-dir>/full.png, <out-dir>/tile-NN.png, <out-dir>/checks.json
 #
-# Requires: agent-browser on PATH (lightweight; do NOT substitute Playwright).
+# Requires: agent-browser (lightweight; do NOT substitute Playwright). Resolved from
+# PATH, else `npx -y agent-browser`, else `bunx agent-browser`; prints install help if none.
 set -euo pipefail
 
 HTML="${1:?usage: verify-report.sh <path-to-html> [out-dir]}"
@@ -17,9 +18,19 @@ ABS="$(cd "$(dirname "$HTML")" && pwd)/$(basename "$HTML")"
 OUT="${2:-$(dirname "$ABS")/.verify}"
 URL="file://$ABS"
 S="report-verify-$$"
-rm -rf "$OUT"; mkdir -p "$OUT"
 
-ab(){ agent-browser --session "$S" "$@"; }
+# Resolve an agent-browser runner: PATH binary first, then npx, then bunx.
+if command -v agent-browser >/dev/null 2>&1; then AB="agent-browser"
+elif command -v npx >/dev/null 2>&1 && npx -y agent-browser --version >/dev/null 2>&1; then AB="npx -y agent-browser"
+elif command -v bunx >/dev/null 2>&1 && bunx agent-browser --version >/dev/null 2>&1; then AB="bunx agent-browser"
+else
+  echo "agent-browser not found. Install it with:" >&2
+  echo "    npm i -g agent-browser && agent-browser install" >&2
+  echo "(or make 'npx -y agent-browser' / 'bunx agent-browser' runnable)" >&2
+  exit 127
+fi
+ab(){ $AB --session "$S" "$@"; }
+rm -rf "$OUT"; mkdir -p "$OUT"   # only after the runner resolves, so a missing runner never wipes prior output
 cleanup(){ ab close >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
@@ -77,6 +88,16 @@ if [ "$HAS_DARK" = "true" ]; then
   ab wait 400 >/dev/null 2>&1 || true
   capture dark 1280
   ab eval "window.applyTheme ? applyTheme('light') : (document.documentElement.dataset.theme='light')" >/dev/null 2>&1 || true
+fi
+
+# Theme assert: the rendered --accent must equal the THEME block's declared value.
+# Catches the "source says Persimmon but it renders indigo" class of cascade bugs
+# (a later/un-layered :root silently overriding the THEME block) that screenshots miss.
+DECL="$(grep -oE '\-\-accent:[[:space:]]*#[0-9A-Fa-f]{3,8}' "$ABS" | head -1 | grep -oiE '#[0-9A-Fa-f]{3,8}' | tr 'A-Z' 'a-z')"
+COMP="$(ab eval "getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()" 2>/dev/null | tr -d '[:space:]"' | tr 'A-Z' 'a-z')"
+if [ -n "$DECL" ] && [ -n "$COMP" ] && [ "$DECL" != "$COMP" ]; then
+  echo "⚠ THEME MISMATCH: THEME block declares --accent $DECL but the page renders $COMP." >&2
+  echo "  A later or un-layered :root is overriding the THEME block — check the @layer wrapping / inline order." >&2
 fi
 
 echo "-> $OUT"

@@ -319,8 +319,12 @@
         var arrow = it.delta.dir === 'up' ? 'arrow-up-right' : it.delta.dir === 'down' ? 'arrow-down-right' : 'minus';
         deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold ' + dt.text + '">' +
           iconTag(arrow, 'w-16 h-16') + ' ' + esc(it.delta.text) + '</span>';
-      } else {
+      } else if (it.delta === null) {
+        // explicit null => show the "no baseline" sentinel
         deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-secondary">—</span>';
+      } else {
+        // delta omitted entirely => no badge (avoids a row of stray — when no KPI has a baseline)
+        deltaHtml = '';
       }
 
       var spark = it.spark
