@@ -158,3 +158,43 @@ is remembered in `localStorage`.
 > The token discipline (color/type/spacing/radius) still applies so it reads as
 > the report itself, but reports may use richer data visualization, motion, and graphic
 > treatment than an embedded console screen would. See SKILL.md for the balance.
+
+## Applying & defaulting themes (operational)
+
+### Applying a theme the user pasted (do this yourself — no scripts needed)
+
+The theme studio's "Copy for agent" gives the user a prompt with their `theme.json`
+inline. When a user pastes a theme.json (or its token values) and asks to use/apply it,
+**set the report's THEME block directly from those tokens** — you don't need any script
+or to know where the skill is installed. Map the JSON to the THEME block:
+
+- `font.url` → the font `<link href>`; `font.family` + `font.fallback` → `--font-family`
+- `colors.accent/accentStrong/accentWeak/accentOn` → `--accent` / `--accent-strong` / `--accent-weak` / `--accent-on`
+- the nine neutrals → `--c-bg`, `--c-surface`, `--c-primary`, `--c-secondary`,
+  `--c-disabled`, `--c-placeholder`, `--c-line`, `--c-line-weak`, `--c-disabled-bg`
+- the four semantic → `--c-critical` / `--c-cautionary` / `--c-positive` / `--c-informative`
+- `locale` → `window.REPORT_LOCALE`
+
+Replace the existing `<!-- THEME … -->`…`<!-- end THEME -->` block (or build it into a
+new report). To make it reusable by name, save the JSON to `assets/presets/<name>.json`
+and the user can later just say "use the `<name>` theme". (`scripts/apply-theme.py` does
+the same swap from the CLI if the repo is cloned, but it's optional.)
+
+### Setting / using a default theme
+
+A user can set **one global default theme** that applies to every report from now on.
+
+**Theme priority for a report** (highest wins):
+
+1. A theme/preset the user explicitly asks for in this request.
+2. The user's saved default at `assets/presets/default.json` (in this skill's directory).
+3. The template's built-in default (Persimmon).
+
+- **Using it.** When the user hasn't asked for a specific theme/preset, check whether
+  `assets/presets/default.json` exists; if it does, apply it as the THEME block using the
+  mapping above. Otherwise fall back to the template's built-in default. `default.json` is
+  not shipped, so out of the box this falls through to the built-in default.
+- **Setting it.** When the user says "set this as my default" (typically with a pasted
+  theme.json, e.g. from the studio's "Set as my default" button), write that JSON to
+  `assets/presets/default.json`. Confirm all future reports will use it until they change
+  it — the user reverts by deleting that file or setting a new default.

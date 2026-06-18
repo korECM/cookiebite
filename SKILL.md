@@ -110,9 +110,10 @@ prebuilt Tailwind CSS, which is out of scope.
    A short executive summary up top earns its place when the report is long.
 3. **Pick the theme.** If the user asks for a specific theme/preset, use it. Otherwise,
    if a saved default exists at `assets/presets/default.json`, apply that; failing that,
-   use the neutral theme already in the template. If the user has a brand/preset
-   (e.g. Persimmon) or asks to adjust colors/font, apply it — see "Theming" (including
-   "Setting / using a default theme"). One accent color per report; switch only with a reason.
+   use the template's built-in **Persimmon** default. If the user has a brand/preset or
+   asks to adjust colors/font, apply it — see "Theming" (theme priority, applying a pasted
+   theme, and defaulting are in `references/design-system.md`). One accent per report;
+   switch only with a reason.
 4. **Choose libraries** from `references/libraries.md`. ECharts for rich/interactive
    data, Chart.js for a few simple charts, Alpine.js for tabs/filters/toggles,
    CountUp for hero numbers, AOS for scroll reveal, Grid.js for sortable tables,
@@ -196,86 +197,14 @@ and **out of scope** — hand it off. The boundary: edit → preview → export,
 
 ## Visual & readability craft
 
-The difference between a report that looks AI-generated and one that looks designed
-is a handful of habits. The template already bakes these in — keep them as you fill
-it with real content:
+The habits that make a report read as **designed** rather than AI-generated — leading
+numbers with meaning, takeaway captions, annotated charts, deliberately-sized icons,
+Grid.js tables, `tabular-nums` alignment, capped line length, shallow hierarchy, inline
+jargon tooltips — plus **number/locale formatting**, **accessibility** (never color-alone;
+every chart needs a data-table alternative + `aria-label`), and the **copy-must-match-the-
+visual** rule are all in **`references/craft.md`**. Read it while filling the template with
+real content. The Quality checklist below re-encodes the must-pass items as checkboxes.
 
-- **Lead each number with meaning, not just a figure.** A KPI is a label + the big
-  number + a **delta badge** (`▲/▼` with a semantic color vs the previous period) +
-  a **sparkline**. The reader should see the value *and* its direction at a glance.
-  Only show a delta when you actually have a baseline; never invent one (sentinel over
-  fake zero). In `COOKIEBITE.kpis`, **omit** the `delta` key for no badge at all; pass
-  `delta: null` to render the `—` sentinel. When *no* KPI has a baseline, omit it on all
-  of them — a row of `—` reads as stray underscores, not data.
-- **Give every chart a one-line takeaway caption** above or below it that says what
-  to *notice* ("금·토에 매출이 몰리며 평균을 14% 상회"), not what is plotted. The
-  chart shows the data; the caption delivers the point.
-- **Annotate charts** with reference lines — an average/target `markLine`, a
-  threshold, an event `markArea`. A bare chart makes the reader do the comparison; an
-  annotated one makes the point for them.
-- **Icons earn their keep — and stay small.** A small Lucide icon on each section
-  header or stat card speeds scanning. Size them deliberately and consistently: ~16px
-  inline with body text, ~18–20px on section headings, ~20–24px on a stat card. Give
-  every icon an explicit `width`/`height` (Lucide renders at 24px and scales up
-  otherwise — an unsized icon looks oversized and clumsy next to text). One per
-  section/card is plenty; never let an icon dwarf the number or label beside it.
-- **Use a real table library for data tables.** Anything beyond a tiny 2–3 row table
-  should be a **Grid.js** table (sortable, searchable) rather than a hand-rolled
-  `<table>` with custom sort code — it's less code, fewer bugs, and consistent. Theme it
-  with the accent (see `references/interactions.md` §4). **Paginate only when the data
-  overflows the screen** — Grid.js draws the pager even for one page, so a table that
-  fits ends up with a useless "1–7 / 7 · ‹ 1 ›" strip; turn pagination off (>~15 rows
-  before it earns a pager). Reserve hand-written `<table>` for short, static tables.
-- **Align and digit-pad numbers.** Use `tabular-nums` (the `.nums` class) on anything
-  numeric and right-align numeric columns **together with their headers** so figures
-  line up and stay comparable — don't let a right-aligned header float over left-aligned
-  cells (Grid.js left-aligns by default; right-align the numeric columns explicitly).
-- **Respect line length and rhythm.** Cap prose width (~68ch, the `.prose-measure`
-  class) so paragraphs stay readable; keep consistent vertical spacing between
-  sections; let whitespace separate groups instead of borders everywhere.
-- **Hierarchy is shallow and obvious.** One headline, clear section titles, then
-  content. Don't nest headings deeply — console-style reports read fast.
-- **Define jargon inline when the audience is mixed.** If a technical report will be
-  read by non-experts too (execs, other teams), mark technical terms with a dotted
-  underline + a hover/focus tooltip giving a plain-language definition (glossary
-  tooltips, `references/interactions.md` §11). Experts skim past; everyone else gets
-  help without dumbing down the report. Tag a term once, only real jargon.
-
-### Number & locale formatting
-
-Inconsistent number formatting is an instant tell. Be consistent:
-
-- Thousands separators on every count (`184,302`, not `184302`) — use the runtime's
-  `COOKIEBITE.nf`/`COOKIEBITE.money` helpers (`Intl.NumberFormat`, locale-driven).
-- Korean money reads better in units: `₩24.2억` / `₩412만`, not `₩2,418,500,000` in a
-  card. Use `COOKIEBITE.moneyShort()` for headline figures; keep full precision in
-  tables/tooltips. (`won`/`wonShort` exist as aliases of `money`/`moneyShort` for
-  older snippets.)
-- Pick a decimal precision per metric and hold it (`97.07%` everywhere, not `97%`
-  here and `97.1%` there). Percentage-point deltas use `%p`, ratio deltas use `%`.
-- Currency symbol and unit stay attached and never wrap mid-figure (`whitespace-nowrap`,
-  small unit suffix) — see the 매출 card in the template.
-
-### Accessibility (not optional, and it makes reports better for everyone)
-
-- **Never communicate status by color alone** — a core design-system principle and an
-  a11y baseline (colorblind readers, grayscale printouts). Pair every colored status with
-  an icon or a text label: a green dot becomes `✓ 정상`, a red cell becomes a tag
-  reading `위험`. The semantic color reinforces; it doesn't carry the meaning alone.
-- **Give every chart a data-table alternative.** A canvas/SVG chart is invisible to
-  screen readers and hides exact numbers. Add a "표로 보기" toggle that reveals the
-  same data as a real `<table>` (pattern in `references/interactions.md` §10), and
-  put an `aria-label` on the chart container summarizing what it shows. This helps
-  sighted readers too — they can read precise figures when the chart only shows shape.
-- **Keep contrast and targets sane**: the theme's text grays on white already pass;
-  don't put `text-secondary` on a colored fill. Interactive controls should be real `<button>`s.
-
-### Copy must match the visual
-
-State only what the chart actually renders. If the caption says "버블 크기는 볼륨을
-나타냅니다", the chart had better encode volume as bubble size — a bar chart with that
-caption is a bug. After building, re-read each caption/label against its chart and fix
-mismatches. The visual self-check is where you catch these.
 
 ## Visual self-check (required)
 
@@ -294,7 +223,7 @@ small collisions that matter most:
 bash scripts/verify-report.sh <path-to-report>.html
 # captures TWO viewports so responsive breakage shows up too, + a dark pass:
 #   <dir>/.verify/full-desktop.png, desktop-tile-00.png, …   (1280px, primary)
-#   <dir>/.verify/full-narrow.png,  narrow-tile-00.png,  …   (768px, responsive)
+#   <dir>/.verify/full-narrow.png,  narrow-tile-00.png,  …   (390px, mobile stack)
 #   <dir>/.verify/full-dark.png,    dark-tile-00.png,    …   (1280px, dark — if toggle present)
 #   plus checks-desktop.json / checks-narrow.json / checks-dark.json
 ```
@@ -381,44 +310,13 @@ the OS preference and any saved choice on load. The toggle still lets the reader
   10-preset gallery (click to preview + apply instantly), per-token pickers, and a
   preview. It persists to `localStorage`, so their last theme is remembered.
 
-- **Applying a theme the user pasted (do this yourself — no scripts needed).** The
-  studio's "Copy for agent" gives the user a prompt with their `theme.json` inline.
-  When a user pastes a theme.json (or its token values) and asks to use/apply it,
-  **set the report's THEME block directly from those tokens** — you don't need any
-  script or to know where the skill is installed. Map the JSON to the THEME block:
-  - `font.url` → the font `<link href>`; `font.family` + `font.fallback` → `--font-family`
-  - `colors.accent/accentStrong/accentWeak/accentOn` → `--accent` / `--accent-strong` / `--accent-weak` / `--accent-on`
-  - the nine neutrals → `--c-bg`, `--c-surface`, `--c-primary`, `--c-secondary`,
-    `--c-disabled`, `--c-placeholder`, `--c-line`, `--c-line-weak`, `--c-disabled-bg`
-  - the four semantic → `--c-critical` / `--c-cautionary` / `--c-positive` / `--c-informative`
-  - `locale` → `window.REPORT_LOCALE`
-  Replace the existing `<!-- THEME … -->`…`<!-- end THEME -->` block (or build it into a
-  new report). To make it reusable by name, save the JSON to `assets/presets/<name>.json`
-  and the user can later just say "use the `<name>` theme". (`scripts/apply-theme.py`
-  does the same swap from the CLI if the repo is cloned, but it's optional.)
+- **Applying a pasted theme.json, or setting a global default** — the token-to-THEME-block
+  mapping and the default-theme mechanism (`assets/presets/default.json`; priority:
+  explicit request > saved default > the template's built-in Persimmon) live in
+  **`references/design-system.md` -> "Applying & defaulting themes"**. In short: map the
+  JSON's font/accent/neutrals/semantic/locale onto the THEME block's `:root` +
+  `REPORT_LOCALE`; to set a global default, write the JSON to `assets/presets/default.json`.
 
-### Setting / using a default theme
-
-A user can set **one global default theme** that applies to every report they make from
-now on, separate from the per-report "Copy for agent" apply above.
-
-**Theme priority for a report** (highest wins):
-
-1. A theme/preset the user explicitly asks for in this request.
-2. The user's saved default at `assets/presets/default.json` (in this skill's directory).
-3. The template's built-in default (Persimmon).
-
-- **Using it.** When the user hasn't asked for a specific theme/preset for a report,
-  check whether `assets/presets/default.json` exists in this skill's directory. If it
-  does, apply it as the report's THEME block using the same token→THEME-block mapping
-  documented just above. Otherwise fall back to the template's built-in default.
-  `default.json` is not shipped, so out of the box this falls through to the built-in
-  default.
-- **Setting it.** When the user says "set this as my default" / "make this my default
-  theme" (typically with a pasted theme.json, e.g. from the theme studio's "Set as my
-  default" button), write that JSON to this skill's `assets/presets/default.json`.
-  Confirm that all future reports will use it until they change it — the user reverts by
-  deleting that file or setting a new default.
 
 ## Building blocks (compose these; don't copy literally)
 
@@ -529,7 +427,7 @@ Before handing over, verify:
 - [ ] Reads as designed and on-theme: restrained surfaces, clear shallow hierarchy, scannable layout.
 - [ ] Has a sticky TOC sidebar when there are 3+ sections, with active-section highlighting.
 - [ ] Status/semantic colors follow the **`tone` contract** (neutral/info/success/warning/critical → the four semantic tokens) consistently across pills, callouts, deltas, findings, and rows — see `references/components.md`.
-- [ ] Responsive: survives the 768px narrow pass (TOC collapses, cards stack, no overflow/clipping).
+- [ ] Responsive: survives the 390px narrow pass (TOC collapses, cards stack, no overflow/clipping).
 - [ ] **Dark mode reads**: the toggle flips cleanly, charts re-theme (axes/grid legible, no blown contrast), and status colors still pass — confirmed in the verify script's dark pass.
 - [ ] **Rendered and visually verified** with `scripts/verify-report.sh`: desktop + narrow tiles read; no label overlap / clipped text / broken charts / edge bleed / copy↔visual mismatch; issues fixed.
 
@@ -557,6 +455,9 @@ Before handing over, verify:
   holds each brand's full source design spec for deep-fidelity theming.
 - `scripts/verify-report.sh` — render + sectioned screenshots (desktop + narrow) for
   the required visual self-check.
+- `references/craft.md` — visual & readability craft (KPI/caption/icon/table
+  habits), number & locale formatting, accessibility, and the copy-must-match rule.
+  Read while filling the template with real content.
 - `references/design-system.md` — the design-token model + a documented reference
   preset (Persimmon) with exact values. Read for token meanings or concrete preset values.
 - `references/libraries.md` — CDN catalog for charts, interactivity, motion, tables,
