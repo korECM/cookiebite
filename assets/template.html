@@ -1,19 +1,31 @@
 <!doctype html>
 <!--
-  HTML Report — design-system-agnostic reference template.
-  This is a COMPLETE, verified skeleton. Start here and replace the sample content;
-  keep the structure (TOC shell, Tailwind config, number helpers, chart theme,
-  IntersectionObserver TOC). Everything marked  ‹REPLACE›  is placeholder data.
+  cookiebite report template — SLIM. Invariant boilerplate (Tailwind config, number
+  helpers, baseChart, dark toggle, TOC observer, KPI hydration) lives in the hosted
+  runtime (assets/cookiebite.js + cookiebite.css), loaded via CDN or inlined by
+  scripts/inline.sh — 0 model tokens.
+
+  Author by:  cp assets/template.html my-report.html  →  surgical Edit into the
+  COOKIEBITE:* slot markers below. Use the fast-path helpers
+  (COOKIEBITE.kpis/findings/timeline/table/chart/pill/callout) for repetitive
+  sections; drop to raw HTML + exposed primitives (baseChart, css, accentRgba,
+  registerChart, the CSS-var tokens) for anything bespoke. Both share one accent
+  and a working dark toggle.
+
   Re-theme the whole report by swapping the THEME block in <head> (design one with
-  assets/theme-studio.html and paste its "Copy CSS" output). Default = Persimmon preset.
+  assets/theme-studio.html and paste its "Copy CSS" output, or run
+  scripts/apply-theme.py).
 -->
 <html lang="ko">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>‹REPLACE› 주간 지표 리포트</title>
+<!-- COOKIEBITE:TITLE --><title>‹REPLACE› 주간 지표 리포트</title><!-- /COOKIEBITE:TITLE -->
 
-<!-- THEME — preset: Persimmon. Swap this block to re-theme (see assets/theme-studio.html). -->
+<!-- COOKIEBITE:HEAD-THEME -->
+<!-- THEME — preset: Persimmon. The ONLY model-authored theme tokens. Swap to re-theme
+     (assets/theme-studio.html / scripts/apply-theme.py rewrites this block).
+     Kept INLINE + synchronous so the correct accent+neutrals apply at first paint (FOUC-proof). -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
 <style>
   :root{
@@ -23,105 +35,65 @@
     --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
   }
 </style>
-<script>window.REPORT_LOCALE = {'number': 'ko-KR', 'currency': 'KRW', 'symbol': '\u20a9', 'bigUnits': true};</script>
+<script>window.REPORT_LOCALE = {'number': 'ko-KR', 'currency': 'KRW', 'symbol': '₩', 'bigUnits': true};</script>
 <!-- end THEME -->
+<!-- /COOKIEBITE:HEAD-THEME -->
 
+<!-- cookiebite runtime — DO NOT EDIT / DO NOT REORDER.
+     Tailwind Play CDN must load FIRST; cookiebite.js then sets tailwind.config (the CDN
+     reads it before its scan). cookiebite.js carries no defer/module so it runs in order.
+     These two cookiebite lines are PLACEHOLDERS: scripts/inline.sh folds the runtime in
+     from the skill's local assets/ to produce the self-contained deliverable. The raw
+     report is non-functional until inlined — always run inline.sh before handing over. -->
 <script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/countup.js@2/dist/countUp.umd.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
-<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="stylesheet" href="./assets/cookiebite.css" />
+<script src="./assets/cookiebite.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.js"></script>
+<!-- @alpinejs/collapse must load BEFORE Alpine core (defer preserves order) — COOKIEBITE.timeline uses x-collapse -->
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.1/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 
-<!-- Glossary tooltips (Tippy.js + Popper) — dotted-underline jargon → plain-language definition on hover/focus -->
-<link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
-<script src="https://unpkg.com/@popperjs/core@2"></script>
-<script src="https://unpkg.com/tippy.js@6"></script>
-
-<style>
-  /* ===== Dark mode (generic; survives THEME swaps) =====
-     Lives OUTSIDE the THEME block on purpose: it derives from --accent via
-     color-mix, so EVERY preset gets a dark variant for free — no per-preset
-     dark JSON to maintain. Only neutrals + accent-weak are overridden; the
-     accent itself stays, keeping brand identity in both modes. Toggle flips
-     html[data-theme]; charts re-theme in JS (readThemeVars/renderTrend). */
-  html[data-theme="dark"]{
-    --accent-weak: color-mix(in srgb, var(--accent) 22%, #16161a);
-    --c-bg:#101013;  --c-surface:#1a1a1f;  --c-primary:#F1F1F4;  --c-secondary:#AEAEB6;
-    --c-disabled:#6E6E78;  --c-placeholder:#5A5A63;  --c-line:#3A3A42;  --c-line-weak:#2A2A30;  --c-disabled-bg:#26262C;
-    /* nudge semantic hues brighter so they read on a dark surface */
-    --c-critical:#F2555A;  --c-cautionary:#F5C544;  --c-positive:#4FBB60;  --c-informative:#4DA3FF;
-  }
-  /* smooth the flip; respect reduced-motion */
-  html:not([data-theme="dark"]) body, html[data-theme="dark"] body{ transition:background-color .25s ease, color .25s ease; }
-  @media (prefers-reduced-motion: reduce){ body{ transition:none !important; } }
-
-  html{ scroll-behavior:smooth; }
-  body{ font-family:var(--font-family); letter-spacing:-0.01em; }
-  /* tabular-nums keeps figures vertically aligned in cards and tables */
-  .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
-  /* cap prose line length for readability */
-  .prose-measure{ max-width:68ch; }
-  [x-cloak]{ display:none !important; }
-  .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-
-  /* glossary term: dotted underline in the accent, themed from CSS vars */
-  .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
-  /* theme the tooltip to the report — bg/text are token-swapped so it stays
-     readable in dark mode too (c-primary↔c-surface invert together). */
-  .tippy-box[data-theme~='report']{ background:var(--c-primary); color:var(--c-surface); border-radius:12px; font-size:13px; line-height:1.5; }
-  .tippy-box[data-theme~='report'] .tippy-content{ padding:10px 12px; }
-  .tippy-box[data-theme~='report'] .tippy-arrow{ color:var(--c-primary); }
-</style>
-<script>
-  tailwind.config = { theme: { extend: {
-    colors: {
-      bg:'var(--c-bg)', surface:'var(--c-surface)', primary:'var(--c-primary)', secondary:'var(--c-secondary)',
-      'text-disabled':'var(--c-disabled)', placeholder:'var(--c-placeholder)',
-      line:'var(--c-line)', 'line-weak':'var(--c-line-weak)', 'disabled-bg':'var(--c-disabled-bg)',
-      critical:'var(--c-critical)', cautionary:'var(--c-cautionary)', positive:'var(--c-positive)', informative:'var(--c-informative)',
-      accent:'var(--accent)', 'accent-strong':'var(--accent-strong)',
-      'accent-weak':'var(--accent-weak)', 'accent-on':'var(--accent-on)',
-    },
-    borderColor:{ DEFAULT:'var(--c-line-weak)' },
-    borderRadius:{ xxs:'4px', xs:'8px', small:'12px', medium:'16px', large:'24px', xlarge:'32px' },
-    boxShadow:{ xs:'0 1px 2px rgba(0,0,0,0.5)', sm:'0 2px 8px rgba(0,0,0,0.15)',
-                md:'0 8px 20px rgba(0,0,0,0.12)', lg:'0 7px 30px rgba(0,0,0,0.2)' },
-    spacing:{ '2':'2px','4':'4px','6':'6px','8':'8px','10':'10px','12':'12px','16':'16px',
-              '20':'20px','24':'24px','28':'28px','32':'32px','40':'40px','48':'48px',
-              '56':'56px','64':'64px','72':'72px' },
-    fontSize:{ 'caption-12':['12px','16px'],'body-14':['14px','20px'],'body-16':['16px','24px'],
-               'body-18':['18px','26px'],'title-20':['20px','28px'],'title-24':['24px','30px'],
-               'title-28':['28px','36px'],'headline-36':['36px','44px'],'headline-48':['48px','56px'] },
-  } } }
-</script>
+<!-- COOKIEBITE:HEAD-LIBS -->
+<!-- OPTIONAL libs — add/remove here. Remove if unused. -->
+<!-- Grid.js (COOKIEBITE.table needs this) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/theme/mermaid.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.umd.js"></script>
+<!-- Glossary tooltips (Tippy.js + Popper) — dotted-underline jargon → definition on hover/focus -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.css" />
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.umd.min.js"></script>
+<!-- /COOKIEBITE:HEAD-LIBS -->
 </head>
 <body class="bg-bg text-primary">
-<!-- light/dark toggle — flips html[data-theme]; charts re-theme in JS -->
-<button id="themeToggle" type="button" aria-label="라이트/다크 전환"
-        class="fixed top-16 right-16 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition">
-  <i data-lucide="moon" class="w-20 h-20"></i>
-</button>
+<!-- light/dark toggle is injected by the runtime if absent; charts re-theme via the registry -->
 <div class="mx-auto max-w-[1400px] px-24">
   <!-- flex-row-reverse puts the TOC on the RIGHT while keeping it first in DOM order -->
   <div class="flex flex-row-reverse gap-40">
 
-    <!-- ===== TOC sidebar — right rail (drop if <3 sections) ===== -->
+    <!-- ===== TOC sidebar — right rail (drop the whole <nav> if <3 sections) ===== -->
     <nav class="hidden lg:block w-[190px] shrink-0">
       <div class="sticky top-24 py-40">
         <p class="text-caption-12 text-text-disabled mb-12 pl-12">목차</p>
+        <!-- COOKIEBITE:TOC -->
         <ul id="toc" class="space-y-2 text-body-14">
-          <!-- one <li> per section id -->
-          <li><a href="#summary" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">개요</a></li>
-          <li><a href="#trend"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">일별 추이</a></li>
-          <li><a href="#detail"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">채널별 분석</a></li>
+          <!-- one <li> per section id; the runtime auto-wires the active-section observer -->
+          <li><a href="#summary"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">개요</a></li>
+          <li><a href="#trend"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">일별 추이</a></li>
+          <li><a href="#findings" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">발견사항</a></li>
+          <li><a href="#timeline" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">타임라인</a></li>
+          <li><a href="#detail"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">채널별 분석</a></li>
+          <li><a href="#bespoke"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">심화 분석</a></li>
         </ul>
+        <!-- /COOKIEBITE:TOC -->
       </div>
     </nav>
 
     <!-- ===== main column ===== -->
     <main class="min-w-0 flex-1 py-40">
 
-      <!-- header -->
+      <!-- COOKIEBITE:HEADER -->
       <header class="mb-40">
         <div class="flex flex-wrap items-center gap-8 mb-16">
           <span class="px-10 py-4 rounded-xxs bg-accent text-accent-on text-caption-12 font-semibold">‹REPLACE› 주간</span>
@@ -132,253 +104,204 @@
           ‹REPLACE› 한 줄 핵심 요약 — 결제 매출이 전주 대비 9.7% 늘며 ₩2.4억을 기록, 주말 집중 패턴이 뚜렷합니다.
         </p>
       </header>
+      <!-- /COOKIEBITE:HEADER -->
 
-      <!-- ===== section: summary + KPI cards ===== -->
+      <!-- COOKIEBITE:SECTIONS -->
+
+      <!-- ===== FAST PATH: KPI grid via COOKIEBITE.kpis (host filled by the report script) ===== -->
       <section id="summary" class="scroll-mt-24 mb-56">
         <div class="flex items-center gap-8 mb-20">
           <i data-lucide="gauge" class="w-20 h-20 text-accent"></i>
           <h2 class="text-title-24 font-bold">핵심 지표</h2>
         </div>
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-16">
-          <!-- KPI card: label · big number (CountUp) · delta badge · sparkline -->
-          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
-            <p class="text-body-14 text-secondary">결제 성공률</p>
-            <div class="flex items-end gap-8 mt-8">
-              <span class="text-headline-36 font-bold nums" data-countup="97.07" data-suffix="%">0</span>
-              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-positive">
-                <i data-lucide="arrow-up-right" class="w-16 h-16"></i> 0.67%p
-              </span>
-            </div>
-            <div class="h-32 mt-12" data-spark='[96.1,96.4,96.2,96.8,97.0,96.9,97.07]'></div>
-          </div>
-          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
-            <p class="text-body-14 text-secondary">결제 매출</p>
-            <div class="flex items-end gap-8 mt-8">
-              <!-- long figures: keep the number big, the unit small, never let it wrap -->
-              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">
-                ₩<span data-countup="2.4">0</span><span class="text-title-20 text-secondary font-semibold">억</span>
-              </span>
-              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-positive">
-                <i data-lucide="arrow-up-right" class="w-16 h-16"></i> 9.7%
-              </span>
-            </div>
-            <div class="h-32 mt-12" data-spark='[2050,2120,2090,2205,2260,2300,2418]'></div>
-          </div>
-          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
-            <p class="text-body-14 text-secondary">환불액</p>
-            <div class="flex items-end gap-8 mt-8">
-              <span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">
-                ₩<span data-countup="4120">0</span><span class="text-title-20 text-secondary font-semibold">만</span>
-              </span>
-              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-critical">
-                <i data-lucide="arrow-up-right" class="w-16 h-16"></i> 4.1%
-              </span>
-            </div>
-            <div class="h-32 mt-12" data-spark='[3.1,2.9,3.4,3.6,3.9,4.0,4.12]'></div>
-          </div>
-          <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
-            <p class="text-body-14 text-secondary"><span class="gloss" tabindex="0" role="button" data-tippy-content="결제 거절은 고객의 카드사나 은행이 결제 승인을 거부한 경우입니다 — 예: 한도 초과, 부정사용 차단, 카드 만료 등. 이 경우 결제 자체가 이루어지지 않습니다.">결제 거절</span> 건수</p>
-            <div class="flex items-end gap-8 mt-8">
-              <span class="text-headline-36 font-bold nums" data-countup="5402" data-suffix="건">0</span>
-              <span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-secondary">—</span>
-            </div>
-            <div class="h-32 mt-12" data-spark='[820,760,910,880,1010,640,382]'></div>
-          </div>
-        </div>
+        <div id="kpiGrid"></div>
       </section>
 
-      <!-- ===== section: chart with avg markLine + takeaway caption + view toggle ===== -->
-      <section id="trend" class="scroll-mt-24 mb-56" x-data="{ mode:'amount', table:false }" x-init="$watch('mode', () => renderTrend(mode))">
-        <div class="flex items-center justify-between gap-12 mb-20">
-          <div class="flex items-center gap-8">
-            <i data-lucide="trending-up" class="w-20 h-20 text-accent"></i>
-            <h2 class="text-title-24 font-bold">일별 추이</h2>
-          </div>
-          <div class="flex items-center gap-12 text-body-14">
-            <div class="flex gap-6">
-              <button @click="mode='amount'" :class="mode==='amount' ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'" class="px-12 py-6 rounded-small transition">매출</button>
-              <button @click="mode='count'"  :class="mode==='count'  ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'" class="px-12 py-6 rounded-small transition">환불</button>
-            </div>
-            <!-- accessibility: exact values + screen-reader alternative -->
-            <button @click="table=!table" :aria-pressed="table" class="text-caption-12 text-secondary hover:text-primary" x-text="table ? '차트로 보기' : '표로 보기'"></button>
-          </div>
+      <!-- ===== FAST PATH: chart wrapper via COOKIEBITE.chart (option hand-written) ===== -->
+      <section id="trend" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="trending-up" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">일별 추이</h2>
         </div>
-        <!-- takeaway caption: tell the reader what to SEE, not just what's plotted -->
-        <p class="text-body-14 text-secondary mb-12 prose-measure">매출은 금~토에 집중되며 평일 평균(점선) 대비 약 14% 높습니다. <span class="gloss" tabindex="0" role="button" data-tippy-content="환불은 완료된 결제 금액의 전부 또는 일부를 고객에게 되돌려주는 것입니다. 이미 인식한 매출을 되돌리므로, 환불 건수가 늘면 순매출이 줄어듭니다.">환불</span> 건수도 같은 구간에서 함께 증가합니다.</p>
-        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
-          <div x-show="!table"><div id="trendChart" role="img" aria-label="일별 매출 및 환불 추이 막대 차트" class="h-72" style="height:300px"></div></div>
-          <div x-show="table" x-cloak>
-            <table class="w-full text-body-14 nums">
-              <caption class="sr-only">일별 매출(만원)과 환불 건수</caption>
-              <thead class="text-secondary text-left"><tr><th class="py-8 font-medium">요일</th><th class="py-8 font-medium text-right">매출 (만원)</th><th class="py-8 font-medium text-right">환불 (건)</th></tr></thead>
-              <tbody id="trendTableBody" class="divide-y divide-line-weak"></tbody>
-            </table>
-          </div>
-        </div>
+        <div id="trendChart"></div>
       </section>
 
-      <!-- ===== section: sortable table ===== -->
+      <!-- ===== FAST PATH: severity findings via COOKIEBITE.findings ===== -->
+      <section id="findings" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="list-checks" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">발견사항</h2>
+        </div>
+        <div id="findingsList"></div>
+      </section>
+
+      <!-- ===== FAST PATH: timeline via COOKIEBITE.timeline ===== -->
+      <section id="timeline" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="clock" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">타임라인</h2>
+        </div>
+        <div id="incidentTimeline"></div>
+      </section>
+
+      <!-- ===== FAST PATH: Grid.js table via COOKIEBITE.table (status cells via pill) ===== -->
       <section id="detail" class="scroll-mt-24 mb-56">
         <div class="flex items-center gap-8 mb-20">
           <i data-lucide="table-2" class="w-20 h-20 text-accent"></i>
           <h2 class="text-title-24 font-bold">채널별 분석</h2>
         </div>
-        <div class="overflow-hidden rounded-medium border border-line-weak">
-          <table class="w-full text-body-14 nums">
-            <thead class="bg-disabled-bg text-secondary text-left">
-              <tr><th class="px-16 py-12 font-medium">결제 채널</th><th class="px-16 py-12 font-medium text-right">성공률</th><th class="px-16 py-12 font-medium text-right">거래 건수</th><th class="px-16 py-12 font-medium">상태</th></tr>
-            </thead>
-            <tbody class="divide-y divide-line-weak">
-              <!-- status: color + icon + label (never color alone) -->
-              <tr><td class="px-16 py-12">카카오페이</td><td class="px-16 py-12 text-right">98.1%</td><td class="px-16 py-12 text-right">72,000</td><td class="px-16 py-12"><span class="inline-flex items-center gap-4 px-8 py-2 rounded-xxs bg-positive/10 text-positive text-caption-12"><i data-lucide="check" class="w-16 h-16"></i>정상</span></td></tr>
-              <tr><td class="px-16 py-12">네이버페이</td><td class="px-16 py-12 text-right">96.4%</td><td class="px-16 py-12 text-right">31,500</td><td class="px-16 py-12"><span class="inline-flex items-center gap-4 px-8 py-2 rounded-xxs bg-positive/10 text-positive text-caption-12"><i data-lucide="check" class="w-16 h-16"></i>정상</span></td></tr>
-              <tr><td class="px-16 py-12">신용카드</td><td class="px-16 py-12 text-right">94.1%</td><td class="px-16 py-12 text-right">9,402</td><td class="px-16 py-12"><span class="inline-flex items-center gap-4 px-8 py-2 rounded-xxs bg-cautionary/15 text-cautionary text-caption-12"><i data-lucide="alert-triangle" class="w-16 h-16"></i>주의</span></td></tr>
-            </tbody>
-          </table>
+        <div id="detailTable"></div>
+      </section>
+
+      <!-- ===== ESCAPE HATCH: a wholly hand-written section using exposed primitives.
+           Proves FREEDOM — raw HTML, a raw @keyframes reaching color-mix(var(--accent)…),
+           and a hand-written ECharts chart registered for dark re-theme. ===== -->
+      <section id="bespoke" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20">
+          <i data-lucide="activity" class="w-20 h-20 text-accent"></i>
+          <h2 class="text-title-24 font-bold">심화 분석</h2>
+        </div>
+
+        <!-- (a) bespoke @keyframes reaching the CSS-var tokens — auto dark-aware -->
+        <style>
+          @keyframes cbPulse{
+            0%,100%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
+            50%    { box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
+          }
+          .pulse-dot{ width:10px; height:10px; border-radius:9999px; background:var(--accent);
+                      border:1px solid var(--c-line); animation:cbPulse 2s ease-in-out infinite; }
+          @media (prefers-reduced-motion: reduce){ .pulse-dot{ animation:none; } }
+        </style>
+        <div class="flex items-center gap-10 mb-16">
+          <span class="pulse-dot"></span>
+          <span class="text-body-14 text-secondary">실시간 모니터링 — accent/line 토큰으로 칠해져 다크 모드에서도 그대로 따라옵니다.</span>
+        </div>
+
+        <!-- (b) a callout via the string helper -->
+        <div id="bespokeCallout" class="mb-16"></div>
+
+        <!-- (c) a hand-written ECharts chart built WITHOUT COOKIEBITE.chart -->
+        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
+          <div id="latencyChart" role="img" aria-label="응답 지연(p95) 추이" style="height:300px"></div>
         </div>
       </section>
 
+      <!-- /COOKIEBITE:SECTIONS -->
+
+      <!-- COOKIEBITE:FOOTER -->
       <footer class="pt-24 border-t border-line-weak text-caption-12 text-text-disabled">
         ‹REPLACE› 생성일 2026-06-15 · 데이터 출처: 결제 데이터 웨어하우스
       </footer>
+      <!-- /COOKIEBITE:FOOTER -->
     </main>
   </div>
 </div>
 
+<!-- COOKIEBITE:REPORT-SCRIPT -->
 <script>
-  // ---- locale-aware number helpers (driven by window.REPORT_LOCALE) ----
-  const L = window.REPORT_LOCALE || { number:'en-US', currency:'USD', symbol:'$', bigUnits:false };
-  const nf = new Intl.NumberFormat(L.number);
-  const money = (n) => L.symbol + nf.format(n);
-  const moneyShort = (n) => L.bigUnits
-    ? (n>=1e8 ? (n/1e8).toFixed(1).replace(/\.0$/,'')+'억' : n>=1e4 ? Math.round(n/1e4)+'만' : nf.format(n))
-    : (n>=1e9 ? (n/1e9).toFixed(1).replace(/\.0$/,'')+'B' : n>=1e6 ? (n/1e6).toFixed(1).replace(/\.0$/,'')+'M' : n>=1e3 ? (n/1e3).toFixed(1).replace(/\.0$/,'')+'K' : nf.format(n));
+  // The ONLY JS the model authors. All invariant JS lives in cookiebite.js.
+  document.addEventListener('DOMContentLoaded', function () {
+    var CB = window.COOKIEBITE;
 
-  // ---- shared ECharts theme (accent + neutral grid + report font) ----
-  // Canvas charts don't follow CSS vars, so we read the tokens into JS and
-  // re-read them on a dark/light toggle (readThemeVars). Accent is unchanged
-  // across modes; only the neutral grid/axis/text colors flip.
-  const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-  let ACCENT, ACCENT_STRONG, C_LINE, C_SECONDARY, C_NEUTRAL, FONT, baseChart;
-  function readThemeVars(){
-    ACCENT = css('--accent'); ACCENT_STRONG = css('--accent-strong');
-    C_LINE = css('--c-line-weak') || '#E4E4E7'; C_SECONDARY = css('--c-secondary') || '#52525B';
-    C_NEUTRAL = css('--c-disabled') || '#A1A1AA';
-    FONT = css('--font-family') || 'Inter, sans-serif';
-    baseChart = {
-      color:[ACCENT, ACCENT_STRONG, C_NEUTRAL, C_SECONDARY],
-      textStyle:{ fontFamily:FONT },
-      grid:{ left:8, right:16, top:24, bottom:8, containLabel:true },
-      tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' } },
-      xAxis:{ axisLine:{ lineStyle:{ color:C_LINE } }, axisTick:{ show:false }, axisLabel:{ color:C_SECONDARY } },
-      yAxis:{ splitLine:{ lineStyle:{ color:C_LINE } }, axisLabel:{ color:C_SECONDARY } },
-    };
-  }
-  readThemeVars();
-  // accent as rgba for sparkline fills (handles #RGB and #RRGGBB)
-  const accentRgba = (a) => {
-    let h = ACCENT.replace('#','');
-    if (h.length === 3) h = h.split('').map(c=>c+c).join('');
-    const r = parseInt(h.slice(0,2),16), g = parseInt(h.slice(2,4),16), b = parseInt(h.slice(4,6),16);
-    return `rgba(${r},${g},${b},${a})`;
-  };
+    /* ---- FAST PATH: KPI grid ---- */
+    CB.kpis('#kpiGrid', [
+      { label: '결제 성공률', value: 97.07, suffix: '%',
+        delta: { dir: 'up', text: '0.67%p', tone: 'success' },
+        spark: [96.1, 96.4, 96.2, 96.8, 97.0, 96.9, 97.07] },
+      { label: '결제 매출', value: 2.4, prefix: '₩', unit: '억',
+        delta: { dir: 'up', text: '9.7%', tone: 'success' },
+        spark: [2050, 2120, 2090, 2205, 2260, 2300, 2418] },
+      { label: '환불액', value: 4120, prefix: '₩', unit: '만',
+        delta: { dir: 'up', text: '4.1%', tone: 'critical' },
+        spark: [3.1, 2.9, 3.4, 3.6, 3.9, 4.0, 4.12] },
+      { label: '결제 거절 건수', value: 5402, suffix: '건', delta: null,
+        gloss: '결제 거절은 고객의 카드사나 은행이 결제 승인을 거부한 경우입니다 — 예: 한도 초과, 부정사용 차단, 카드 만료 등.',
+        spark: [820, 760, 910, 880, 1010, 640, 382] },
+    ]);
 
-  // ---- KPI count-up + sparklines ----
-  function initCards(){
-    document.querySelectorAll('[data-countup]').forEach(el => {
-      const end = parseFloat(el.dataset.countup);
-      new countUp.CountUp(el, end, { duration:1.4, decimalPlaces:(end%1?2:0),
-        prefix:el.dataset.prefix||'', suffix:el.dataset.suffix||'' }).start();
+    /* ---- FAST PATH: chart wrapper (option HAND-WRITTEN; markLine + dataZoom author-owned) ---- */
+    var days = ['월', '화', '수', '목', '금', '토', '일'];
+    var amount = [3200, 2980, 3450, 3600, 4100, 3800, 3050];
+    var avg = amount.reduce(function (a, b) { return a + b; }, 0) / amount.length;
+    CB.chart('#trendChart', {
+      ariaLabel: '일별 매출 막대 차트',
+      caption: '매출은 금~토에 집중되며 평일 평균(점선) 대비 약 14% 높습니다.',
+      option: {
+        grid: { bottom: 48 },
+        xAxis: { type: 'category', data: days },
+        yAxis: { type: 'value' },
+        dataZoom: [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 6 }],
+        series: [{
+          type: 'bar', data: amount, barWidth: '48%',
+          itemStyle: { color: CB.theme.ACCENT, borderRadius: [4, 4, 0, 0] },
+          markLine: {
+            symbol: 'none', lineStyle: { type: 'dashed', color: CB.theme.C_NEUTRAL },
+            label: { position: 'insideStartTop', formatter: '평균 ' + CB.nf.format(Math.round(avg)) + '만원', color: CB.theme.C_SECONDARY },
+            data: [{ yAxis: avg }],
+          },
+        }],
+      },
+      table: {
+        columns: ['요일', '매출 (만원)'],
+        rows: days.map(function (d, i) { return [d, CB.nf.format(amount[i])]; }),
+      },
     });
-    document.querySelectorAll('[data-spark]').forEach(el => {
-      const data = JSON.parse(el.dataset.spark);
-      const c = echarts.init(el);
-      c.setOption({ grid:{ left:0, right:0, top:2, bottom:2 },
-        xAxis:{ type:'category', show:false, data:data.map((_,i)=>i) },
-        yAxis:{ type:'value', show:false, scale:true },
-        series:[{ type:'line', data, smooth:true, symbol:'none',
-          lineStyle:{ width:2, color:ACCENT },
-          areaStyle:{ color:accentRgba(0.10) } }] });
-      sparks.push(c);
+
+    /* ---- FAST PATH: severity findings ---- */
+    CB.findings('#findingsList', [
+      { tone: 'critical', title: '환불 경로에 멱등 키가 없어 재시도 시 이중 환불 가능', where: 'refund.ts:42', note: '재시도 미들웨어가 동일 요청을 두 번 커밋' },
+      { tone: 'warning', title: '신용카드 채널 성공률이 임계값(95%) 아래로 하락', where: 'psp/card.ts:118' },
+      { tone: 'info', title: '주말 트래픽이 평일 대비 1.4배 — 오토스케일 여유 확인 권장' },
+    ], { filter: true });
+
+    /* ---- FAST PATH: timeline ---- */
+    CB.timeline('#incidentTimeline', [
+      { t: '14:02', kind: 'start', title: '결제 지연 알림 발생', sub: 'p95 응답시간 1.2s → 4.8s' },
+      { t: '14:09', kind: 'cause', title: 'PSP 커넥션 풀 고갈 확인', detail: '재시도 폭주로 풀이 막혀 신규 요청이 대기열에 적체.' },
+      { t: '14:21', kind: 'action', title: '커넥션 풀 상향 + 재시도 백오프 적용', detail: '풀 50→120, 지수 백오프 상한 추가.' },
+      { t: '14:35', kind: 'resolved', title: 'p95 정상 복귀', sub: '4.8s → 0.9s' },
+    ]);
+
+    /* ---- FAST PATH: Grid.js table (status cells via COOKIEBITE.pill) ---- */
+    CB.table('#detailTable', {
+      columns: ['결제 채널', '성공률', '거래 건수', '상태'],
+      numericCols: [1, 2],
+      statusCol: 3,
+      rows: [
+        ['카카오페이', '98.1%', '72,000', { label: '정상', tone: 'success' }],
+        ['네이버페이', '96.4%', '31,500', { label: '정상', tone: 'success' }],
+        ['신용카드', '94.1%', '9,402', { label: '주의', tone: 'warning' }],
+      ],
     });
-  }
-  const sparks = [];
 
-  // ---- trend chart (toggles between amount/count) ----
-  // amount = 일별 매출(만원), count = 일별 환불(건)
-  const TREND = { days:['월','화','수','목','금','토','일'],
-                  amount:[3200,2980,3450,3600,4100,3800,3050], count:[410,388,455,470,520,510,389] };
-  let trendChart, lastTrendMode = 'amount';
-  function renderTrend(mode){
-    lastTrendMode = mode;
-    const data = TREND[mode], avg = data.reduce((a,b)=>a+b,0)/data.length;
-    const unit = mode==='amount' ? '만원' : '건';
-    trendChart.setOption({ ...baseChart,
-      // leave room for the dataZoom slider at the bottom
-      grid:{ ...baseChart.grid, bottom:48 },
-      xAxis:{ ...baseChart.xAxis, type:'category', data:TREND.days },
-      yAxis:{ ...baseChart.yAxis, type:'value' },
-      // drag-to-zoom: scroll/pinch inside + a slider rail along the bottom
-      dataZoom:[{ type:'inside' },{ type:'slider', height:18, bottom:6 }],
-      series:[{ type:'bar', data, itemStyle:{ color:ACCENT, borderRadius:[4,4,0,0] }, barWidth:'48%',
-        markLine:{ symbol:'none', lineStyle:{ type:'dashed', color:C_NEUTRAL },
-          // position at the start so the label isn't clipped at the right edge
-          label:{ position:'insideStartTop', formatter:'평균 '+nf.format(Math.round(avg))+unit, color:C_SECONDARY },
-          data:[{ yAxis:avg }] } }] }, true);
-  }
+    /* ---- ESCAPE HATCH: callout via string helper ---- */
+    document.getElementById('bespokeCallout').innerHTML = CB.callout(
+      '신용카드 채널 성공률 하락이 환불 증가의 주요 원인입니다.',
+      { tone: 'info', title: '핵심.' }
+    );
+    CB.refreshIcons();
 
-  // ---- TOC active-section highlight ----
-  function initToc(){
-    const links = [...document.querySelectorAll('#toc a')];
-    const setActive = (id) => links.forEach(a => {
-      const on = a.getAttribute('href') === '#'+id;
-      a.classList.toggle('text-accent', on); a.classList.toggle('bg-accent-weak', on);
-      a.classList.toggle('font-semibold', on); a.classList.toggle('text-secondary', !on);
-    });
-    const obs = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) setActive(e.target.id); }),
-      { rootMargin:'-35% 0px -60% 0px' });
-    document.querySelectorAll('main section[id]').forEach(s => obs.observe(s));
-  }
-
-  // fill the chart's data-table alternative (accessibility + exact values)
-  function fillTrendTable(){
-    const body = document.getElementById('trendTableBody');
-    if (!body) return;
-    body.innerHTML = TREND.days.map((d,i) =>
-      `<tr><td class="py-8">${d}</td><td class="py-8 text-right">${nf.format(TREND.amount[i])}</td><td class="py-8 text-right">${nf.format(TREND.count[i])}</td></tr>`).join('');
-  }
-
-  // ---- light/dark toggle ----
-  // Flips html[data-theme]; CSS-var-styled DOM re-themes instantly, canvas charts
-  // are re-themed manually (readThemeVars → re-render). Remembers the choice and
-  // honours the OS preference on first load.
-  function applyTheme(mode){
-    document.documentElement.dataset.theme = mode;       // '' (light) handled as light
-    const btn = document.getElementById('themeToggle');
-    if (btn) btn.querySelector('i')?.setAttribute('data-lucide', mode==='dark' ? 'sun' : 'moon');
-    if (window.lucide) lucide.createIcons();
-    readThemeVars();
-    if (trendChart) renderTrend(lastTrendMode);          // re-color axes/grid/markLine
-  }
-  function initTheme(){
-    let saved = null; try { saved = localStorage.getItem('report-theme'); } catch(e){}
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
-    document.getElementById('themeToggle')?.addEventListener('click', () => {
-      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
-      try { localStorage.setItem('report-theme', next); } catch(e){}
-      applyTheme(next);
-    });
-  }
-
-  document.addEventListener('DOMContentLoaded', () => {
-    if (window.lucide) lucide.createIcons();
-    trendChart = echarts.init(document.getElementById('trendChart'));
-    initCards(); renderTrend('amount'); fillTrendTable(); initToc(); initTheme();
-    // glossary tooltips — runs after Tippy's script has loaded (synchronous <script> in <head>)
-    if (window.tippy) tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus' });
-    window.addEventListener('resize', () => { trendChart.resize(); sparks.forEach(c=>c.resize()); });
+    /* ---- ESCAPE HATCH: a hand-written ECharts chart, dark-aware via registerChart ----
+       Spread COOKIEBITE.baseChart, use COOKIEBITE.theme.ACCENT + accentRgba, then
+       register a renderFn that re-reads the (now-current) theme on every dark toggle. */
+    var p95 = [0.9, 1.0, 1.1, 4.8, 2.1, 1.0, 0.9];
+    var latency = echarts.init(document.getElementById('latencyChart'));
+    function latencyOption() {
+      return Object.assign({}, CB.baseChart, {
+        xAxis: Object.assign({}, CB.baseChart.xAxis, { type: 'category', data: days }),
+        yAxis: Object.assign({}, CB.baseChart.yAxis, { type: 'value', name: 's' }),
+        series: [{
+          type: 'line', data: p95, smooth: true, symbol: 'circle', symbolSize: 6,
+          lineStyle: { width: 2, color: CB.theme.ACCENT },
+          areaStyle: { color: CB.accentRgba(0.12) },
+          markArea: { itemStyle: { color: CB.accentRgba(0.08) }, data: [[{ xAxis: '목' }, { xAxis: '목' }]] },
+        }],
+      });
+    }
+    latency.setOption(latencyOption());
+    CB.registerChart(latency, function () { latency.setOption(latencyOption(), true); });
   });
 </script>
+<!-- /COOKIEBITE:REPORT-SCRIPT -->
 </body>
 </html>

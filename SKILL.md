@@ -55,16 +55,51 @@ reader get the point in five seconds?"* Aim for yes on both.
 
 ## Output contract
 
-- **One self-contained `.html` file.** All CSS/JS via CDN (see
-  `references/libraries.md`). No build step, no local assets — the user should be
-  able to double-click it.
+- **One self-contained `.html` file.** No build step. The slimmed template references
+  the cookiebite runtime via two **placeholder** lines (`./assets/cookiebite.css` +
+  `./assets/cookiebite.js`) so the invariant boilerplate is **hosted, not
+  model-emitted**; `scripts/inline.sh` then folds those local files into the report to
+  produce the portable, double-clickable deliverable (see "Delivery"). The heavy
+  third-party libs (Tailwind, ECharts, Alpine, Lucide, …) stay on CDN — see
+  `references/libraries.md`.
 - Default filename: a descriptive kebab-case name from the content
   (e.g. `q2-billing-incident-review.html`), saved where the user is working.
 - Match the copy language to the source (Korean source → Korean copy). The theme's
   font + locale should match (the Persimmon preset is Korean/Pretendard; the neutral default
   is Latin/Inter) — see "Theming".
-- After writing, **open it** (`open <file>.html` on macOS) so the user sees it
-  immediately, and tell them the path.
+- After inlining, **open the inlined file** (`open <file>.html` on macOS) so the user
+  sees it immediately, and tell them the path.
+
+### Delivery
+
+The slimmed template references the runtime via two **placeholder** lines:
+
+```html
+<link rel="stylesheet" href="./assets/cookiebite.css" />
+<script src="./assets/cookiebite.js"></script>
+```
+
+These don't resolve once the report is `cp`'d out of the skill dir — they're markers
+for the inline step, which is **mandatory**. After filling the slots, run:
+
+```bash
+bash scripts/inline.sh <report>.html -o <report>.final.html
+```
+
+It reads the **local** repo copies of `cookiebite.css`/`.js` (resolved from the
+script's own location, not the report's) and replaces the two lines with inline
+`<style>`/`<script>`, preserving the before-Tailwind ordering — `cookiebite.js` carries
+no `defer`/`type=module` because its first statement sets `window.tailwind.config` and
+it MUST load **before** the Tailwind tag (which auto-runs on load and reads that
+config). The per-report inline `:root` THEME block stays in `<head>` so the theme
+applies at first paint (no FOUC). **The inlined file is the deliverable** — verify and
+open *that*, not the raw report.
+
+**Documented limitation:** only cookiebite's own runtime is inlined; the heavy
+third-party libs (Tailwind Play CDN, ECharts, Alpine, Lucide, optional Grid.js/Tippy)
+stay on CDN. So "self-contained" means the file survives the runtime repo moving or
+changing and works online; genuine full-offline (e.g. on a plane) needs a vendored
+prebuilt Tailwind CSS, which is out of scope.
 
 ## Workflow
 
@@ -86,17 +121,26 @@ reader get the point in five seconds?"* Aim for yes on both.
    only when motion genuinely helps. Don't load what you won't use.
 5. **Plan the interactions** before building. Read `references/interactions.md` and
    pick the ones that fit the data (see "Interactivity" below for the minimum bar).
-6. **Build the page** by copying `assets/template.html` and replacing its content.
-   The template is a complete, verified skeleton — token-driven Tailwind config, a
-   swappable THEME block, TOC with active-section highlighting, KPI cards with delta
-   badges + sparklines, a themed ECharts with an average reference line, locale-aware
-   number helpers, and a shared chart theme. Starting from it gives you the visual
-   baseline for free.
+6. **Build the page**: `cp assets/template.html <report>.html`, then make **surgical
+   `Edit`s into the named `<!-- COOKIEBITE:* -->` slot markers** (`HEAD-THEME`,
+   `HEAD-LIBS`, `TITLE`, `TOC`, `HEADER`, `SECTIONS`, `FOOTER`, `REPORT-SCRIPT`) —
+   don't rewrite the whole file. The slimmed template references the hosted runtime;
+   the invariant boilerplate (Tailwind config, number helpers, `baseChart`, dark
+   toggle, TOC observer, card hydration) is **no longer in the template** — it lives
+   in `cookiebite.js` and costs 0 tokens. Author the repetitive sections with the
+   fast-path helpers (`COOKIEBITE.kpis`/`findings`/`timeline`/`table`/`chart`/`pill`/
+   `callout`); drop to raw HTML + exposed primitives (`baseChart`, `css()`,
+   `accentRgba()`, `registerChart()`, the CSS-var tokens) for anything bespoke. The
+   two paths share the same tokens and helpers — mix them freely. See "Runtime fast
+   path vs hand-building".
 7. **Theme every chart** with the accent + neutral grid (from CSS vars) — never the
    library's default rainbow palette. Use the template's `baseChart` theme object.
-8. **Visually self-check** (required — see below). Render, look at the actual
-   pixels, fix what's broken, repeat until clean.
-9. Open the file for the user and hand it over.
+8. **Fold in the runtime** (mandatory): `bash scripts/inline.sh <report>.html -o
+   <report>.final.html` to produce the self-contained deliverable (see "Delivery").
+   The raw report's two runtime placeholder lines don't resolve until inlined.
+9. **Visually self-check the inlined file** (required — see below). Render, look at the
+   actual pixels, fix what's broken (edit the source, re-inline), repeat until clean.
+10. Open the inlined file for the user and hand it over.
 
 ## Interactivity
 
@@ -197,10 +241,12 @@ it with real content:
 
 Inconsistent number formatting is an instant tell. Be consistent:
 
-- Thousands separators on every count (`184,302`, not `184302`) — use the template's
-  `nf`/`won` helpers (`Intl.NumberFormat('ko-KR')`).
+- Thousands separators on every count (`184,302`, not `184302`) — use the runtime's
+  `COOKIEBITE.nf`/`COOKIEBITE.money` helpers (`Intl.NumberFormat`, locale-driven).
 - Korean money reads better in units: `₩24.2억` / `₩412만`, not `₩2,418,500,000` in a
-  card. Use `wonShort()` for headline figures; keep full precision in tables/tooltips.
+  card. Use `COOKIEBITE.moneyShort()` for headline figures; keep full precision in
+  tables/tooltips. (`won`/`wonShort` exist as aliases of `money`/`moneyShort` for
+  older snippets.)
 - Pick a decimal precision per metric and hold it (`97.07%` everywhere, not `97%`
   here and `97.1%` there). Percentage-point deltas use `%p`, ratio deltas use `%`.
 - Currency symbol and unit stay attached and never wrap mid-figure (`whitespace-nowrap`,
@@ -290,15 +336,22 @@ The token contract (CSS vars on `:root`, set in the template's THEME block):
 - Locale (JS): `window.REPORT_LOCALE = { number, currency, symbol, bigUnits }` drives
   the number helpers (thousands separators, `만/억` vs `K/M/B`).
 
-**Dark mode (built-in, free for every preset).** The template ships a top-right
-light/dark toggle and a generic `html[data-theme="dark"]` layer that lives *outside* the
-swappable THEME block, so it survives preset swaps and works for **any** theme without a
-per-preset dark JSON. It overrides only the neutrals + `--accent-weak` (re-derived from
-`--accent` via `color-mix`); the accent itself stays, so brand identity holds in both
-modes. First load honours `prefers-color-scheme`; the choice persists to `localStorage`.
-Canvas charts don't follow CSS vars, so the template re-reads tokens on toggle
-(`readThemeVars()`) and re-renders — **keep that contract** if you add charts: read colors
-through the `css()`/`readThemeVars` helpers, not hard-coded hexes, or they won't flip.
+**Dark mode (built-in, free for every preset).** The runtime ships a top-right
+light/dark toggle and a generic `html[data-theme="dark"]` layer (in `cookiebite.css`/`.js`,
+*outside* the swappable THEME block), so it survives preset swaps and works for **any**
+theme without a per-preset dark JSON. It overrides only the neutrals + `--accent-weak`
+(re-derived from `--accent` via `color-mix`); the accent itself stays, so brand identity
+holds in both modes. First load honours `prefers-color-scheme`; the choice persists to
+`localStorage`. Canvas charts don't follow CSS vars, so on toggle the runtime re-reads
+tokens (`COOKIEBITE.readThemeVars()`, which rebuilds `baseChart`) and re-renders every
+**registered** chart. **Keep that contract for hand-written charts**: after
+`echarts.init` + `setOption`, call `COOKIEBITE.registerChart(chart, renderFn)` (or
+`COOKIEBITE.onThemeChange(cb)`, or listen for the `'cookiebite:theme'` event) so the
+chart re-reads fresh tokens and re-renders on toggle — read colors through
+`COOKIEBITE.css()`/`baseChart`/`theme`, never hard-coded hexes, or they won't flip.
+`COOKIEBITE.chart()` registers its chart automatically. Pure CSS/SVG/`@keyframes` using
+`var(--*)`/`color-mix` re-theme automatically and need no registration. (`window.readThemeVars`/
+`baseChart`/`ACCENT` remain defined for backward-compat with older hand-rolled reports.)
 The visual self-check captures a dark pass automatically (see below). Light stays the
 default for print/exec PDFs; dark is there for on-screen/shared reading.
 
@@ -366,15 +419,60 @@ now on, separate from the per-report "Copy for agent" apply above.
 > Diff / findings / pseudocode / checklist / SVG-flow / quadrant components — see
 > `references/components.md`. The essentials are summarized here.
 
+### Runtime fast path vs hand-building
+
+**Freedom is paramount.** The runtime is a **helper library + exposed primitives**,
+not a closed framework. The fast path is a shorthand for the repetitive ~80%; it never
+gates structure. You can always drop raw HTML and a hand-written ECharts option
+anywhere and keep it on-theme/dark-aware by reaching the exposed primitives. The
+helpers emit the **same markup the references teach**, so mixing helpers and
+hand-written sections in one report is fine and backward-compatible — `references/*.md`
+(`components.md`, `interactions.md`, `motion.md`) stay valid for hand-building every
+section by hand.
+
+The fast path is exactly **6 helpers** on the global `COOKIEBITE` namespace. There is
+deliberately **no** `header()`/`page()`/`toc()` shell helper and **no** chart `{kind}`
+enum — those would recreate the closed-vocabulary failure mode; the header, footer,
+layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
+
+| Fast-path helper | Emits (data → markup) | Hand-built equivalent |
+| --- | --- | --- |
+| `COOKIEBITE.kpis(target, items, opts?)` | responsive KPI card grid (label + countup number + delta badge + sparkline) | `components.md` KPI / "Stat cards" + template KPI section |
+| `COOKIEBITE.findings(target, items, opts?)` | ranked severity findings list + Alpine filter chips | `components.md` "Severity-coded findings list" |
+| `COOKIEBITE.timeline(target, items, opts?)` | Alpine `x-for` vertical timeline (marker + expandable detail) | incident-timeline pattern (`interactions.md`) |
+| `COOKIEBITE.table(target, config)` | Grid.js table, 3 footguns fixed (pager >15, right-aligned numerics, accent theme) | `interactions.md` §4 |
+| `COOKIEBITE.chart(target, config)` | **wrapper only**: §10 view-toggle + data-table + aria scaffold, merges your hand-written `option` over `baseChart`, registers for dark re-theme | `interactions.md` §10 + template trend chart |
+| `COOKIEBITE.pill(label, opts)` / `COOKIEBITE.callout(html, opts)` | tone badge / left-accent insight box (return **strings**, compose anywhere) | `components.md` tone table |
+
+`COOKIEBITE.chart` is the fast/escape **seam**: the wrapper is data, but the ECharts
+`option` is **always author-written** (merged over `baseChart`; plain objects deep-merge,
+arrays like `series`/`dataZoom` replace wholesale) — never a `{kind}` shortcut.
+
+**What stays escape-hatch (full freedom, never forced declarative):** every chart's
+`option` object, the MRR-waterfall / Sankey / candlestick tricks, bespoke
+`@keyframes`/`color-mix(var(--accent)…)` CSS, hand SVG flows, quadrant boards, diff /
+pseudocode blocks, all Alpine filter/tab/accordion/scenario-slider interactions, and the
+config-form / prompt-editor / copy-as-diff editing UIs. Reach the **exposed primitives**
+to stay on-theme: the CSS-var tokens (`var(--accent)`, `var(--c-*)`), `COOKIEBITE.css()`,
+`COOKIEBITE.readThemeVars()`, `COOKIEBITE.baseChart` + `COOKIEBITE.theme`,
+`COOKIEBITE.accentRgba()`, `nf`/`money`/`moneyShort`, `hydrate()`/`refreshIcons()`,
+`copy()`/`download()`, `MOTION_OK`.
+
+**Dark-aware hand charts must register.** Any canvas/Mermaid/CSS-var-reading-JS that
+should follow the dark toggle MUST call `COOKIEBITE.registerChart(chart, renderFn)` (or
+`onThemeChange(cb)`, or listen for `'cookiebite:theme'`) — unregistered hand charts won't
+flip. Pure CSS/SVG using `var(--*)` re-themes automatically (see "Theming → Dark mode").
+
 - **Table of contents (sidebar)**: include a TOC by default on any report with 3+
   sections. Put it in a **right rail** that's `sticky top-24` next to the main column,
   and give the main column generous width (wide container, `flex-1` main). Use a
   `flex flex-row-reverse` shell so the `<nav>` sits on the right while staying first
   in DOM order for screen readers; collapse it (`hidden lg:block`) to nothing on
-  narrow widths. Each entry links to a section `id`; highlight the current section as
-  the reader scrolls with an IntersectionObserver, accent for the active item and
-  `text-secondary` for the rest. Keep it quiet — it's a map, not a feature. A simple
-  version:
+  narrow widths. Each entry links to a section `id`; the active-section highlighting is
+  **provided by the runtime** — `initToc` auto-wires an IntersectionObserver against
+  `#toc a` + `main section[id]` (accent for the active item, `text-secondary` for the
+  rest). You only author the `<ul id="toc">` `<li>` entries in the `COOKIEBITE:TOC`
+  slot; no observer JS to write. Keep it quiet — it's a map, not a feature. The shape:
   ```html
   <div class="mx-auto max-w-[1400px] flex flex-row-reverse gap-40">
     <nav class="hidden lg:block w-[190px] shrink-0">
@@ -386,18 +484,8 @@ now on, separate from the per-report "Copy for agent" apply above.
     </nav>
     <main class="min-w-0 flex-1"><!-- sections with matching ids --></main>
   </div>
-  <script>
-    const links = [...document.querySelectorAll('#toc a')];
-    const byId = id => links.find(a => a.getAttribute('href') === '#' + id);
-    new IntersectionObserver((es) => es.forEach(e => {
-      if (e.isIntersecting) { links.forEach(a => a.classList.remove('text-accent','font-semibold'));
-        byId(e.target.id)?.classList.add('text-accent','font-semibold'); }
-    }, { rootMargin: '-40% 0px -55% 0px' }).observe ? null : null;
-    // observe each section
-    document.querySelectorAll('main [id]').forEach(s => {/* attach to the observer above */});
-  </script>
   ```
-  (Wire the observer to every `main [id]` section; the snippet shows the shape.)
+  (The runtime observes every `main section[id]`; you just keep the ids in sync.)
 - **Header**: title (`headline-36`/`title-28`), a one-line takeaway in `text-secondary`, context chips (date, scope, author) as small rounded tags in `bg-accent-weak text-accent-strong`.
 - **Stat cards**: a responsive grid of `bg-surface border border-line-weak rounded-medium shadow-sm` cards, each with a big accent number (animate with CountUp), a label, and a small delta in a semantic color.
 - **Section**: a `title-20`/`title-24` heading, optional one-line intro, then the visual (chart/table/diagram) as the centerpiece.
@@ -410,7 +498,7 @@ now on, separate from the per-report "Copy for agent" apply above.
 
 Before handing over, verify:
 
-- [ ] Opens standalone (double-click works); all assets via CDN; no console errors that break rendering.
+- [ ] Opens standalone (double-click works) after inlining; runtime folded in, third-party libs via CDN; no console errors that break rendering.
 - [ ] The main takeaway is visible within ~5 seconds — a headline number or chart, not buried in prose.
 - [ ] At least the key points are visualized (charts/cards/diagrams/timeline), not just listed as text.
 - [ ] Exactly one accent color; semantic colors used only for status/feedback.
@@ -435,8 +523,16 @@ Before handing over, verify:
 
 ## References
 
-- `assets/template.html` — complete, verified report skeleton. **Copy this to start.**
-  Ships a built-in **light/dark toggle** (see "Theming → Dark mode").
+- `assets/template.html` — slim, slot-marked report skeleton (`<!-- COOKIEBITE:* -->`
+  regions). **`cp` this to start, then surgical-`Edit` the slots.** References the
+  hosted runtime; ships the built-in **light/dark toggle** (see "Theming → Dark mode").
+- `assets/cookiebite.css` / `assets/cookiebite.js` — the **hosted runtime**: invariant
+  boilerplate (Tailwind config, default + dark token layers, number helpers, `baseChart`,
+  dark toggle, TOC observer, card hydration) plus the `COOKIEBITE.*` fast-path helpers
+  and exposed primitives. **Never edit per report** — folded into the deliverable by
+  `scripts/inline.sh`.
+- `scripts/inline.sh` — fold the **local** runtime copies into a report to produce the
+  self-contained deliverable (see "Delivery"). Mandatory final step.
 - `references/components.md` — declarative component cheat-sheet: the unified `tone`
   contract (neutral/info/success/warning/critical → semantic tokens) plus copy-paste
   building blocks, including **Diff view, severity-coded findings, pseudocode/annotated

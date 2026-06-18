@@ -1,0 +1,81 @@
+/* ============================================================================
+   cookiebite.css — hosted INVARIANT stylesheet (0 model tokens).
+   Synchronous, render-blocking. Loaded at <head> ordering position 5
+   (after the inline THEME :root block, before cookiebite.js).
+
+   Sections, in cascade order:
+     (1) default :root tokens (Neutral preset) — fallback if a CDN page omits
+         the inline THEME block. Emitted reports ALWAYS carry the inline block
+         too, which parses first at the same specificity and wins anyway.
+     (2) html[data-theme="dark"] color-mix layer + body transition + reduced-motion
+     (3) base utilities (scroll-behavior, body font, .nums, .prose-measure,
+         [x-cloak], .sr-only)
+     (4) .gloss + .tippy-box[data-theme~='report'] glossary styling
+     (5) Grid.js accent/surface theming
+
+   Every rule here is byte-identical across reports today — pure boilerplate.
+   ============================================================================ */
+
+/* (1) DEFAULT TOKENS — Neutral preset. Belt-and-suspenders only; see foucSolution. */
+:root{
+  --font-family:'Inter','Pretendard',-apple-system, system-ui, sans-serif;
+  --accent:#3B5BDB;  --accent-strong:#2F49AF;  --accent-weak:#E7ECFB;  --accent-on:#FFFFFF;
+  --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
+  --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+}
+
+/* (2) Dark mode (generic; survives THEME swaps).
+   Derives from --accent via color-mix, so EVERY preset gets a dark variant for
+   free — no per-preset dark JSON to maintain. Only neutrals + accent-weak are
+   overridden; the accent itself stays, keeping brand identity in both modes.
+   Toggle flips html[data-theme]; charts re-theme in JS (readThemeVars).
+   MUST stay in this render-blocking <head> stylesheet (never async/deferred) so
+   a dark-preferring first-load user gets correct overrides before initTheme flips. */
+html[data-theme="dark"]{
+  --accent-weak: color-mix(in srgb, var(--accent) 22%, #16161a);
+  --c-bg:#101013;  --c-surface:#1a1a1f;  --c-primary:#F1F1F4;  --c-secondary:#AEAEB6;
+  --c-disabled:#6E6E78;  --c-placeholder:#5A5A63;  --c-line:#3A3A42;  --c-line-weak:#2A2A30;  --c-disabled-bg:#26262C;
+  /* nudge semantic hues brighter so they read on a dark surface */
+  --c-critical:#F2555A;  --c-cautionary:#F5C544;  --c-positive:#4FBB60;  --c-informative:#4DA3FF;
+}
+/* smooth the flip; respect reduced-motion */
+html:not([data-theme="dark"]) body, html[data-theme="dark"] body{ transition:background-color .25s ease, color .25s ease; }
+@media (prefers-reduced-motion: reduce){ body{ transition:none !important; } }
+
+/* (3) base utilities */
+html{ scroll-behavior:smooth; }
+body{ font-family:var(--font-family); letter-spacing:-0.01em; }
+/* tabular-nums keeps figures vertically aligned in cards and tables */
+.nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
+/* cap prose line length for readability */
+.prose-measure{ max-width:68ch; }
+[x-cloak]{ display:none !important; }
+.sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+
+/* (4) glossary term: dotted underline in the accent, themed from CSS vars */
+.gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
+/* theme the tooltip to the report — bg/text are token-swapped so it stays
+   readable in dark mode too (c-primary↔c-surface invert together). */
+.tippy-box[data-theme~='report']{ background:var(--c-primary); color:var(--c-surface); border-radius:12px; font-size:13px; line-height:1.5; }
+.tippy-box[data-theme~='report'] .tippy-content{ padding:10px 12px; }
+.tippy-box[data-theme~='report'] .tippy-arrow{ color:var(--c-primary); }
+
+/* (5) Grid.js accent/surface theming (matches docs/examples/weekly-revenue.html).
+   Only applies when the report opts into Grid.js via the HEAD-LIBS slot.
+   !important because the runtime CSS is inlined BEFORE the Grid.js mermaid theme
+   (which loads from the HEAD-LIBS slot), so these must win the cascade regardless of
+   order. Colors are token-based, so one set re-themes for dark automatically. */
+.gridjs-wrapper{ box-shadow:none; border:1px solid var(--c-line-weak); border-radius:12px; }
+.gridjs-table{ font-family:var(--font-family); }
+.gridjs-th{ background:var(--c-disabled-bg) !important; color:var(--c-secondary) !important; font-weight:600; border-bottom:1px solid var(--c-line-weak); }
+.gridjs-td{ color:var(--c-primary) !important; border-bottom:1px solid var(--c-line-weak); }
+/* mermaid paints td/tr/tbody white; neutralize so the table's surface token shows (incl. dark) */
+.gridjs-tbody, .gridjs-tr, .gridjs-td{ background:transparent !important; }
+.gridjs-tr:hover .gridjs-td{ background:var(--accent-weak) !important; }
+input.gridjs-input{ border:1px solid var(--c-line-weak); border-radius:8px; }
+input.gridjs-input:focus{ border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-weak); }
+.gridjs-pages button.gridjs-currentPage{ background:var(--accent); color:var(--accent-on); border-color:var(--accent); }
+td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-critical); }
+/* Grid.js paints its own surface; keep it on the report's surface token in dark too */
+.gridjs-container, .gridjs-wrapper, .gridjs-table{ background:var(--c-surface) !important; }
+.gridjs-search-input, input.gridjs-input{ background:var(--c-surface) !important; color:var(--c-primary) !important; }
