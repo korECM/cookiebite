@@ -119,7 +119,11 @@ prebuilt Tailwind CSS, which is out of scope.
    CountUp for hero numbers, AOS for scroll reveal, Grid.js for sortable tables,
    Tippy.js for glossary tooltips. For richer **opt-in animation** (sequenced intros,
    scroll-triggered reveals, Lottie vector art) see `references/motion.md` — add it
-   only when motion genuinely helps. Don't load what you won't use.
+   only when motion genuinely helps. Don't load what you won't use — for a no-chart
+   narrative/status/explainer you can also delete the template's `echarts` and `countup`
+   tags (keep `countup` if you use `COOKIEBITE.kpis`, whose numbers roll up via CountUp —
+   without it they render as a literal `0`; drop `echarts` only when there's no chart and
+   no KPI sparkline).
 5. **Plan the interactions** before building. Read `references/interactions.md` and
    pick the ones that fit the data (see "Interactivity" below for the minimum bar).
 6. **Build the page**: `cp assets/template.html <report>.html`, then **`Read` the copy**
@@ -222,11 +226,21 @@ small collisions that matter most:
 ```bash
 bash scripts/verify-report.sh <path-to-report>.html
 # captures TWO viewports so responsive breakage shows up too, + a dark pass:
-#   <dir>/.verify/full-desktop.png, desktop-tile-00.png, …   (1280px, primary)
-#   <dir>/.verify/full-narrow.png,  narrow-tile-00.png,  …   (390px, mobile stack)
+#   <dir>/.verify/full-desktop.png, desktop-tile-00.png, …   (1280px, primary, LIGHT)
+#   <dir>/.verify/full-narrow.png,  narrow-tile-00.png,  …   (390px, mobile stack, LIGHT)
 #   <dir>/.verify/full-dark.png,    dark-tile-00.png,    …   (1280px, dark — if toggle present)
 #   plus checks-desktop.json / checks-narrow.json / checks-dark.json
 ```
+
+You can point it at the **raw** report (runtime placeholders still in place): if the file
+isn't inlined yet, the script folds the runtime into a throwaway `.verify/_inlined.html`
+and renders that — so the edit→verify loop stays a single step and no `.inlined.html`
+litters the repo. The `inline.sh` deliverable step is still run explicitly at hand-over.
+The desktop and narrow passes are forced to the **light** theme (so a dark-set OS doesn't
+make the primary pass render dark and leave the intended default unverified); dark gets its
+own pass. The `checks-*.json` `horizontalOverflow` flag is the primary layout-break signal
+— `overflowers` now excludes Grid.js's internally-scrolling table nodes (`tableScrollsInternally`
+flags that benign case), so a wide sortable table no longer trips a false alarm at 390px.
 
 Then **Read `full-desktop.png` and every `desktop-tile-*.png`** at legible size,
 **skim the `narrow-tile-*.png`** to confirm the layout survives a narrow viewport, and
@@ -345,7 +359,7 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | `COOKIEBITE.kpis(target, items, opts?)` | responsive KPI card grid (label + countup number + delta badge + sparkline) | `components.md` KPI / "Stat cards" + template KPI section |
 | `COOKIEBITE.findings(target, items, opts?)` | ranked severity findings list + Alpine filter chips | `components.md` "Severity-coded findings list" |
 | `COOKIEBITE.timeline(target, items, opts?)` | Alpine `x-for` vertical timeline (marker + expandable detail) | incident-timeline pattern (`interactions.md`) |
-| `COOKIEBITE.table(target, config)` | Grid.js table, 3 footguns fixed (pager >15, right-aligned numerics, accent theme) | `interactions.md` §4 |
+| `COOKIEBITE.table(target, config)` | Grid.js table, footguns fixed (pager >15, search >10, right-aligned numerics, accent theme) | `interactions.md` §4 |
 | `COOKIEBITE.chart(target, config)` | **wrapper only**: §10 view-toggle + data-table + aria scaffold, merges your hand-written `option` over `baseChart`, registers for dark re-theme | `interactions.md` §10 + template trend chart |
 | `COOKIEBITE.pill(label, opts)` / `COOKIEBITE.callout(html, opts)` | tone badge / left-accent insight box (return **strings**, compose anywhere) | `components.md` tone table |
 
@@ -370,7 +384,8 @@ flip. Pure CSS/SVG using `var(--*)` re-themes automatically (see "Theming → Da
 
 **Fast-path gotchas (read before using the helpers — these bite silently):**
 - `findings` reuses `tone` as the **severity label**: `critical` renders "Critical", `warning` "High", `info` "Medium", `neutral` "Low". This is the one place `tone` changes the *text*, not just the color (everywhere else — pill, callout, table — it only sets color). `success` has no severity meaning here, so it falls back to "Note". Pass `label` on the item to override the chip text.
-- `kpis` delta: **omit** the `delta` key for no badge at all; pass `delta: null` to render the `—` "no baseline" sentinel. When no KPI has a baseline, omit it on all of them (a row of `—` reads as stray underscores).
+- `kpis` delta/spark are **optional**: a KPI is just `{ label, value }`. **Omit** the `delta` key for no badge at all; pass `delta: null` to render the `—` "no baseline" sentinel. When no KPI has a baseline, omit it on all of them (a row of `—` reads as stray underscores). Likewise omit `spark` for a flat number — don't fabricate a baseline series for a status report that has none. (The template example ships fully loaded to *demo* delta+spark; that's a demo, not a floor.)
+- `table` auto-hides the search box on small tables (`rows ≤ 10`) and the pager on `rows ≤ 15`; pass `search: true/false` to force it. Don't hand a 5-row table a search field.
 - A **hand-written** (escape-hatch) chart still owes a data-table alternative + `aria-label` (the a11y rule). `CB.chart` adds them automatically; for a bespoke chart, call `COOKIEBITE.dataTableToggle(chartSelector, { columns, rows, ariaLabel })` to inject the "표로 보기" toggle + table.
 
 - **Table of contents (sidebar)**: include a TOC by default on any report with 3+

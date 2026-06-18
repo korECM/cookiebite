@@ -31,10 +31,34 @@ else
 fi
 ab(){ $AB --session "$S" "$@"; }
 rm -rf "$OUT"; mkdir -p "$OUT"   # only after the runner resolves, so a missing runner never wipes prior output
+
+# Auto-inline: if the report still carries the raw ./assets/cookiebite.* placeholders
+# (not yet folded by inline.sh), inline it into a throwaway copy under $OUT and render
+# THAT — so the edit->verify loop stays a single step and no .inlined.html litters the
+# repo. The real deliverable is still produced explicitly with inline.sh at hand-over.
+if grep -qiE '<script[^>]+src=["'\''][^"'\'']*assets/cookiebite\.js' "$ABS" \
+   && ! grep -qi 'id="cookiebite-js"' "$ABS"; then
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+  if bash "$SCRIPT_DIR/inline.sh" "$ABS" -o "$OUT/_inlined.html" 2>/dev/null; then
+    URL="file://$OUT/_inlined.html"
+    echo "[auto-inline] raw runtime placeholders folded into $OUT/_inlined.html (rendering that)."
+    echo "  Deliverable stays explicit: bash scripts/inline.sh '$HTML' -o <report>.final.html"
+  else
+    echo "[auto-inline] inline.sh failed — rendering the raw file as-is (charts/helpers may not load)." >&2
+  fi
+fi
+
 cleanup(){ ab close >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 ab --allow-file-access open "$URL" >/dev/null
+
+# Force LIGHT for the desktop + narrow passes regardless of the runner's OS color-scheme.
+# First load honours prefers-color-scheme, so on a dark-set machine the "light" primary
+# pass renders dark and the intended default (light) theme goes unverified. The dark pass
+# below flips to dark explicitly, keeping the 3 passes orthogonal: light, light, dark.
+ab eval "window.applyTheme ? applyTheme('light') : (document.documentElement.dataset.theme='light')" >/dev/null 2>&1 || true
+ab wait 300 >/dev/null 2>&1 || true
 
 # capture(label, width): set viewport width, settle, run checks, full shot + legible tiles
 capture(){
@@ -44,17 +68,24 @@ capture(){
   ab wait 2200 >/dev/null 2>&1 || true   # let charts animate/settle
 
   ab eval --stdin > "$OUT/checks-$label.json" 2>/dev/null <<'EOF'
-JSON.stringify({
-  innerWidth: window.innerWidth,
-  pageHeight: document.body.scrollHeight,
-  horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2,
-  overflowers: Array.from(document.querySelectorAll('body *'))
-    .filter(el => el.getBoundingClientRect().right > window.innerWidth + 4)
-    .slice(0, 12)
-    .map(el => el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')),
-  collapsedCharts: Array.from(document.querySelectorAll('canvas, svg, [_echarts_instance_], .echart, [id*="chart"]'))
-    .filter(el => el.offsetHeight < 24).length,
-}, null, 0)
+(function () {
+  var wide = Array.from(document.querySelectorAll('body *'))
+    .filter(el => el.getBoundingClientRect().right > window.innerWidth + 4);
+  // Grid.js wraps its table in a .gridjs-wrapper that scrolls internally, so a wide table
+  // there is EXPECTED — not a page-level break. Fold those out so the real signal isn't
+  // buried under thead/th/sort-button noise that fires on every multi-column table at 390px.
+  var real = wide.filter(el => !el.closest('.gridjs-wrapper, .gridjs-container, .gridjs'));
+  return JSON.stringify({
+    innerWidth: window.innerWidth,
+    pageHeight: document.body.scrollHeight,
+    horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2, // PRIMARY layout-break signal
+    overflowers: real.slice(0, 12)
+      .map(el => el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')),
+    tableScrollsInternally: wide.length > real.length, // wide Grid.js table inside its own scroller — OK, not a break
+    collapsedCharts: Array.from(document.querySelectorAll('canvas, svg, [_echarts_instance_], .echart, [id*="chart"]'))
+      .filter(el => el.offsetHeight < 24).length,
+  }, null, 0);
+})()
 EOF
 
   ab screenshot --full "$OUT/full-$label.png" >/dev/null 2>&1 || true
@@ -109,4 +140,7 @@ echo "Then skim narrow-tile-*.png to confirm the layout survives a narrow viewpo
 echo "(TOC collapses, cards stack, charts/tables don't overflow)."
 echo "Look for: text/label overlap, clipped or cut-off text, charts that are empty/"
 echo "degenerate/unreadable, elements bleeding off the edge, mismatched colors, awkward gaps."
+echo "checks-*.json: 'horizontalOverflow' is the primary layout-break signal. 'overflowers'"
+echo "now excludes Grid.js internal nodes; 'tableScrollsInternally:true' just means a wide"
+echo "table scrolls inside its own wrapper (fine). desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."

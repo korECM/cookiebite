@@ -48,6 +48,10 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="./assets/cookiebite.css" />
 <script src="./assets/cookiebite.js"></script>
+<!-- echarts powers charts + KPI sparklines; countup rolls up KPI numbers. A no-chart,
+     no-KPI narrative/status/explainer can DELETE both lines. Keep countup if you use
+     COOKIEBITE.kpis (without it the numbers render as a literal "0"); drop echarts only
+     when there's no chart AND no KPI sparkline. -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.js"></script>
 <!-- @alpinejs/collapse must load BEFORE Alpine core (defer preserves order) — COOKIEBITE.timeline uses x-collapse -->
@@ -203,7 +207,11 @@
   document.addEventListener('DOMContentLoaded', function () {
     var CB = window.COOKIEBITE;
 
-    /* ---- FAST PATH: KPI grid ---- */
+    /* ---- FAST PATH: KPI grid ----
+       A KPI needs only { label, value }. delta AND spark are OPTIONAL — a baseline-free
+       status report can pass neither, e.g.  { label: '미해결 건수', value: 12 }.
+       When NO card has a baseline, omit delta on all of them (a row of '—' reads as stray
+       underscores). The four below are shown fully loaded to demo delta + sparkline. */
     CB.kpis('#kpiGrid', [
       { label: '결제 성공률', value: 97.07, suffix: '%',
         delta: { dir: 'up', text: '0.67%p', tone: 'success' },

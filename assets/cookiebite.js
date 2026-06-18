@@ -445,8 +445,10 @@
 
   /* ==========================================================================
      FAST-PATH HELPER 4/6 — COOKIEBITE.table(target, config) -> gridInstance
-     Grid.js with the three interactions.md §4 footguns fixed BY CONSTRUCTION:
+     Grid.js with the interactions.md §4 footguns fixed BY CONSTRUCTION:
        - pagination {limit:15} only when rows>15 else false
+       - search box only when rows>10 (a search field over a 5-row table is noise);
+         pass search:true/false to override
        - numericCols: right-aligned header+cells + tabular-nums via scoped <style>
        - statusCol cells pass through COOKIEBITE.pill
      Requires Grid.js (model adds the 2 CDN tags); runtime does NOT bundle it.
@@ -493,7 +495,9 @@
       columns: columns,
       data: rows,
       sort: true,
-      search: config.search !== false,
+      // search auto-hides on small tables (a search box over ~5 rows is noise); explicit
+      // config.search (true/false) always wins.
+      search: config.search != null ? config.search : rows.length > 10,
       pagination: rows.length > 15 ? { limit: 15 } : false,
       className: { table: 'text-body-14' },
     });
