@@ -307,7 +307,8 @@
           esc(pre) + '<span ' + cuAttrs + '>0</span>' +
           '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span></span>';
       } else {
-        numHtml = '<span class="text-headline-36 font-bold nums" ' + cuAttrs +
+        // whitespace-nowrap so a prefix/suffix (e.g. "16 / 16", "₩4,120") never wraps mid-figure
+        numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap" ' + cuAttrs +
           (pre ? ' data-prefix="' + esc(pre) + '"' : '') +
           (suf ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>';
       }
@@ -317,7 +318,7 @@
       if (it.delta) {
         var dt = tone(it.delta.tone);
         var arrow = it.delta.dir === 'up' ? 'arrow-up-right' : it.delta.dir === 'down' ? 'arrow-down-right' : 'minus';
-        deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold ' + dt.text + '">' +
+        deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold whitespace-nowrap ' + dt.text + '">' +
           iconTag(arrow, 'w-16 h-16') + ' ' + esc(it.delta.text) + '</span>';
       } else if (it.delta === null) {
         // explicit null => show the "no baseline" sentinel
@@ -587,6 +588,54 @@
   };
 
   /* ==========================================================================
+     COOKIEBITE.dataTableToggle(chartTarget, { columns, rows, ariaLabel? })
+     Gives a HAND-WRITTEN (escape-hatch) chart the same "표로 보기" data-table
+     alternative that CB.chart builds automatically — satisfies the a11y rule
+     "every chart needs a data-table alternative". Vanilla (no Alpine): inserts a
+     toggle button above the chart and a hidden <table> after it, swapping them.
+     ========================================================================== */
+  CB.dataTableToggle = function (chartTarget, config) {
+    var chartEl = resolveTarget(chartTarget);
+    if (!chartEl || !config || !config.columns) return;
+    var cols = config.columns, rows = config.rows || [];
+    var aria = config.ariaLabel || chartEl.getAttribute('aria-label') || 'data table';
+
+    var bar = document.createElement('div');
+    bar.className = 'flex justify-end mb-8';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'text-caption-12 text-secondary hover:text-primary';
+    btn.textContent = '표로 보기';
+    btn.setAttribute('aria-pressed', 'false');
+    bar.appendChild(btn);
+
+    var tableWrap = document.createElement('div');
+    tableWrap.style.display = 'none';
+    tableWrap.innerHTML = '<table class="w-full text-body-14 nums">' +
+      '<caption class="sr-only">' + esc(aria) + '</caption>' +
+      '<thead class="text-secondary text-left"><tr>' + cols.map(function (c, i) {
+        return '<th class="py-8 font-medium' + (i === 0 ? '' : ' text-right') + '">' + esc(c) + '</th>';
+      }).join('') + '</tr></thead>' +
+      '<tbody class="divide-y divide-line-weak">' + rows.map(function (r) {
+        return '<tr>' + r.map(function (cell, i) {
+          return '<td class="py-8' + (i === 0 ? '' : ' text-right') + '">' + esc(cell) + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody></table>';
+
+    chartEl.parentNode.insertBefore(bar, chartEl);
+    chartEl.parentNode.insertBefore(tableWrap, chartEl.nextSibling);
+
+    var showingTable = false;
+    btn.addEventListener('click', function () {
+      showingTable = !showingTable;
+      chartEl.style.display = showingTable ? 'none' : '';
+      tableWrap.style.display = showingTable ? '' : 'none';
+      btn.textContent = showingTable ? '차트로 보기' : '표로 보기';
+      btn.setAttribute('aria-pressed', showingTable ? 'true' : 'false');
+    });
+  };
+
+  /* ==========================================================================
      escape-hatch primitives — clipboard / download (interactions.md §13).
      ========================================================================== */
   CB.copy = function (text, btnEl) {
@@ -674,7 +723,9 @@
     var saved = null;
     try { saved = localStorage.getItem('report-theme'); } catch (e) {}
     var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    applyTheme(saved || (prefersDark ? 'dark' : 'light'));
+    // window.REPORT_THEME ('light'|'dark') locks the first-load mode, overriding OS preference
+    // + any saved choice — set it in the THEME block for print/exec PDFs that must stay light.
+    applyTheme(window.REPORT_THEME || saved || (prefersDark ? 'dark' : 'light'));
     var btn = document.getElementById('themeToggle');
     if (btn) {
       btn.addEventListener('click', function () {

@@ -300,6 +300,13 @@
     }
     latency.setOption(latencyOption());
     CB.registerChart(latency, function () { latency.setOption(latencyOption(), true); });
+    // a11y: hand-written charts still need a data-table alternative (CB.chart adds one
+    // automatically; for escape-hatch charts, wire it with CB.dataTableToggle).
+    CB.dataTableToggle('#latencyChart', {
+      columns: ['요일', 'p95 (s)'],
+      rows: days.map(function (d, i) { return [d, p95[i]]; }),
+      ariaLabel: '응답 지연(p95) 추이',
+    });
   });
 </script>
 <!-- /COOKIEBITE:REPORT-SCRIPT -->

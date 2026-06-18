@@ -31,6 +31,13 @@ status only. **Never color-alone** — pair every tone with an icon or a text la
 (`✓ 정상`, not a bare green dot). `accent-weak`/`bg-cautionary/15` use a slightly higher
 opacity for amber so it reads.
 
+> **`findings` remaps `tone` to a severity *label*.** In `COOKIEBITE.findings`, `tone`
+> sets the color *and* the chip text: `critical`→"Critical", `warning`→"High",
+> `info`→"Medium", `neutral`→"Low". This is the only component where `tone` changes the
+> text — elsewhere it sets color alone. `success` has no severity meaning in a findings
+> list, so it falls back to "Note". Pass `label` on the item to override the chip text
+> (e.g. `{ tone: 'warning', label: '주의', … }`).
+
 ---
 
 ## Pill / Tag — `tone`

@@ -76,8 +76,11 @@ EOF
 }
 
 # Desktop pass (primary) + narrow pass (catch mobile/stacking breakage).
+# Narrow is 390px (a real phone), NOT 768: Tailwind's md: breakpoint is exactly 768px,
+# so a 768 pass leaves md:grid-cols-* in their 2-col state and never tests the stacked
+# mobile layout. 390 is below sm/md/lg, so it exercises the fully-collapsed layout.
 capture desktop 1280
-capture narrow 768
+capture narrow 390
 
 # Dark pass (only if the report ships a dark toggle) — flip to dark and re-capture
 # at desktop width so dark-mode contrast + re-themed charts get eyeballed too.
@@ -106,3 +109,4 @@ echo "Then skim narrow-tile-*.png to confirm the layout survives a narrow viewpo
 echo "(TOC collapses, cards stack, charts/tables don't overflow)."
 echo "Look for: text/label overlap, clipped or cut-off text, charts that are empty/"
 echo "degenerate/unreadable, elements bleeding off the edge, mismatched colors, awkward gaps."
+echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."

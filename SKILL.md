@@ -121,8 +121,10 @@ prebuilt Tailwind CSS, which is out of scope.
    only when motion genuinely helps. Don't load what you won't use.
 5. **Plan the interactions** before building. Read `references/interactions.md` and
    pick the ones that fit the data (see "Interactivity" below for the minimum bar).
-6. **Build the page**: `cp assets/template.html <report>.html`, then make **surgical
-   `Edit`s into the named `<!-- COOKIEBITE:* -->` slot markers** (`HEAD-THEME`,
+6. **Build the page**: `cp assets/template.html <report>.html`, then **`Read` the copy**
+   (it's a new file — `Edit` fails with "File has not been read yet" otherwise; reading the
+   template original doesn't count) and make **surgical `Edit`s into the named
+   `<!-- COOKIEBITE:* -->` slot markers** (`HEAD-THEME`,
    `HEAD-LIBS`, `TITLE`, `TOC`, `HEADER`, `SECTIONS`, `FOOTER`, `REPORT-SCRIPT`) —
    don't rewrite the whole file. The slimmed template references the hosted runtime;
    the invariant boilerplate (Tailwind config, number helpers, `baseChart`, dark
@@ -354,8 +356,11 @@ chart re-reads fresh tokens and re-renders on toggle — read colors through
 `COOKIEBITE.chart()` registers its chart automatically. Pure CSS/SVG/`@keyframes` using
 `var(--*)`/`color-mix` re-theme automatically and need no registration. (`window.readThemeVars`/
 `baseChart`/`ACCENT` remain defined for backward-compat with older hand-rolled reports.)
-The visual self-check captures a dark pass automatically (see below). Light stays the
-default for print/exec PDFs; dark is there for on-screen/shared reading.
+The visual self-check captures a dark pass automatically (see below). **First load follows
+the reader's OS preference** (`prefers-color-scheme`), not a fixed light default — so on a
+dark-set machine the report opens dark. To **force a fixed mode** (e.g. a light-locked exec
+PDF), set `window.REPORT_THEME = 'light'` (or `'dark'`) in the THEME block; it overrides both
+the OS preference and any saved choice on load. The toggle still lets the reader switch.
 
 **Choosing/changing the theme:**
 
@@ -458,12 +463,17 @@ config-form / prompt-editor / copy-as-diff editing UIs. Reach the **exposed prim
 to stay on-theme: the CSS-var tokens (`var(--accent)`, `var(--c-*)`), `COOKIEBITE.css()`,
 `COOKIEBITE.readThemeVars()`, `COOKIEBITE.baseChart` + `COOKIEBITE.theme`,
 `COOKIEBITE.accentRgba()`, `nf`/`money`/`moneyShort`, `hydrate()`/`refreshIcons()`,
-`copy()`/`download()`, `MOTION_OK`.
+`copy()`/`download()`, `dataTableToggle()` (data-table alt for a hand-written chart), `MOTION_OK`.
 
 **Dark-aware hand charts must register.** Any canvas/Mermaid/CSS-var-reading-JS that
 should follow the dark toggle MUST call `COOKIEBITE.registerChart(chart, renderFn)` (or
 `onThemeChange(cb)`, or listen for `'cookiebite:theme'`) — unregistered hand charts won't
 flip. Pure CSS/SVG using `var(--*)` re-themes automatically (see "Theming → Dark mode").
+
+**Fast-path gotchas (read before using the helpers — these bite silently):**
+- `findings` reuses `tone` as the **severity label**: `critical` renders "Critical", `warning` "High", `info` "Medium", `neutral` "Low". This is the one place `tone` changes the *text*, not just the color (everywhere else — pill, callout, table — it only sets color). `success` has no severity meaning here, so it falls back to "Note". Pass `label` on the item to override the chip text.
+- `kpis` delta: **omit** the `delta` key for no badge at all; pass `delta: null` to render the `—` "no baseline" sentinel. When no KPI has a baseline, omit it on all of them (a row of `—` reads as stray underscores).
+- A **hand-written** (escape-hatch) chart still owes a data-table alternative + `aria-label` (the a11y rule). `CB.chart` adds them automatically; for a bespoke chart, call `COOKIEBITE.dataTableToggle(chartSelector, { columns, rows, ariaLabel })` to inject the "표로 보기" toggle + table.
 
 - **Table of contents (sidebar)**: include a TOC by default on any report with 3+
   sections. Put it in a **right rail** that's `sticky top-24` next to the main column,
