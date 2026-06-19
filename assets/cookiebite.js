@@ -875,6 +875,33 @@
   }
 
   /* ==========================================================================
+     "Made with cookiebite" credit — auto-injected so every report carries a
+     quiet, discoverable link back to the project (a reader who likes a page can
+     find what made it). Appends one muted line to the report footer, or creates
+     a minimal footer if the report has none. Idempotent; never duplicates.
+     ========================================================================== */
+  function initCredit() {
+    if (document.querySelector('[data-cb-credit]')) return;
+    var link =
+      '<a data-cb-credit href="https://github.com/korECM/cookiebite" target="_blank" rel="noopener" ' +
+      'class="text-caption-12 text-text-disabled hover:text-secondary transition-colors">' +
+      'Made with <span class="font-medium">cookiebite</span></a>';
+    var footer = document.querySelector('main footer') || document.querySelector('footer');
+    if (footer) {
+      var line = document.createElement('div');
+      line.className = 'mt-8';
+      line.innerHTML = link;
+      footer.appendChild(line);
+    } else {
+      var host = document.querySelector('main') || document.body;
+      var f = document.createElement('footer');
+      f.className = 'pt-24 mt-24 border-t border-line-weak';
+      f.innerHTML = link;
+      host.appendChild(f);
+    }
+  }
+
+  /* ==========================================================================
      ONE auto-init on DOMContentLoaded. Safe: echarts/alpine(defer)/lucide/tippy
      are parsed by now (head load order guarantees it).
      ========================================================================== */
@@ -884,6 +911,7 @@
     initToc();
     initTheme();
     initGlossary();
+    initCredit();
     // resize every registered chart instance (sparks, fast-path + escape-hatch charts)
     window.addEventListener('resize', function () {
       charts.forEach(function (c) { if (c.instance) { try { c.instance.resize(); } catch (e) {} } });

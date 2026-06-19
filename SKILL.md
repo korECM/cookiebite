@@ -467,7 +467,8 @@ Before handing over, verify:
   hosted runtime; ships the built-in **light/dark toggle** (see "Theming → Dark mode").
 - `assets/cookiebite.css` / `assets/cookiebite.js` — the **hosted runtime**: invariant
   boilerplate (Tailwind config, default + dark token layers, number helpers, `baseChart`,
-  dark toggle, TOC observer, card hydration) plus the `COOKIEBITE.*` fast-path helpers
+  dark toggle, TOC observer, card hydration, a quiet auto-injected "Made with cookiebite"
+  footer credit) plus the `COOKIEBITE.*` fast-path helpers
   and exposed primitives. **Never edit per report** — folded into the deliverable by
   `scripts/inline.sh`.
 - `scripts/inline.sh` — fold the **local** runtime copies into a report to produce the
