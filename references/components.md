@@ -94,10 +94,16 @@ added = `success`, removed = `critical`, context = `neutral`. Keep it a **unifie
   <pre class="m-0 overflow-x-auto"><code><span class="block px-12 bg-critical/10 text-critical"><span class="select-none opacity-60 mr-8">−</span>  if (amount > 0) charge(amount)</span><span class="block px-12 bg-positive/10 text-positive"><span class="select-none opacity-60 mr-8">+</span>  if (amount > 0 &amp;&amp; idempotent(key)) charge(amount, key)</span><span class="block px-12 text-secondary"><span class="select-none opacity-60 mr-8"> </span>  return receipt</span></code></pre>
 </div>
 ```
-For side-by-side, put two `<pre>` columns in a `grid grid-cols-2`. Annotate a specific
-line by appending a `Callout` below it (e.g. "왜: 재시도 중복 청구 방지"). HTML-escape
-the code (`&lt; &gt; &amp;`). Don't reach for a syntax-highlight lib for a few lines —
-plain monospace + the +/− tint reads fine; load highlight.js only for long listings.
+For side-by-side, put two `<pre>` columns in a `grid grid-cols-2`. **Keep diff lines
+short** — a long line clips off the right edge in the 390px narrow pass (the `<pre>`
+scrolls itself, so the content past the edge is invisible without horizontal scroll).
+Prefer trimming the code, or move a line's explanation into a `Callout` below it (e.g.
+"왜: 재시도 중복 청구 방지") rather than tacking a long inline annotation onto the line.
+The verify script now excludes these self-scrolling code blocks from its overflow check,
+so a wide `<pre>` won't trip a false alarm — but the reader still can't see what clips, so
+keep it narrow. HTML-escape the code (`&lt; &gt; &amp;`). Don't reach for a
+syntax-highlight lib for a few lines — plain monospace + the +/− tint reads fine; load
+highlight.js only for long listings.
 
 ## Severity-coded findings list
 
@@ -168,8 +174,12 @@ clean pseudocode (or real code) with inline annotations, instead of prose.
 </div>
 ```
 Keep keywords bold, annotations in `text-secondary`, and outcomes tone-colored
-(`return`→positive, `raise`→critical). Pseudocode beats a paragraph for "how the
-algorithm works"; real code beats pseudocode when the reader will copy it.
+(`return`→positive, `raise`→critical). **Keep lines short** — like the diff, a long
+pseudocode line clips off the right edge in the 390px narrow pass (the `<pre>` scrolls
+itself, so the verify script excludes it from the overflow check, but the reader still
+can't see what clips). Move long inline annotations into a `Callout` below the block.
+Pseudocode beats a paragraph for "how the algorithm works"; real code beats pseudocode
+when the reader will copy it.
 
 ## Checklist / todo (stateful + export)
 

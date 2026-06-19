@@ -77,9 +77,20 @@
   var nf = new Intl.NumberFormat(L.number);
   var money = function (n) { return L.symbol + nf.format(n); };
   var moneyShort = function (n) {
-    return L.bigUnits
-      ? (n >= 1e8 ? (n / 1e8).toFixed(1).replace(/\.0$/, '') + '억' : n >= 1e4 ? Math.round(n / 1e4) + '만' : nf.format(n))
-      : (n >= 1e9 ? (n / 1e9).toFixed(1).replace(/\.0$/, '') + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K' : nf.format(n));
+    // band on the MAGNITUDE then re-apply the sign, so negatives short-form too.
+    // round to the band's 1-decimal precision BEFORE selecting the band, so a value
+    // just under a boundary (999,999 -> '1.0M', 99,999,999 -> '1.0억') rolls up into
+    // the next band instead of reading '1000K' / '10000만'.
+    var sign = n < 0 ? '-' : '';
+    var a = Math.abs(n);
+    var band = function (div, unit) { return sign + (Math.round(a / div * 10) / 10).toFixed(1).replace(/\.0$/, '') + unit; };
+    if (L.bigUnits) {
+      if (Math.round(a / 1e4) >= 1e4) return band(1e8, '억'); // 만-band would round to >=10000만 -> roll to 억
+      return a >= 1e8 ? band(1e8, '억') : a >= 1e4 ? sign + Math.round(a / 1e4) + '만' : nf.format(n);
+    }
+    if (Math.round(a / 1e6 * 10) / 10 >= 1000) return band(1e9, 'B'); // M-band would round to >=1000M -> roll to B
+    if (Math.round(a / 1e3 * 10) / 10 >= 1000) return band(1e6, 'M'); // K-band would round to >=1000K -> roll to M
+    return a >= 1e9 ? band(1e9, 'B') : a >= 1e6 ? band(1e6, 'M') : a >= 1e3 ? band(1e3, 'K') : nf.format(n);
   };
   CB.nf = nf;
   CB.money = money;
@@ -121,6 +132,44 @@
     syncThemeAliases();
   }
   CB.readThemeVars = readThemeVars;
+
+  /* CB.categoricalColors(n) -> [color×n]: n perceptually-spaced hues anchored on
+     the report accent, for multi-series charts that need more than the 4 baseChart
+     entries. Derives via HSL rotation around the accent's hue (resolved to rgb so
+     non-hex accents work too). n<=1 returns just the accent. Leaves baseChart's
+     default 4-entry palette untouched — existing 1-accent charts are unaffected. */
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b), h = 0, s = 0, l = (max + min) / 2;
+    if (max !== min) {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h /= 6;
+    }
+    return [h * 360, s, l];
+  }
+  CB.categoricalColors = function (n) {
+    n = n || 1;
+    var raw = CB.theme.ACCENT || '#E8552D', r, g, b;
+    if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) {
+      var h = raw.replace('#', '');
+      if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+      r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
+    } else {
+      var m = (cssColor('--accent', '#E8552D') || '').match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+      if (m) { r = +m[1]; g = +m[2]; b = +m[3]; } else { r = 232; g = 85; b = 45; }
+    }
+    if (n <= 1) return [CB.theme.ACCENT || raw];
+    var hsl = rgbToHsl(r, g, b), baseH = hsl[0], s = Math.max(0.45, hsl[1]), l = Math.min(0.62, Math.max(0.42, hsl[2]));
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      out.push('hsl(' + Math.round((baseH + (360 / n) * i) % 360) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)');
+    }
+    return out;
+  };
 
   /* accent as rgba (handles #RGB and #RRGGBB) — sparkline fills, gradient stops.
      Non-hex accents (rgb()/named/color-mix) resolve through the cssColor probe so
@@ -218,6 +267,11 @@
     return '<i data-lucide="' + esc(name) + '" class="' + (cls || 'w-12 h-12') + '"></i>';
   }
 
+  /* ==========================================================================
+     FAST-PATH HELPER 1/11 — COOKIEBITE.pill / COOKIEBITE.callout (one block: both
+     are string-returning tone composites). pill -> inline tone chip; callout ->
+     left-accent-bar boxed insight.
+     ========================================================================== */
   /* COOKIEBITE.pill(label, {tone, icon?}) -> string */
   CB.pill = function (label, opts) {
     opts = opts || {};
@@ -291,7 +345,7 @@
   };
 
   /* ==========================================================================
-     FAST-PATH HELPER 1/6 — COOKIEBITE.kpis(target, items, opts?)
+     FAST-PATH HELPER 2/11 — COOKIEBITE.kpis(target, items, opts?)
      Emits the SAME markup as the template KPI section. Hand-written cards with
      the same classes/attrs coexist.
      ========================================================================== */
@@ -301,15 +355,24 @@
   var COLS_MAP = {
     '1-2-4': 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-16',
     '1-2-3': 'grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-16',
+    '1-2': 'grid grid-cols-1 sm:grid-cols-2 gap-16',
     '1-3': 'grid grid-cols-1 xl:grid-cols-3 gap-16',
+    '1': 'grid grid-cols-1 gap-16',
   };
+  // auto-pick the grid when opts.cols is omitted: a row of 4+ stays the canonical
+  // 1-2-4 (so 4 items render exactly as before), 3 -> 1-2-3, 2 -> 1-2, 1 -> single.
+  function autoCols(n) {
+    return n >= 4 ? '1-2-4' : n === 3 ? '1-2-3' : n === 2 ? '1-2' : '1';
+  }
 
   CB.kpis = function (target, items, opts) {
     var host = resolveTarget(target);
     if (!host) return;
     opts = opts || {};
     var animate = opts.animate !== false;
-    host.className = (host.className ? host.className + ' ' : '') + (COLS_MAP[opts.cols] || COLS_MAP['1-2-4']);
+    // explicit opts.cols wins; else auto-pick by item count (4+ -> the canonical 1-2-4)
+    var colsKey = opts.cols && COLS_MAP[opts.cols] ? opts.cols : autoCols((items || []).length);
+    host.className = (host.className ? host.className + ' ' : '') + COLS_MAP[colsKey];
 
     host.innerHTML = (items || []).map(function (it) {
       // label (optionally a glossary term)
@@ -318,25 +381,45 @@
         : esc(it.label);
 
       // big number
-      var dec = it.decimals != null ? it.decimals : (it.value % 1 ? 2 : 0);
-      var cuAttrs = 'data-countup="' + it.value + '"';
-      if (!animate || it.decimals != null) cuAttrs += ' data-decimals="' + dec + '"';
       var pre = it.prefix != null ? it.prefix : '';
       var suf = it.suffix != null ? it.suffix : '';
       var numHtml;
-      if (it.unit) {
-        // long figures: keep number big, unit small, never wrap. A suffix (when
-        // also set) trails the unit in the same small style so unit + suffix coexist.
-        numHtml = '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' +
-          esc(pre) + '<span ' + cuAttrs + '>0</span>' +
-          '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
-          (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') +
-          '</span>';
+      if (typeof it.value === 'string') {
+        // a STRING value renders VERBATIM (no CountUp) — for status/severity cards
+        // ("Healthy", "P1") that aren't numbers. The number<->string fork only
+        // changes the inner figure; delta/spark/card wrapper below are shared.
+        var verbatim = esc(pre) + esc(it.value);
+        numHtml = it.unit
+          ? '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' + verbatim +
+            '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
+            (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>'
+          : '<span class="text-headline-36 font-bold nums whitespace-nowrap">' + verbatim + esc(suf) + '</span>';
       } else {
-        // whitespace-nowrap so a prefix/suffix (e.g. "16 / 16", "₩4,120") never wraps mid-figure
-        numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap" ' + cuAttrs +
-          (pre ? ' data-prefix="' + esc(pre) + '"' : '') +
-          (suf ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>';
+        // decimals: explicit item/opts wins; else INFER from how the literal value is
+        // written (8.4 -> 1 decimal) so a count-up keeps the authored precision and
+        // renders '8.4' not '8.40'. Numbers can't carry trailing zeros, so the textual
+        // form of the literal is the best available signal.
+        var inferDec = function (v) {
+          var s = String(v); var dot = s.indexOf('.');
+          return dot < 0 ? 0 : s.length - dot - 1;
+        };
+        var dec = it.decimals != null ? it.decimals : (opts.decimals != null ? opts.decimals : inferDec(it.value));
+        var cuAttrs = 'data-countup="' + it.value + '"';
+        if (!animate || it.decimals != null || opts.decimals != null || dec) cuAttrs += ' data-decimals="' + dec + '"';
+        if (it.unit) {
+          // long figures: keep number big, unit small, never wrap. A suffix (when
+          // also set) trails the unit in the same small style so unit + suffix coexist.
+          numHtml = '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' +
+            esc(pre) + '<span ' + cuAttrs + '>0</span>' +
+            '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
+            (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') +
+            '</span>';
+        } else {
+          // whitespace-nowrap so a prefix/suffix (e.g. "16 / 16", "₩4,120") never wraps mid-figure
+          numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap" ' + cuAttrs +
+            (pre ? ' data-prefix="' + esc(pre) + '"' : '') +
+            (suf ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>';
+        }
       }
 
       // delta badge — tone-colored, lucide arrow; null => '—' sentinel (never fake zero)
@@ -369,12 +452,25 @@
   };
 
   /* ==========================================================================
-     FAST-PATH HELPER 2/6 — COOKIEBITE.findings(target, items, opts?)
+     FAST-PATH HELPER 3/11 — COOKIEBITE.findings(target, items, opts?)
      Emits the components.md "Severity-coded findings list" verbatim, incl. the
      optional Alpine severity-chip filter. tone doubles as severity.
      ========================================================================== */
   var SEV_LABEL = { critical: 'Critical', warning: 'High', info: 'Medium', neutral: 'Low' };
+  var SEV_LABEL_KO = { critical: '심각', warning: '높음', info: '보통', neutral: '낮음' };
   var SEV_RANK = { critical: 0, warning: 1, info: 2, neutral: 3 };
+  // severity labels follow the report locale (Korean when REPORT_LOCALE.number
+  // starts with 'ko'); opts.sevLabels overrides the badge set, opts.chipLabels the
+  // chip set (incl. the 'all' key). A per-item f.label still wins over both.
+  function sevLabelSet(opts) {
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    return Object.assign({}, ko ? SEV_LABEL_KO : SEV_LABEL, (opts && opts.sevLabels) || {});
+  }
+  function chipLabelSet(opts) {
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var base = Object.assign({ all: ko ? '전체' : 'All' }, ko ? SEV_LABEL_KO : SEV_LABEL);
+    return Object.assign(base, (opts && opts.chipLabels) || {});
+  }
 
   CB.findings = function (target, items, opts) {
     var host = resolveTarget(target);
@@ -382,6 +478,8 @@
     opts = opts || {};
     var withFilter = opts.filter !== false;
     var withSort = opts.sort !== false;
+    var sevLabels = sevLabelSet(opts);
+    var chipLabels = chipLabelSet(opts);
 
     var list = (items || []).slice();
     var rank = function (t) { return SEV_RANK[t] == null ? 9 : SEV_RANK[t]; }; // critical=0 must not fall through ||
@@ -389,7 +487,7 @@
 
     var lis = list.map(function (f) {
       var t = tone(f.tone);
-      var badgeLabel = f.label || SEV_LABEL[f.tone] || 'Note';
+      var badgeLabel = f.label || sevLabels[f.tone] || 'Note';
       // normalize to a known tone so the per-item filter value matches the chip set
       var sevTone = SEV_RANK[f.tone] != null ? f.tone : 'neutral';
       var show = withFilter ? ' x-show="sev===\'all\' || sev===\'' + sevTone + '\'"' : '';
@@ -420,7 +518,7 @@
     // terminate the double-quoted x-for attribute (Alpine expr truncates, chips vanish).
     var sqChip = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
     var chipDefs = '[' + chips.map(function (tn) {
-      var label = tn === 'all' ? 'All' : (SEV_LABEL[tn] || tn);
+      var label = chipLabels[tn] || tn;
       return '{tone:' + sqChip(tn) + ',label:' + sqChip(label) + '}';
     }).join(',') + ']';
 
@@ -440,7 +538,7 @@
   };
 
   /* ==========================================================================
-     FAST-PATH HELPER 3/6 — COOKIEBITE.timeline(target, items, opts?)
+     FAST-PATH HELPER 4/11 — COOKIEBITE.timeline(target, items, opts?)
      Alpine x-for vertical timeline (incident-postmortem pattern). kind -> tone
      via an OPEN, overridable map (never a closed enum). Detail via x-collapse.
      ========================================================================== */
@@ -494,7 +592,7 @@
   };
 
   /* ==========================================================================
-     FAST-PATH HELPER — COOKIEBITE.mermaid(target, definition, opts?)
+     FAST-PATH HELPER 5/11 — COOKIEBITE.mermaid(target, definition, opts?)
      Text -> diagram (flowchart / sequence / state / ER / gantt), themed from the
      report's CSS vars and dark-aware FOR FREE. Lowers the friction that makes the
      model wall-of-text instead of drawing: no <script> tag, no init, no theming —
@@ -588,7 +686,7 @@
   };
 
   /* ==========================================================================
-     FAST-PATH HELPER 4/6 — COOKIEBITE.table(target, config) -> gridInstance
+     FAST-PATH HELPER 6/11 — COOKIEBITE.table(target, config) -> gridInstance
      Grid.js with the interactions.md §4 footguns fixed BY CONSTRUCTION:
        - pagination {limit:15} only when rows>15 else false
        - search box only when rows>10 (a search field over a 5-row table is noise);
@@ -629,12 +727,18 @@
         var n = c + 1;
         return sel + ' .gridjs-th:nth-child(' + n + '),' + sel + ' .gridjs-td:nth-child(' + n + ')';
       }).join(',');
-      var styleEl = document.createElement('style');
+      // stable id per table so a re-render REPLACES the right-align rule instead of
+      // appending a fresh <style> each time (which leaks a growing pile of dupes).
+      var styleId = host.id + '-numalign';
+      var styleEl = document.getElementById(styleId) || document.createElement('style');
+      styleEl.id = styleId;
       styleEl.textContent = rules + '{ text-align:right; font-variant-numeric:tabular-nums; }';
-      document.head.appendChild(styleEl);  // NOT host — Grid.js refuses to render into a non-empty container
+      if (!styleEl.parentNode) document.head.appendChild(styleEl);  // NOT host — Grid.js refuses to render into a non-empty container
     }
 
     // statusCol -> COOKIEBITE.pill via gridjs.html
+    var numericSet = {};
+    (config.numericCols || []).forEach(function (c) { numericSet[c] = true; });
     var columns = (config.columns || []).map(function (col, idx) {
       var base = typeof col === 'string' ? { name: col } : Object.assign({}, col);
       if (config.statusCol === idx && !base.formatter) {
@@ -643,6 +747,13 @@
             return gridjs.html(CB.pill(cell.label, { tone: cell.tone, icon: cell.icon }));
           }
           return gridjs.html(CB.pill(String(cell), { tone: 'neutral' }));
+        };
+      } else if (numericSet[idx] && !base.formatter) {
+        // raw Number in a numericCol with no formatter -> thousands-group via CB.nf
+        // (right-align is already applied via the scoped <style> above). Non-numbers
+        // (already-formatted strings, null) pass through untouched.
+        base.formatter = function (cell) {
+          return typeof cell === 'number' ? CB.nf.format(cell) : cell;
         };
       }
       return base;
@@ -668,7 +779,7 @@
   };
 
   /* ==========================================================================
-     FAST-PATH HELPER 5/6 — COOKIEBITE.chart(target, config) -> echartsInstance
+     FAST-PATH HELPER 7/11 — COOKIEBITE.chart(target, config) -> echartsInstance
      WRAPPER ONLY (the fast/escape seam). Builds the §10 toggle+table+aria
      scaffold, merges a HAND-WRITTEN option over baseChart, registers for dark
      re-theme + resize. config.option is ALWAYS author-written. NEVER a {kind}.
@@ -682,7 +793,10 @@
     if (!isPlainObject(base)) return over;
     if (!isPlainObject(over)) return over;
     var out = {};
-    Object.keys(base).forEach(function (k) { out[k] = base[k]; });
+    // clone base ARRAY values (e.g. baseChart.color) so the merged option never
+    // shares a reference back into CB.baseChart — otherwise a chart mutating its
+    // option array would corrupt the shared base across dark re-themes.
+    Object.keys(base).forEach(function (k) { out[k] = Array.isArray(base[k]) ? base[k].slice() : base[k]; });
     Object.keys(over).forEach(function (k) {
       var bv = out[k], ov = over[k];
       out[k] = (isPlainObject(bv) && isPlainObject(ov)) ? deepMerge(bv, ov) : ov;
@@ -717,8 +831,11 @@
 
     // build the §10 view-toggle scaffold (matches the template trend section)
     var hasTable = !!(config.table && config.table.columns);
-    var caption = config.caption
-      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + config.caption + '</p>'
+    // caption is ESCAPED by default; config.captionHtml is the opt-in trusted-HTML
+    // path (parallel to callout's trusted note), for authors who need bold/links.
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
       : '';
 
     var tableHtml = '';
@@ -755,13 +872,25 @@
 
     var el = host.querySelector('#' + cid);
     var inst = window.echarts.init(el);
-    var option = deepMerge(CB.baseChart, config.option || {});
-    inst.setOption(option, true);
+    // track the LATEST author-applied option so a dark re-theme re-merges THAT over
+    // the freshly-read baseChart — not the original. A reader-filtered chart (series
+    // swapped via chart.__cbUpdate) then keeps its filtered state across the toggle
+    // instead of snapping back to the initial series.
+    var lastOption = config.option || {};
+    inst.setOption(deepMerge(CB.baseChart, lastOption), true);
+    // chart.__cbUpdate(option): apply a new author option AND remember it, so the
+    // next dark re-theme preserves it. Use this instead of raw setOption for updates
+    // that should survive a theme toggle (e.g. reader filters/zoom on the data).
+    inst.__cbUpdate = function (opt, notMerge) {
+      lastOption = opt || {};
+      inst.setOption(deepMerge(CB.baseChart, lastOption), notMerge !== false);
+      return inst;
+    };
 
-    // register for dark re-theme: re-merge author option over the freshly-read baseChart
+    // register for dark re-theme: re-merge the LAST author option over fresh baseChart
     var renderFn = config.render
       ? config.render
-      : function (chart) { chart.setOption(deepMerge(CB.baseChart, config.option || {}), true); };
+      : function (chart) { chart.setOption(deepMerge(CB.baseChart, lastOption), true); };
     CB.registerChart(inst, renderFn);
 
     CB.refreshIcons();
@@ -769,7 +898,7 @@
   };
 
   /* ==========================================================================
-     COOKIEBITE.dataTableToggle(chartTarget, { columns, rows, ariaLabel? })
+     FAST-PATH HELPER 8/11 — COOKIEBITE.dataTableToggle(chartTarget, { columns, rows, ariaLabel? })
      Gives a HAND-WRITTEN (escape-hatch) chart the same "표로 보기" data-table
      alternative that CB.chart builds automatically — satisfies the a11y rule
      "every chart needs a data-table alternative". Vanilla (no Alpine): inserts a
@@ -815,6 +944,212 @@
       btn.textContent = showingTable ? tl.chart : tl.table;
       btn.setAttribute('aria-pressed', showingTable ? 'true' : 'false');
     });
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER 9/11 — COOKIEBITE.compare(target, { rows, options, recommendation? })
+     The decision/comparison report type (interactions.md §12). Columns are the
+     `options`; rows align BY CONSTRUCTION — you pass `rows` once as labels and each
+     option supplies its cells positionally (values[i] lands on rows[i]). A cell is a
+     plain string OR { label, tone } (rendered via CB.pill). The recommended option's
+     column gets an accent ring + a small badge. Collapses to stacked cards below sm.
+     Optional `recommendation` renders as a CB.callout below the grid. Emits the same
+     markup §12 teaches.
+     ========================================================================== */
+  CB.compare = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var rows = config.rows || [];
+    var options = config.options || [];
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var recLabel = ko ? '추천' : 'Recommended';
+
+    var cards = options.map(function (opt) {
+      var values = opt.values || [];
+      // recommended column: accent ring + badge (matches §12's ring-2 ring-accent)
+      var ring = opt.recommended ? ' ring-2 ring-accent' : '';
+      var badge = opt.recommended
+        ? '<span class="text-caption-12 text-accent font-semibold">' + esc(recLabel) + '</span>'
+        : '';
+      // one <dt>/<dd> per row, same order in every column so they line up
+      var dl = rows.map(function (label, i) {
+        var cell = values[i];
+        var dd = (cell && typeof cell === 'object' && cell.label != null)
+          ? CB.pill(cell.label, { tone: cell.tone, icon: cell.icon })
+          : esc(cell == null ? '' : cell);
+        return '<div><dt class="text-secondary">' + esc(label) + '</dt><dd>' + dd + '</dd></div>';
+      }).join('');
+      return '<div class="bg-surface border border-line-weak rounded-medium p-20' + ring + '">' +
+        '<h3 class="text-title-20 font-bold">' + esc(opt.name) + '</h3>' + badge +
+        '<dl class="mt-12 space-y-8 text-body-14">' + dl + '</dl></div>';
+    }).join('');
+
+    // columns = number of options; collapse to a single column below sm
+    var n = options.length || 1;
+    var grid = '<div class="grid grid-cols-1 sm:grid-cols-' + n + ' gap-16">' + cards + '</div>';
+    var rec = config.recommendation
+      ? '<div class="mt-16">' + CB.callout(config.recommendation, { tone: 'info', icon: null }) + '</div>'
+      : '';
+    host.innerHTML = grid + rec;
+
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER 10/11 — COOKIEBITE.tabs(target, items, opts?) (alias CB.reveal)
+     Vanilla (NO Alpine) tab shell: a row of themed tab buttons + panels. Each item
+     is { id?, label, render(panelEl) }; render() is called LAZILY on first show of
+     its panel, and once the panel is visible the runtime fires requestAnimationFrame
+     so any chart created inside it resize()s (reuses the same charts[] registry as
+     CB.chart + runs CB.refreshIcons). First tab open by default; keyboard nav +
+     aria-selected wired. Solves the empty-chart-at-0×0 footgun (interactions.md §6).
+     ========================================================================== */
+  var tabsSeq = 0;
+
+  CB.tabs = function (target, items, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    items = items || [];
+    opts = opts || {};
+    var gid = 'cbTabs' + (++tabsSeq);
+
+    // tab buttons + panels; aria roles wire the buttons to their panels
+    var tablist = items.map(function (it, i) {
+      var sel = i === 0;
+      var tabId = gid + '-tab-' + i;
+      var panelId = it.id || (gid + '-panel-' + i);
+      return '<button type="button" role="tab" id="' + tabId + '" aria-controls="' + panelId + '" ' +
+        'aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" ' +
+        'class="px-12 py-8 text-body-14 font-medium border-b-2 -mb-px transition-colors ' +
+        (sel ? 'border-accent text-accent' : 'border-transparent text-secondary hover:text-primary') + '">' +
+        esc(it.label) + '</button>';
+    }).join('');
+    var panels = items.map(function (it, i) {
+      var sel = i === 0;
+      var tabId = gid + '-tab-' + i;
+      var panelId = it.id || (gid + '-panel-' + i);
+      return '<div role="tabpanel" id="' + panelId + '" aria-labelledby="' + tabId + '"' +
+        (sel ? '' : ' hidden') + '></div>';
+    }).join('');
+
+    host.innerHTML =
+      '<div role="tablist" class="flex gap-8 border-b border-line-weak mb-16">' + tablist + '</div>' +
+      '<div>' + panels + '</div>';
+
+    var btns = [].slice.call(host.querySelectorAll('[role="tab"]'));
+    var panelEls = [].slice.call(host.querySelectorAll('[role="tabpanel"]'));
+    var done = [];   // per-panel lazy-init guard
+
+    function reveal(i) {
+      var panel = panelEls[i];
+      if (!panel) return;
+      if (!done[i]) {
+        done[i] = true;
+        var it = items[i];
+        try { if (typeof it.render === 'function') it.render(panel); } catch (e) { /* one bad panel must not break tabs */ }
+      }
+      // panel now visible: redraw icons + resize any chart created inside it next frame
+      CB.refreshIcons();
+      requestAnimationFrame(function () {
+        charts.forEach(function (c) {
+          var dom = c.instance && c.instance.getDom && c.instance.getDom();
+          if (dom && panel.contains(dom)) {
+            try { c.instance.resize(); } catch (e) {}
+          }
+        });
+      });
+    }
+
+    function select(i) {
+      btns.forEach(function (b, j) {
+        var on = j === i;
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+        b.tabIndex = on ? 0 : -1;
+        b.classList.toggle('border-accent', on);
+        b.classList.toggle('text-accent', on);
+        b.classList.toggle('border-transparent', !on);
+        b.classList.toggle('text-secondary', !on);
+      });
+      panelEls.forEach(function (p, j) { p.hidden = j !== i; });
+      reveal(i);
+    }
+
+    btns.forEach(function (b, i) {
+      b.addEventListener('click', function () { select(i); });
+      b.addEventListener('keydown', function (e) {
+        var next = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : -1;
+        if (next < 0) return;
+        next = (next + btns.length) % btns.length;
+        e.preventDefault();
+        btns[next].focus();
+        select(next);
+      });
+    });
+
+    reveal(0); // first tab open by default — lazy-init its panel now
+    return host;
+  };
+  CB.reveal = CB.tabs; // alias (interactions.md §6 names both)
+
+  /* ==========================================================================
+     FAST-PATH HELPER 11/11 — COOKIEBITE.copyButton(target, label, builderFn, opts?)
+     + COOKIEBITE.sectionToMarkdown(selector) (interactions.md §13). copyButton injects
+     a themed <button> into target that calls CB.copy(builderFn(), btn) — inheriting the
+     clipboard fallback + the shared 'Copied ✓' flash. opts.className overrides styling.
+     sectionToMarkdown is a best-effort serializer (headings/paragraphs/lists/tables ->
+     markdown) — the no-custom-builder companion to copyButton.
+     ========================================================================== */
+  CB.copyButton = function (target, label, builderFn, opts) {
+    var host = resolveTarget(target);
+    if (!host || typeof builderFn !== 'function') return null;
+    opts = opts || {};
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = opts.className || 'px-12 py-8 rounded-small bg-accent text-accent-on text-body-14';
+    btn.textContent = label;
+    btn.addEventListener('click', function () { CB.copy(builderFn(), btn); });
+    host.appendChild(btn);
+    return btn;
+  };
+
+  CB.sectionToMarkdown = function (selector) {
+    var root = resolveTarget(selector);
+    if (!root) return '';
+    var lines = [];
+    // walk the section in document order, emitting markdown per block element
+    var blocks = root.querySelectorAll('h1,h2,h3,h4,h5,h6,p,ul,ol,table');
+    [].slice.call(blocks).forEach(function (el) {
+      // skip a block nested inside another we'll already emit (a <p> inside a <td>)
+      if (el.parentElement && el.parentElement.closest('table,ul,ol') && el.tagName !== 'TABLE') return;
+      var tag = el.tagName.toLowerCase();
+      var text = function (node) { return (node.textContent || '').replace(/\s+/g, ' ').trim(); };
+      if (/^h[1-6]$/.test(tag)) {
+        lines.push('\n' + new Array(+tag[1] + 1).join('#') + ' ' + text(el));
+      } else if (tag === 'p') {
+        var t = text(el); if (t) lines.push(t + '\n');
+      } else if (tag === 'ul' || tag === 'ol') {
+        [].slice.call(el.children).forEach(function (li, i) {
+          if (li.tagName !== 'LI') return;
+          var bullet = tag === 'ol' ? (i + 1) + '. ' : '- ';
+          lines.push(bullet + text(li));
+        });
+        lines.push('');
+      } else if (tag === 'table') {
+        var rows = [].slice.call(el.querySelectorAll('tr'));
+        rows.forEach(function (tr, ri) {
+          var cells = [].slice.call(tr.querySelectorAll('th,td')).map(function (c) { return text(c); });
+          if (!cells.length) return;
+          lines.push('| ' + cells.join(' | ') + ' |');
+          // header separator after the first row when it carries <th> cells
+          if (ri === 0 && tr.querySelector('th')) {
+            lines.push('| ' + cells.map(function () { return '---'; }).join(' | ') + ' |');
+          }
+        });
+        lines.push('');
+      }
+    });
+    return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   };
 
   /* ==========================================================================
@@ -921,29 +1256,54 @@
   /* ==========================================================================
      glossary auto-linker (interactions.md §11). Runs only if window.GLOSSARY set.
      ========================================================================== */
+  // wrap the first occurrence of each glossary term in [data-glossary] scopes.
+  // `map` is the term->definition object; `scope` optionally narrows to one root.
+  function linkGlossary(map, scope) {
+    if (!map || typeof map !== 'object') return;
+    var terms = Object.keys(map).sort(function (a, b) { return b.length - a.length; });
+    var roots = scope
+      ? [resolveTarget(scope)].filter(Boolean)
+      : [].slice.call(document.querySelectorAll('[data-glossary]'));
+    roots.forEach(function (root) {
+      terms.forEach(function (term) {
+        var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        var nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+        for (var n = 0; n < nodes.length; n++) {
+          var node = nodes[n];
+          var p = node.parentElement;
+          // skip detached nodes (DOM mutated mid-iteration), already-linked terms,
+          // and headings (h1–h4) — linking a term inside a title looks broken.
+          if (!p || p.closest('.gloss') || p.closest('h1,h2,h3,h4')) continue;
+          var i = node.nodeValue.indexOf(term);
+          if (i < 0) continue;
+          var span = document.createElement('span');
+          span.className = 'gloss'; span.tabIndex = 0; span.setAttribute('role', 'button');
+          span.dataset.tippyContent = map[term]; span.textContent = term;
+          var after = node.splitText(i); after.nodeValue = after.nodeValue.slice(term.length);
+          node.parentNode.insertBefore(span, after);
+          break; // first occurrence only
+        }
+      });
+    });
+    if (window.tippy) {
+      window.tippy('.gloss', { theme: 'report', maxWidth: 300, allowHTML: false, trigger: 'mouseenter focus' });
+    }
+  }
+
+  // CB.glossary(map, scope?) — set/extend the glossary at RUNTIME (e.g. from a
+  // DOMContentLoaded handler), mirroring the parse-time window.GLOSSARY path. Merges
+  // into window.GLOSSARY so both sources coexist, then links within scope (or all
+  // [data-glossary] regions).
+  CB.glossary = function (map, scope) {
+    window.GLOSSARY = Object.assign({}, window.GLOSSARY || {}, map || {});
+    linkGlossary(map || window.GLOSSARY, scope);
+  };
+
   function initGlossary() {
     if (window.GLOSSARY && typeof window.GLOSSARY === 'object') {
-      var terms = Object.keys(window.GLOSSARY).sort(function (a, b) { return b.length - a.length; });
-      document.querySelectorAll('[data-glossary]').forEach(function (scope) {
-        terms.forEach(function (term) {
-          var walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
-          var nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
-          for (var n = 0; n < nodes.length; n++) {
-            var node = nodes[n];
-            if (node.parentElement.closest('.gloss')) continue;
-            var i = node.nodeValue.indexOf(term);
-            if (i < 0) continue;
-            var span = document.createElement('span');
-            span.className = 'gloss'; span.tabIndex = 0; span.setAttribute('role', 'button');
-            span.dataset.tippyContent = window.GLOSSARY[term]; span.textContent = term;
-            var after = node.splitText(i); after.nodeValue = after.nodeValue.slice(term.length);
-            node.parentNode.insertBefore(span, after);
-            break; // first occurrence only
-          }
-        });
-      });
-    }
-    if (window.tippy) {
+      linkGlossary(window.GLOSSARY);
+    } else if (window.tippy) {
+      // no parse-time glossary, but author may have hand-authored .gloss spans
       window.tippy('.gloss', { theme: 'report', maxWidth: 300, allowHTML: false, trigger: 'mouseenter focus' });
     }
   }

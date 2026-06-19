@@ -41,6 +41,15 @@ JS_FILE="$REPO_ROOT/assets/cookiebite.js"
 
 [ -n "$OUT" ] || OUT="${IN%.html}.inlined.html"
 
+# Idempotency: if the input is already inlined (carries our marker), re-inlining is a
+# no-op SUCCESS — not an error. Copy through to OUT (when distinct) so callers that pass
+# an already-inlined file still get the expected output path, and exit 0.
+if grep -qi 'id="cookiebite-js"' "$IN"; then
+  echo "already inlined (id=\"cookiebite-js\" present) — no-op." >&2
+  if [ "$OUT" != "$IN" ]; then cp "$IN" "$OUT"; echo "  copied as-is -> $OUT" >&2; fi
+  exit 0
+fi
+
 IN="$IN" OUT="$OUT" CSS_FILE="$CSS_FILE" JS_FILE="$JS_FILE" python3 - <<'PY'
 import os, re, sys
 
@@ -72,8 +81,11 @@ def repl_js(_):
     global n_js; n_js += 1
     return '<script id="cookiebite-js">\n' + js_safe + '\n</script>'
 
-html = css_pat.sub(repl_css, html, count=1)
-html = js_pat.sub(repl_js, html, count=1)
+# Inline ALL occurrences (count=0), not just the first — a report may carry the placeholder
+# more than once (e.g. duplicated head/template fragments) and a single-shot sub would leave
+# stragglers loading the raw ./assets/cookiebite.js from a path that won't exist after hand-over.
+html = css_pat.sub(repl_css, html, count=0)
+html = js_pat.sub(repl_js, html, count=0)
 
 if n_js == 0:
     sys.stderr.write(
@@ -82,6 +94,13 @@ if n_js == 0:
     sys.exit(2)
 if n_css == 0:
     sys.stderr.write("warning: no cookiebite.css <link> found to inline (continuing).\n")
+
+# Any raw ./assets/cookiebite.js still left (e.g. a non-<script>-src reference the pattern
+# can't safely fold) would break offline — warn so the author can resolve it by hand.
+leftover = len(re.findall(r'(?:\./|/)?assets/cookiebite\.js', html, re.IGNORECASE))
+if leftover:
+    sys.stderr.write(
+        "warning: %d raw './assets/cookiebite.js' reference(s) remain after inlining.\n" % leftover)
 
 open(outp, 'w', encoding='utf-8').write(html)
 sys.stderr.write("inlined cookiebite runtime -> %s\n" % outp)

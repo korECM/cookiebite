@@ -45,6 +45,14 @@ iris, indigo, blue, sky, cyan, teal, green, grass, yellow, orange, brown, bronze
 - No one-off hex colors in product UI unless a token is added first. (Reports may
   derive tints/shades of the chosen accent for charts — see SKILL.md.)
 
+> **Contrast caveat for warm accents.** A few shipped accents are warm/bright and do
+> **not** clear WCAG AA (4.5:1) for *small white text on the accent fill*: Persimmon
+> `#FA4D02` (the shipped default, ~3.0:1) and Raycast `#FF5C5C` (~2.6:1). The brand
+> accents are intentionally kept as-is for identity, so don't change them — instead, for
+> small white-on-accent text (badges, pills, tiny labels) use `--accent-strong` as the
+> fill rather than `--accent`; it's the darker shade and reads. Large text / icon glyphs
+> and non-text accent fills (chart series, borders) are fine on `--accent`.
+
 ## Typography
 
 Recommended family: **Pretendard** (Korean + Latin). Not bundled by the token set;
@@ -171,6 +179,14 @@ or to know where the skill is installed. Map the JSON to the THEME block:
 
 - `font.url` → the font `<link href>`; `font.family` + `font.fallback` → `--font-family`
 - `colors.accent/accentStrong/accentWeak/accentOn` → `--accent` / `--accent-strong` / `--accent-weak` / `--accent-on`
+- `colors.accentDark` (optional) → a dark-mode override emitted **after** the `:root`
+  block: `html[data-theme="dark"]{ --accent:<accentDark>; --accent-strong:<accentDark>;
+  --accent-on:<accentOnDark> }`. Only present for near-black accents that would vanish on
+  the dark surface; keep it when hand-applying a pasted theme.json or the accent
+  disappears in dark mode. `colors.accentOnDark` (optional) is the accent-on ink for that
+  override — it **must** flip too, else accent-filled text (which sits on `--accent`) goes
+  invisible against the now-light dark accent; it defaults to a dark ink (`#111111`) when
+  `accentDark` is present.
 - the nine neutrals → `--c-bg`, `--c-surface`, `--c-primary`, `--c-secondary`,
   `--c-disabled`, `--c-placeholder`, `--c-line`, `--c-line-weak`, `--c-disabled-bg`
 - the four semantic → `--c-critical` / `--c-cautionary` / `--c-positive` / `--c-informative`

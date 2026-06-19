@@ -62,6 +62,17 @@ ECharts ships interactions you should turn ON rather than build:
   ```
 Always `chart.resize()` on `window.resize`.
 
+**A fast-path `CB.chart` you later mutate via `setOption` (a filter, a metric toggle,
+a drilldown) must keep that reader state across a dark toggle.** The dark toggle re-runs
+the chart's registered render function, which re-applies the *original* `option` — so a
+naive setup snaps a filtered chart back to its unfiltered view when the reader flips dark.
+Apply every filter/metric change through the runtime's `chart.__cbUpdate(option)` hook
+(returned on the `CB.chart` instance) instead of a bare `chart.setOption(...)`: it
+re-renders *and* remembers the option as the new current view, so the dark re-theme
+re-merges *that* (not the original) and the reader's selection survives the toggle.
+(Alternatively register an `onThemeChange` callback that re-applies the active filter
+after the base re-theme.)
+
 ## 4. Sortable / searchable table (Grid.js)
 For any table with >8 rows, make it sortable + searchable so the reader can rank by
 the column they care about. Three things decide whether it actually *reads* well:
@@ -156,6 +167,23 @@ Two safe fixes:
 Either way: after any tab/accordion/toggle that reveals a chart, call `chart.resize()`
 on the next frame. Verify by actually clicking each tab in the visual self-check.
 
+**Runtime fast path — `CB.tabs(target, panels, opts?)`** (and the alias `CB.reveal`).
+A vanilla, **no-Alpine** tab shell: a row of themed tab buttons + panels, built directly
+to solve the empty-chart footgun above (the #1 cause of a blank chart box). Each panel is
+`{ id?, label, render(panelEl) }`; `render` is called **lazily on first show** of its
+panel, and after the panel becomes visible the runtime fires `requestAnimationFrame` so
+any chart created inside it `resize()`s (it reuses the same charts registry as
+`CB.chart`, and runs `CB.refreshIcons`). The first tab opens by default; keyboard nav +
+`aria-selected` are wired for you.
+```js
+COOKIEBITE.tabs('#regionTabs', [
+  { label: '아시아', render(el){ COOKIEBITE.chart(el, { option: asiaOption }); } },
+  { label: '유럽',   render(el){ COOKIEBITE.chart(el, { option: euOption }); } },
+]);
+```
+Because `render` only runs when the tab is first shown, a chart never inits at 0×0 —
+there's nothing to lazy-init or `resize()` by hand.
+
 ## 7. Animated reveal on scroll (AOS) + count-up hero numbers
 Use sparingly to pace a long report and land the headline figure. **CountUp is
 auto-loaded by the template; AOS is NOT — add its css/js tags (`libraries.md`) first.**
@@ -210,12 +238,17 @@ The reader who knows the term ignores it; the one who doesn't gets help without 
 dumbing the whole report down. Great for postmortems, security/architecture write-ups,
 and anything execs + engineers both read.
 
-Use Tippy.js (tiny, handles edge positioning so the bubble never clips off-screen):
+Use Tippy.js (tiny, handles edge positioning so the bubble never clips off-screen).
+**The `.gloss` underline + `.tippy-box[data-theme~='report']` styling is ALREADY shipped
+by `cookiebite.css`** — you only need the Tippy CDN tags + the `GLOSSARY` map (or
+`CB.glossary`), not the pasted `<style>` below (it's shown for hand-authors building
+without the runtime):
 ```html
 <link rel="stylesheet" href="https://unpkg.com/tippy.js@6/dist/tippy.css">
 <script src="https://unpkg.com/@popperjs/core@2"></script>
 <script src="https://unpkg.com/tippy.js@6"></script>
 <style>
+  /* ALREADY in cookiebite.css — paste only when hand-authoring without the runtime */
   .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
   /* theme the tooltip to the report (dark surface, readable) */
   .tippy-box[data-theme~='report']{ background:var(--c-primary); color:#fff; border-radius:12px; font-size:13px; line-height:1.5; }
@@ -263,6 +296,24 @@ regions to scan with `data-glossary`, and it wraps the first occurrence of each 
 </script>
 ```
 
+**Runtime fast path — `CB.glossary(map, scope?)`.** The runtime ships the linker above;
+you just supply the term map. Two paths, and the timing matters:
+- **Raw `window.GLOSSARY`** must be a **parse-time** assignment (a top-level `<script>`
+  before the runtime). The runtime reads it once during its own init; assigning it later
+  inside the report's `DOMContentLoaded` handler **no-ops** — the linker already ran.
+- **`COOKIEBITE.glossary(map, scope?)`** merges `map` into `window.GLOSSARY` and re-runs
+  the linker + tippy within `scope` (default `document`), so it works from **inside** the
+  `DOMContentLoaded` handler — the obvious place to call it. It's idempotent (re-running
+  only links newly-added terms, never double-wraps):
+  ```js
+  document.addEventListener('DOMContentLoaded', () => {
+    COOKIEBITE.glossary({
+      CSRF: 'CSRF tricks your browser into requests to a site you\'re logged into; a token prevents it.',
+      idempotency: 'Doing the same operation twice has the same effect as once.',
+    });
+  });
+  ```
+
 **Restraint**: tag a term once (first mention), not every occurrence; only tag genuine
 jargon, not common words; keep definitions one or two plain sentences. Over-tagging
 turns the page into a minefield of dotted underlines.
@@ -297,28 +348,64 @@ all options. End with a recommendation so the page takes a position.
 Keep every column's rows in the same order; color the trade-offs with semantic tokens
 (green/amber/red) so the comparison is scannable, not just readable.
 
+**Runtime fast path — `CB.compare(target, { rows, options, recommendation? })`.** The
+one-call path for the comparison/decision report type — it emits the same grid markup
+this section teaches, with the row alignment guaranteed by construction (you pass `rows`
+once as labels; each option supplies its cells positionally):
+```js
+COOKIEBITE.compare('#decision', {
+  rows: ['Effort', 'Risk', 'Cost'],
+  options: [
+    { name: 'Option A', recommended: true,
+      values: ['2 days', { label: 'Low', tone: 'success' }, '$0'] },
+    { name: 'Option B',
+      values: ['1 week', { label: 'Med', tone: 'warning' }, '$200/mo'] },
+  ],
+  recommendation: '<b>Pick A</b> unless you need X — then B.',
+});
+```
+- Columns are the `options`; rows align by construction (each `values[i]` lands on
+  `rows[i]`).
+- A cell is a plain string **or** `{ label, tone }` (rendered via `CB.pill`, so the
+  trade-off coloring follows the `tone` contract).
+- The `recommended: true` option's column gets an accent ring + a small badge.
+- Responsive: the columns collapse to stacked cards below `sm`.
+- The optional `recommendation` HTML string renders as a `CB.callout` below the grid.
+
 ## 13. Export the state (always end an editable artifact with a way out)
 If the report lets the reader *do* something — reorder, filter to a selection, toggle,
 edit — give them a button that turns what they did back into something they can paste
 or commit: markdown, JSON, or CSV. An interactive page with no way to get the result
 out is a dead end. (This is exactly what the theme studio's "Copy CSS / Download
 theme.json" does.)
+**Runtime fast path — `CB.copyButton(target, label, builderFn, opts?)`.** Injects a
+themed `<button>` into `target` that calls `CB.copy(builderFn(), btn)` — inheriting the
+clipboard fallback and the shared 'Copied ✓' flash, so you never re-hand-roll either.
+`opts.className` overrides the styling. `builderFn` reads current UI state and returns the
+string to copy:
+```js
+COOKIEBITE.copyButton('#exportBar', 'Copy as markdown', () => buildMarkdown());
+```
+Hand-built equivalent (when you're not using the runtime), reusing `CB.copy` so you still
+inherit the fallback + flash:
 ```html
 <button id="copyBtn" class="px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">Copy as markdown</button>
 <script>
   function buildMarkdown(){ /* read current UI state -> return a string */ return '...'; }
   const btn = document.getElementById('copyBtn');
-  btn.addEventListener('click', () => {
-    const text = buildMarkdown();
-    const flash = () => { btn.textContent = 'Copied ✓'; setTimeout(()=>btn.textContent='Copy as markdown', 1200); };
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(flash, flash);
-    else { const ta=document.createElement('textarea'); ta.value=text; document.body.append(ta); ta.select(); try{document.execCommand('copy')}catch(e){} ta.remove(); flash(); }
-  });
+  btn.addEventListener('click', () => CB.copy(buildMarkdown(), btn));  // fallback + 'Copied ✓' for free
 </script>
 ```
-For a file instead of the clipboard, build a `Blob` and click a temporary `<a download>`
-(see the studio's `Download theme.json`). Match the export format to the destination:
-markdown to paste into a doc or back to the agent, CSV for a spreadsheet, JSON to re-load.
+**`CB.sectionToMarkdown(selector)`** is a best-effort serializer: it turns a section's
+headings, paragraphs, lists, and tables into a markdown string — the no-custom-builder
+companion to `copyButton`. Pair them to export a static section verbatim:
+```js
+COOKIEBITE.copyButton('#sumBar', 'Copy section', () => CB.sectionToMarkdown('#summary'));
+```
+For a file instead of the clipboard, use `CB.download(filename, text, mime?)` (or build a
+`Blob` and click a temporary `<a download>` by hand — see the studio's `Download
+theme.json`). Match the export format to the destination: markdown to paste into a doc or
+back to the agent, CSV for a spreadsheet, JSON to re-load.
 
 ## 14. Editing interfaces (let the reader shape the output, then export it)
 
@@ -363,7 +450,7 @@ prompt, paste it back to the agent.
     <select x-model="risk" class="px-10 py-6 rounded-small border border-line bg-surface"><option>낮</option><option>중</option><option>높</option></select>
   </div>
   <pre class="mt-12 p-12 rounded-small bg-disabled-bg text-caption-12 whitespace-pre-wrap" x-text="prompt"></pre>
-  <button @click="navigator.clipboard?.writeText(prompt)" class="mt-8 px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">프롬프트 복사</button>
+  <button @click="CB.copy(prompt, $event.target)" class="mt-8 px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">프롬프트 복사</button>
 </div>
 ```
 
@@ -379,7 +466,7 @@ not just prose. This is the report-side mirror of the Diff component
   get diff(){ return this.before.map((b,i)=>`- ${b}\n+ ${this.after[i]}`).join('\n') }
 }">
   <pre class="p-12 rounded-small bg-disabled-bg font-mono text-caption-12" x-text="diff"></pre>
-  <button @click="navigator.clipboard?.writeText('```diff\n'+diff+'\n```')" class="px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">diff 복사</button>
+  <button @click="CB.copy('```diff\n'+diff+'\n```', $event.target)" class="px-12 py-8 rounded-small bg-accent text-accent-on text-body-14">diff 복사</button>
 </div>
 ```
 Wrap the payload in a ```` ```diff ```` fence so it pastes back to the agent as an

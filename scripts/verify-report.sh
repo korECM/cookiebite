@@ -30,7 +30,15 @@ else
   exit 127
 fi
 ab(){ $AB --session "$S" "$@"; }
-rm -rf "$OUT"; mkdir -p "$OUT"   # only after the runner resolves, so a missing runner never wipes prior output
+# Clean prior output, but never `rm -rf` an arbitrary user-supplied dir wholesale.
+# Default workflow uses a `.verify` sentinel dir we own -> safe to wipe entirely.
+# Any other out-dir: only remove the known artifact globs we emit, never the dir.
+mkdir -p "$OUT"   # only after the runner resolves, so a missing runner never wipes prior output
+case "$(basename "$OUT")" in
+  *.verify) rm -rf "$OUT"; mkdir -p "$OUT" ;;  # sentinel dir we create -> safe to wipe
+  *) rm -f "$OUT"/full-*.png "$OUT"/*-tile-*.png "$OUT"/checks-*.json \
+        "$OUT"/_*.json "$OUT"/_inlined.html 2>/dev/null || true ;;  # only our artifacts
+esac
 
 # Auto-inline: if the report still carries the raw ./assets/cookiebite.* placeholders
 # (not yet folded by inline.sh), inline it into a throwaway copy under $OUT and render
@@ -39,12 +47,14 @@ rm -rf "$OUT"; mkdir -p "$OUT"   # only after the runner resolves, so a missing 
 if grep -qiE '<script[^>]+src=["'\''][^"'\'']*assets/cookiebite\.js' "$ABS" \
    && ! grep -qi 'id="cookiebite-js"' "$ABS"; then
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-  if bash "$SCRIPT_DIR/inline.sh" "$ABS" -o "$OUT/_inlined.html" 2>/dev/null; then
+  # Capture inline.sh's stderr so a real failure is surfaced (not swallowed by 2>/dev/null).
+  if INLINE_ERR="$(bash "$SCRIPT_DIR/inline.sh" "$ABS" -o "$OUT/_inlined.html" 2>&1)"; then
     URL="file://$OUT/_inlined.html"
     echo "[auto-inline] raw runtime placeholders folded into $OUT/_inlined.html (rendering that)."
     echo "  Deliverable stays explicit: bash scripts/inline.sh '$HTML' -o <report>.final.html"
   else
     echo "[auto-inline] inline.sh failed — rendering the raw file as-is (charts/helpers may not load)." >&2
+    [ -n "$INLINE_ERR" ] && printf '%s\n' "$INLINE_ERR" >&2
   fi
 fi
 
@@ -74,7 +84,17 @@ capture(){
   // Grid.js wraps its table in a .gridjs-wrapper that scrolls internally, so a wide table
   // there is EXPECTED — not a page-level break. Fold those out so the real signal isn't
   // buried under thead/th/sort-button noise that fires on every multi-column table at 390px.
-  var real = wide.filter(el => !el.closest('.gridjs-wrapper, .gridjs-container, .gridjs'));
+  // ALSO fold out genuine self-scrollers: an element (or an ancestor) whose own computed
+  // overflow-x is auto/scroll contains its own width (e.g. <pre>/<code class="overflow-x-auto">),
+  // so it's not a page-level break either — the page-level horizontalOverflow signal stays intact.
+  var selfScrolls = function (el) {
+    for (var n = el; n && n !== document.body; n = n.parentElement) {
+      var ox = getComputedStyle(n).overflowX;
+      if (ox === 'auto' || ox === 'scroll') return true;
+    }
+    return false;
+  };
+  var real = wide.filter(el => !el.closest('.gridjs-wrapper, .gridjs-container, .gridjs') && !selfScrolls(el));
   return JSON.stringify({
     innerWidth: window.innerWidth,
     pageHeight: document.body.scrollHeight,
@@ -98,7 +118,7 @@ EOF
   # double-encoded (a JSON string whose value is the checks object). Preserve that exact
   # shape: unwrap -> parse -> add the two keys -> re-emit as a JSON string.
   python3 - "$OUT/_checks-$label.dom.json" "$OUT/_console-$label.json" "$OUT/_errors-$label.json" \
-    > "$OUT/checks-$label.json" 2>/dev/null <<'PY' || cp "$OUT/_checks-$label.dom.json" "$OUT/checks-$label.json"
+    > "$OUT/checks-$label.json" 2>/dev/null <<'PY' || true
 import json, sys
 raw = json.load(open(sys.argv[1]))            # outer: a JSON string
 dom = json.loads(raw) if isinstance(raw, str) else raw
@@ -116,6 +136,14 @@ dom["consoleErrorCount"] = len(errs)
 dom["consoleErrors"] = errs[:20]
 print(json.dumps(json.dumps(dom, separators=(",", ":"))))  # re-wrap to match ab eval shape
 PY
+  # Validate the merged checks file is non-empty valid JSON. If the python step or the
+  # DOM eval produced nothing usable, emit an explicit error marker instead of silently
+  # leaving an empty file and reporting success (the old `|| cp` masked exactly this).
+  if ! python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$OUT/checks-$label.json" 2>/dev/null \
+     || [ ! -s "$OUT/checks-$label.json" ]; then
+    echo "⚠ [$label] DOM checks failed to produce valid JSON — see stderr." >&2
+    printf '%s\n' '{"error":"checks failed","label":"'"$label"'"}' > "$OUT/checks-$label.json"
+  fi
   rm -f "$OUT/_checks-$label.dom.json" "$OUT/_console-$label.json" "$OUT/_errors-$label.json"
 
   local H PAGE STEP i y
@@ -174,11 +202,36 @@ fi
 # Theme assert: the rendered --accent must equal the THEME block's declared value.
 # Catches the "source says Persimmon but it renders indigo" class of cascade bugs
 # (a later/un-layered :root silently overriding the THEME block) that screenshots miss.
-DECL="$(grep -oE '\-\-accent:[[:space:]]*#[0-9A-Fa-f]{3,8}' "$ABS" | head -1 | grep -oiE '#[0-9A-Fa-f]{3,8}' | tr 'A-Z' 'a-z')"
-COMP="$(ab eval "getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()" 2>/dev/null | tr -d '[:space:]"' | tr 'A-Z' 'a-z')"
+# Capture the FULL declared --accent value (up to ';'), not just a HEX — so rgb()/hsl()/
+# oklch()/named accents are asserted too instead of silently skipping the check. Normalize
+# both sides through the browser (set --_assert to the declared value, read it back computed)
+# so any color format compares apples-to-apples regardless of how it was written.
+DECL_RAW="$(grep -oiE '\-\-accent:[^;}]*' "$ABS" | head -1 | sed -E 's/^[^:]*:[[:space:]]*//; s/[[:space:]]+$//')"
+norm(){ # normalize a color string the same way for both sides: lowercase, strip spaces/quotes, expand 3-digit hex
+  local v; v="$(printf '%s' "$1" | tr -d '[:space:]"' | tr 'A-Z' 'a-z')"
+  if printf '%s' "$v" | grep -qiE '^#[0-9a-f]{3}$'; then
+    v="#$(printf '%s' "${v#\#}" | sed -E 's/(.)(.)(.)/\1\1\2\2\3\3/')"
+  fi
+  printf '%s' "$v"
+}
+DECL="$(norm "$DECL_RAW")"
+COMP="$(norm "$(ab eval "getComputedStyle(document.documentElement).getPropertyValue('--accent').trim()" 2>/dev/null)")"
 if [ -n "$DECL" ] && [ -n "$COMP" ] && [ "$DECL" != "$COMP" ]; then
-  echo "⚠ THEME MISMATCH: THEME block declares --accent $DECL but the page renders $COMP." >&2
-  echo "  A later or un-layered :root is overriding the THEME block — check the @layer wrapping / inline order." >&2
+  # Non-hex formats (rgb/hsl/oklch/named) can differ textually yet render identically; the
+  # browser's computed value is canonical, so resolve the declared value through the page too.
+  if printf '%s' "$DECL" | grep -qiE '^#[0-9a-f]{3,8}$'; then
+    echo "⚠ THEME MISMATCH: THEME block declares --accent $DECL but the page renders $COMP." >&2
+    echo "  A later or un-layered :root is overriding the THEME block — check the @layer wrapping / inline order." >&2
+  else
+    RESOLVED="$(norm "$(ab eval "var e=document.createElement('span');e.style.color=$( printf '%s' "$DECL_RAW" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))');document.body.appendChild(e);var c=getComputedStyle(e).color;e.remove();c" 2>/dev/null)")"
+    RESCOMP="$(norm "$(ab eval "var e=document.createElement('span');e.style.color=getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();document.body.appendChild(e);var c=getComputedStyle(e).color;e.remove();c" 2>/dev/null)")"
+    if [ -n "$RESOLVED" ] && [ -n "$RESCOMP" ] && [ "$RESOLVED" != "$RESCOMP" ]; then
+      echo "⚠ THEME MISMATCH: THEME block declares --accent $DECL_RAW but the page renders $COMP (resolved $RESOLVED vs $RESCOMP)." >&2
+      echo "  A later or un-layered :root is overriding the THEME block — check the @layer wrapping / inline order." >&2
+    else
+      echo "[theme] note: --accent is non-hex ($DECL_RAW); declared/rendered resolve equal — assert passed." >&2
+    fi
+  fi
 fi
 
 echo "-> $OUT"

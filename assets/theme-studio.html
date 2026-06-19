@@ -352,7 +352,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"vercel", label:"Vercel",
     font:{ family:"Geist", url:"https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#171717", accentDark:"#EDEDED", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
+    colors:{ accent:"#171717", accentDark:"#EDEDED", accentOnDark:"#111111", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
       bg:"#FAFAFA", surface:"#FFFFFF", primary:"#171717", secondary:"#4D4D4D", disabled:"#888888",
       placeholder:"#888888", line:"#EBEBEB", lineWeak:"#F2F2F2", disabledBg:"#F5F5F5",
       critical:"#EE0000", cautionary:"#F5A623", positive:"#16A34A", informative:"#0070F3" },
@@ -387,7 +387,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"resend", label:"Resend",
     font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#1A1A1A", accentDark:"#FAFAFA", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
+    colors:{ accent:"#1A1A1A", accentDark:"#FAFAFA", accentOnDark:"#111111", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
       bg:"#FCFCFD", surface:"#FFFFFF", primary:"#0A0A0A", secondary:"#6B7280", disabled:"#9CA3AF",
       placeholder:"#A1A4A5", line:"#E5E7EB", lineWeak:"#F1F3F5", disabledBg:"#F4F4F5",
       critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
@@ -428,6 +428,11 @@ function darken(hex, amt){ const {r,g,b}=toRGB(hex); return toHex({ r:r*(1-amt),
 function lightenTint(hex, amt){ const {r,g,b}=toRGB(hex); return toHex({ r:r+(255-r)*amt, g:g+(255-g)*amt, b:b+(255-b)*amt }); }
 function deriveStrong(accent){ return darken(accent, 0.12); }   // ~12% darker
 function deriveWeak(accent){ return lightenTint(accent, 0.92); } // ~92% lightened tint
+// relative luminance (0=black, 1=white); used to detect a near-black accent
+function luminance(hex){ const {r,g,b}=toRGB(hex); return (0.299*r + 0.587*g + 0.114*b) / 255; }
+// a near-black accent vanishes on the dark surface, so it needs a dark-mode override:
+// derive a light accentDark (a near-white tint) and a dark accentOnDark ink.
+function isNearBlack(hex){ return luminance(hex) < 0.18; }
 
 /* ============================================================
    State
@@ -467,7 +472,7 @@ function applyTheme(){
   // ACCENT-DARK CONTRACT: mirror the exported dark override in the live preview.
   // A near-black accent vanishes on the dark surface, so accentDark (when present)
   // overrides --accent / --accent-strong only under html[data-theme="dark"].
-  applyAccentDark(theme.colors.accentDark);
+  applyAccentDark(theme.colors.accentDark, theme.colors.accentOnDark);
 
   // accent-colored chrome bits that aren't CSS-var driven
   document.querySelectorAll("[style*='var(--accent)']").forEach(()=>{}); // (already var-driven)
@@ -482,12 +487,15 @@ function applyTheme(){
 function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(theme)); }catch(e){} }
 
 /* Inject (or clear) the dark-mode accent override so the preview honors accentDark
-   exactly as the exported THEME block does: html[data-theme="dark"]{ --accent } */
-function applyAccentDark(accentDark){
+   exactly as the exported THEME block does: html[data-theme="dark"]{ --accent }.
+   --accent-on must flip too (else accent-filled text vanishes on the light dark-accent);
+   accentOnDark defaults to a dark ink. */
+function applyAccentDark(accentDark, accentOnDark){
   let el = document.getElementById("accent-dark-override");
   if(!accentDark){ if(el) el.textContent = ""; return; }
   if(!el){ el = document.createElement("style"); el.id = "accent-dark-override"; document.head.appendChild(el); }
-  el.textContent = `html[data-theme="dark"]{ --accent:${accentDark}; --accent-strong:${accentDark}; }`;
+  const on = accentOnDark || "#111111";
+  el.textContent = `html[data-theme="dark"]{ --accent:${accentDark}; --accent-strong:${accentDark}; --accent-on:${on}; }`;
 }
 
 /* ============================================================
@@ -588,8 +596,9 @@ function buildCSS(){
   const linkLine = theme.font.url ? `<link rel="stylesheet" href="${theme.font.url}">\n` : "";
   // ACCENT-DARK CONTRACT: near-black accents vanish on the dark surface, so an
   // optional accentDark overrides --accent / --accent-strong only in dark mode.
+  // --accent-on flips too (accentOnDark, default dark ink) so accent-filled text reads.
   const darkLine = c.accentDark
-    ? ` html[data-theme="dark"]{ --accent:${c.accentDark}; --accent-strong:${c.accentDark}; }`
+    ? ` html[data-theme="dark"]{ --accent:${c.accentDark}; --accent-strong:${c.accentDark}; --accent-on:${c.accentOnDark || "#111111"}; }`
     : "";
   return `${linkLine}<style>:root{ ${vars}; }${darkLine}</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
 }
@@ -715,6 +724,16 @@ function setColor(key, hex, fromAccent){
     // auto-derive strong/weak when base accent changes
     theme.colors.accentStrong = deriveStrong(hex);
     theme.colors.accentWeak   = deriveWeak(hex);
+    // a near-black accent vanishes on the dark surface — auto-add a dark-mode override
+    // (light accentDark + dark accentOnDark ink) so it exports the dark layer; clear it
+    // again once the accent is no longer near-black.
+    if(isNearBlack(hex)){
+      theme.colors.accentDark   = lightenTint(hex, 0.92);
+      theme.colors.accentOnDark = "#111111";
+    }else{
+      delete theme.colors.accentDark;
+      delete theme.colors.accentOnDark;
+    }
   }
   syncInputsFromTheme();
   applyTheme();

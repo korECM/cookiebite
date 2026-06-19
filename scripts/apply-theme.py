@@ -6,7 +6,10 @@ the `<!-- THEME ... -->` and `<!-- end THEME -->` markers in an HTML file, so
 the whole report re-themes from one swap.
 
 Usage:
-    python scripts/apply-theme.py <preset.json> <report.html> [-o out.html]
+    python scripts/apply-theme.py <preset> <report.html> [-o out.html]
+
+<preset> may be a bare preset name (e.g. 'neutral', 'vercel'), resolved against this
+script's own assets/presets/<name>.json, or a literal path to a preset JSON.
 
 With no -o, it writes back to the same file.
 """
@@ -14,6 +17,11 @@ import argparse
 import json
 import re
 import sys
+from pathlib import Path
+
+# this script's own preset library (mirrors how inline.sh resolves the runtime from
+# its own dir, not the cwd) — so a bare preset name works from anywhere.
+PRESETS_DIR = Path(__file__).resolve().parent.parent / "assets" / "presets"
 
 # preset color key -> CSS variable name (matches assets/template.html)
 COLOR_VARS = {
@@ -27,7 +35,22 @@ COLOR_VARS = {
     "positive": "--c-positive", "informative": "--c-informative",
 }
 
-BLOCK_RE = re.compile(r"<!-- THEME.*?<!-- end THEME -->", re.DOTALL)
+# Anchor to the real wrapper so a stray earlier "<!-- THEME" comment can't swallow the
+# title/runtime/marker. Prefer the COOKIEBITE:HEAD-THEME wrapper; fall back to the
+# em-dash "THEME —" header (both authored by the template / theme-studio output).
+BLOCK_RE = re.compile(
+    r"<!-- COOKIEBITE:HEAD-THEME -->.*?<!-- /COOKIEBITE:HEAD-THEME -->"
+    r"|<!-- THEME —.*?<!-- end THEME -->",
+    re.DOTALL,
+)
+
+# locale.number (BCP-47-ish) -> html lang attribute
+LOCALE_TO_LANG = {
+    "en-US": "en", "en-GB": "en", "ko-KR": "ko", "ja-JP": "ja",
+    "zh-CN": "zh", "zh-TW": "zh", "fr-FR": "fr", "de-DE": "de",
+    "es-ES": "es", "pt-BR": "pt", "it-IT": "it",
+}
+LANG_ATTR_RE = re.compile(r'(<html\b[^>]*\blang=")([^"]*)(")', re.IGNORECASE)
 
 
 def validate_preset(preset: object) -> list[str]:
@@ -82,17 +105,27 @@ def build_block(preset: dict) -> str:
     # ACCENT-DARK CONTRACT: an optional preset hex used as the accent ONLY in dark
     # mode (for near-black accents that vanish on a dark surface). When present, emit a
     # dark-scoped override AFTER the :root block; presets without it emit nothing extra.
+    # accent-on must flip too, else accent-filled text (which sits on --accent) goes
+    # invisible: a near-black accent's --accent-on is white, but the dark accent is
+    # light, so the override re-pins --accent-on to a dark ink (accentOnDark, default
+    # #111111).
     accent_dark = colors.get("accentDark")
+    accent_on_dark = colors.get("accentOnDark", "#111111")
     dark_override = (
         f'  html[data-theme="dark"]{{ --accent: {accent_dark}; '
-        f"--accent-strong: {accent_dark}; }}\n"
+        f"--accent-strong: {accent_dark}; --accent-on: {accent_on_dark}; }}\n"
         if accent_dark
         else ""
     )
 
+    # Emit INSIDE the COOKIEBITE:HEAD-THEME wrapper and keep the FOUC-proof / first-paint
+    # guidance comment, so re-applying a preset to an already-themed report is stable.
     return (
+        f"<!-- COOKIEBITE:HEAD-THEME -->\n"
         f"<!-- THEME — preset: {preset.get('label', preset.get('name', '?'))}. "
-        f"Swap this block to re-theme (see assets/theme-studio.html). -->\n"
+        f"Swap this block to re-theme (see assets/theme-studio.html).\n"
+        f"     Kept INLINE + synchronous so the correct accent+neutrals apply at "
+        f"first paint (FOUC-proof). -->\n"
         f'<link rel="stylesheet" href="{font["url"]}" />\n'
         f"<style>\n"
         f"  :root{{\n"
@@ -104,19 +137,56 @@ def build_block(preset: dict) -> str:
         f"{dark_override}"
         f"</style>\n"
         f"<script>window.REPORT_LOCALE = {locale};</script>\n"
-        f"<!-- end THEME -->"
+        f"<!-- end THEME -->\n"
+        f"<!-- /COOKIEBITE:HEAD-THEME -->"
     )
+
+
+def resolve_preset_path(arg: str) -> Path:
+    """Resolve a preset arg to a file path: a bare name maps to this script's own
+    assets/presets/<name>.json; anything else is treated as a literal path."""
+    name_candidate = PRESETS_DIR / f"{arg}.json"
+    if not arg.endswith(".json") and name_candidate.is_file():
+        return name_candidate
+    return Path(arg)
+
+
+def available_presets() -> str:
+    names = sorted(p.stem for p in PRESETS_DIR.glob("*.json"))
+    return ", ".join(names) if names else "(none found)"
+
+
+def apply_lang(html: str, preset: dict) -> str:
+    """Rewrite <html lang="…"> from the preset's locale.number; warn if not derivable."""
+    number = (preset.get("locale") or {}).get("number")
+    lang = LOCALE_TO_LANG.get(number or "")
+    m = LANG_ATTR_RE.search(html)
+    if not lang or not m:
+        if not m:
+            print("warning: no recognizable <html lang> attribute to rewrite",
+                  file=sys.stderr)
+        else:
+            print(f"warning: no html lang mapping for locale '{number}'",
+                  file=sys.stderr)
+        return html
+    return LANG_ATTR_RE.sub(rf"\g<1>{lang}\g<3>", html, count=1)
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Apply a theme preset to a report.")
-    ap.add_argument("preset", help="path to a preset JSON")
+    ap.add_argument("preset", help="preset name (e.g. 'neutral') or path to a preset JSON")
     ap.add_argument("html", help="path to the report HTML")
     ap.add_argument("-o", "--out", help="output path (default: in place)")
     args = ap.parse_args()
 
-    with open(args.preset, encoding="utf-8") as f:
-        preset = json.load(f)
+    preset_path = resolve_preset_path(args.preset)
+    try:
+        with open(preset_path, encoding="utf-8") as f:
+            preset = json.load(f)
+    except FileNotFoundError:
+        print(f"error: preset '{args.preset}' not found.", file=sys.stderr)
+        print(f"  available presets: {available_presets()}", file=sys.stderr)
+        return 1
 
     problems = validate_preset(preset)
     if problems:
@@ -129,12 +199,14 @@ def main() -> int:
     with open(args.html, encoding="utf-8") as f:
         html = f.read()
 
-    if not BLOCK_RE.search(html):
-        print("error: no <!-- THEME ... end THEME --> block found in", args.html,
-              file=sys.stderr)
+    matches = BLOCK_RE.findall(html)
+    if len(matches) != 1:
+        print(f"error: expected exactly one THEME block in {args.html}, "
+              f"found {len(matches)}", file=sys.stderr)
         return 1
 
     out_html = BLOCK_RE.sub(lambda _: build_block(preset), html, count=1)
+    out_html = apply_lang(out_html, preset)
     out_path = args.out or args.html
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(out_html)
