@@ -352,7 +352,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"vercel", label:"Vercel",
     font:{ family:"Geist", url:"https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#171717", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
+    colors:{ accent:"#171717", accentDark:"#EDEDED", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
       bg:"#FAFAFA", surface:"#FFFFFF", primary:"#171717", secondary:"#4D4D4D", disabled:"#888888",
       placeholder:"#888888", line:"#EBEBEB", lineWeak:"#F2F2F2", disabledBg:"#F5F5F5",
       critical:"#EE0000", cautionary:"#F5A623", positive:"#16A34A", informative:"#0070F3" },
@@ -387,7 +387,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"resend", label:"Resend",
     font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#1A1A1A", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
+    colors:{ accent:"#1A1A1A", accentDark:"#FAFAFA", accentStrong:"#000000", accentWeak:"#F4F4F5", accentOn:"#FFFFFF",
       bg:"#FCFCFD", surface:"#FFFFFF", primary:"#0A0A0A", secondary:"#6B7280", disabled:"#9CA3AF",
       placeholder:"#A1A4A5", line:"#E5E7EB", lineWeak:"#F1F3F5", disabledBg:"#F4F4F5",
       critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
@@ -464,6 +464,11 @@ function applyTheme(){
   const url = theme.font.url || "";
   if(link.getAttribute("href") !== url){ link.setAttribute("href", url); }
 
+  // ACCENT-DARK CONTRACT: mirror the exported dark override in the live preview.
+  // A near-black accent vanishes on the dark surface, so accentDark (when present)
+  // overrides --accent / --accent-strong only under html[data-theme="dark"].
+  applyAccentDark(theme.colors.accentDark);
+
   // accent-colored chrome bits that aren't CSS-var driven
   document.querySelectorAll("[style*='var(--accent)']").forEach(()=>{}); // (already var-driven)
 
@@ -475,6 +480,15 @@ function applyTheme(){
 }
 
 function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(theme)); }catch(e){} }
+
+/* Inject (or clear) the dark-mode accent override so the preview honors accentDark
+   exactly as the exported THEME block does: html[data-theme="dark"]{ --accent } */
+function applyAccentDark(accentDark){
+  let el = document.getElementById("accent-dark-override");
+  if(!accentDark){ if(el) el.textContent = ""; return; }
+  if(!el){ el = document.createElement("style"); el.id = "accent-dark-override"; document.head.appendChild(el); }
+  el.textContent = `html[data-theme="dark"]{ --accent:${accentDark}; --accent-strong:${accentDark}; }`;
+}
 
 /* ============================================================
    Number formatting for the preview (mirrors report runtime)
@@ -572,7 +586,12 @@ function buildCSS(){
     `--c-critical:${c.critical}`, `--c-cautionary:${c.cautionary}`, `--c-positive:${c.positive}`, `--c-informative:${c.informative}`,
   ].join("; ");
   const linkLine = theme.font.url ? `<link rel="stylesheet" href="${theme.font.url}">\n` : "";
-  return `${linkLine}<style>:root{ ${vars}; }</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
+  // ACCENT-DARK CONTRACT: near-black accents vanish on the dark surface, so an
+  // optional accentDark overrides --accent / --accent-strong only in dark mode.
+  const darkLine = c.accentDark
+    ? ` html[data-theme="dark"]{ --accent:${c.accentDark}; --accent-strong:${c.accentDark}; }`
+    : "";
+  return `${linkLine}<style>:root{ ${vars}; }${darkLine}</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
 }
 
 /* ============================================================

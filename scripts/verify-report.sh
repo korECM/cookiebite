@@ -67,7 +67,7 @@ capture(){
   ab wait --load networkidle >/dev/null 2>&1 || true
   ab wait 2200 >/dev/null 2>&1 || true   # let charts animate/settle
 
-  ab eval --stdin > "$OUT/checks-$label.json" 2>/dev/null <<'EOF'
+  ab eval --stdin > "$OUT/_checks-$label.dom.json" 2>/dev/null <<'EOF'
 (function () {
   var wide = Array.from(document.querySelectorAll('body *'))
     .filter(el => el.getBoundingClientRect().right > window.innerWidth + 4);
@@ -88,12 +88,59 @@ capture(){
 })()
 EOF
 
-  ab screenshot --full "$OUT/full-$label.png" >/dev/null 2>&1 || true
+  # Console-error signal: the skill tells reviewers to hunt console errors, so surface them
+  # in checks-*.json. agent-browser exposes both `console` (console.* calls) and `errors`
+  # (uncaught page exceptions) — these are disjoint, so we merge: console messages of
+  # type 'error' + all page errors -> consoleErrors[] with a consoleErrorCount.
+  ab console --json > "$OUT/_console-$label.json" 2>/dev/null || echo '{}' > "$OUT/_console-$label.json"
+  ab errors --json > "$OUT/_errors-$label.json" 2>/dev/null || echo '{}' > "$OUT/_errors-$label.json"
+  # `ab eval` returns the JSON-stringified return value, so the DOM checks land
+  # double-encoded (a JSON string whose value is the checks object). Preserve that exact
+  # shape: unwrap -> parse -> add the two keys -> re-emit as a JSON string.
+  python3 - "$OUT/_checks-$label.dom.json" "$OUT/_console-$label.json" "$OUT/_errors-$label.json" \
+    > "$OUT/checks-$label.json" 2>/dev/null <<'PY' || cp "$OUT/_checks-$label.dom.json" "$OUT/checks-$label.json"
+import json, sys
+raw = json.load(open(sys.argv[1]))            # outer: a JSON string
+dom = json.loads(raw) if isinstance(raw, str) else raw
+def load(p):
+    try: return json.load(open(p))
+    except Exception: return {}
+con = load(sys.argv[2]); err = load(sys.argv[3])
+errs = []
+for m in (con.get("data") or {}).get("messages", []) or []:
+    if m.get("type") == "error":
+        errs.append(m.get("text", ""))
+for e in (err.get("data") or {}).get("errors", []) or []:
+    errs.append(e.get("text", ""))
+dom["consoleErrorCount"] = len(errs)
+dom["consoleErrors"] = errs[:20]
+print(json.dumps(json.dumps(dom, separators=(",", ":"))))  # re-wrap to match ab eval shape
+PY
+  rm -f "$OUT/_checks-$label.dom.json" "$OUT/_console-$label.json" "$OUT/_errors-$label.json"
 
   local H PAGE STEP i y
   H="$(ab eval 'window.innerHeight' 2>/dev/null | tr -dc '0-9')"; H="${H:-1000}"
   PAGE="$(ab eval 'document.body.scrollHeight' 2>/dev/null | tr -dc '0-9')"; PAGE="${PAGE:-$H}"
   STEP=$(( H - 80 )); [ "$STEP" -lt 200 ] && STEP=$H
+
+  # Pre-scroll the whole page to the bottom and back BEFORE the full-page shot, so
+  # IntersectionObserver/AOS reveals fire and lazy content paints. Otherwise full-*.png
+  # captures blank space below the fold (content reveals only on scroll). Step down in
+  # viewport chunks (a single jump to the bottom can skip observers mid-page), settle,
+  # then return to top so the full capture starts clean.
+  y=0
+  while [ "$y" -lt "$PAGE" ]; do
+    ab eval "window.scrollTo(0,$y)" >/dev/null 2>&1 || true
+    ab wait 120 >/dev/null 2>&1 || true
+    y=$(( y + STEP ))
+  done
+  ab eval "window.scrollTo(0,$PAGE)" >/dev/null 2>&1 || true
+  ab wait 300 >/dev/null 2>&1 || true     # settle reveals/animations at the very bottom
+  ab eval "window.scrollTo(0,0)" >/dev/null 2>&1 || true
+  ab wait 300 >/dev/null 2>&1 || true     # let the page settle back at the top
+
+  ab screenshot --full "$OUT/full-$label.png" >/dev/null 2>&1 || true
+
   i=0; y=0
   while [ "$y" -lt "$PAGE" ]; do
     ab eval "window.scrollTo(0,$y)" >/dev/null 2>&1 || true
@@ -142,5 +189,7 @@ echo "Look for: text/label overlap, clipped or cut-off text, charts that are emp
 echo "degenerate/unreadable, elements bleeding off the edge, mismatched colors, awkward gaps."
 echo "checks-*.json: 'horizontalOverflow' is the primary layout-break signal. 'overflowers'"
 echo "now excludes Grid.js internal nodes; 'tableScrollsInternally:true' just means a wide"
-echo "table scrolls inside its own wrapper (fine). desktop+narrow render LIGHT, dark is its own pass."
+echo "table scrolls inside its own wrapper (fine). 'consoleErrorCount'/'consoleErrors' surface"
+echo "console.error() calls + uncaught page exceptions — any non-zero count is worth a look."
+echo "desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."

@@ -111,6 +111,8 @@
     CB.baseChart = {
       color: [t.ACCENT, t.ACCENT_STRONG, t.C_NEUTRAL, t.C_SECONDARY],
       textStyle: { fontFamily: t.FONT },
+      animation: CB.MOTION_OK,
+      legend: { textStyle: { color: t.C_SECONDARY } },
       grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       xAxis: { axisLine: { lineStyle: { color: t.C_LINE } }, axisTick: { show: false }, axisLabel: { color: t.C_SECONDARY } },
@@ -120,12 +122,25 @@
   }
   CB.readThemeVars = readThemeVars;
 
-  /* accent as rgba (handles #RGB and #RRGGBB) — sparkline fills, gradient stops */
+  /* accent as rgba (handles #RGB and #RRGGBB) — sparkline fills, gradient stops.
+     Non-hex accents (rgb()/named/color-mix) resolve through the cssColor probe so
+     we never emit rgba(NaN,...). */
   var accentRgba = function (a) {
-    var h = CB.theme.ACCENT.replace('#', '');
-    if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
-    var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
-    return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    var raw = CB.theme.ACCENT || '';
+    if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) {
+      var h = raw.replace('#', '');
+      if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+      var r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+      return 'rgba(' + r + ',' + g + ',' + b + ',' + a + ')';
+    }
+    // not a #hex value — resolve via the throwaway probe (cssColor is a hoisted
+    // function declaration, callable here at runtime) and parse rgb()/rgba().
+    var c = cssColor('--accent', '#E8552D');
+    var m = (c || '').match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (m) {
+      return 'rgba(' + Math.round(+m[1]) + ',' + Math.round(+m[2]) + ',' + Math.round(+m[3]) + ',' + a + ')';
+    }
+    return c || 'rgba(0,0,0,' + a + ')';
   };
   CB.accentRgba = accentRgba;
 
@@ -310,10 +325,13 @@
       var suf = it.suffix != null ? it.suffix : '';
       var numHtml;
       if (it.unit) {
-        // long figures: keep number big, unit small, never wrap
+        // long figures: keep number big, unit small, never wrap. A suffix (when
+        // also set) trails the unit in the same small style so unit + suffix coexist.
         numHtml = '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' +
           esc(pre) + '<span ' + cuAttrs + '>0</span>' +
-          '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span></span>';
+          '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
+          (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') +
+          '</span>';
       } else {
         // whitespace-nowrap so a prefix/suffix (e.g. "16 / 16", "₩4,120") never wraps mid-figure
         numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap" ' + cuAttrs +
@@ -372,7 +390,9 @@
     var lis = list.map(function (f) {
       var t = tone(f.tone);
       var badgeLabel = f.label || SEV_LABEL[f.tone] || 'Note';
-      var show = withFilter ? ' x-show="sev===\'all\' || sev===\'' + f.tone + '\'"' : '';
+      // normalize to a known tone so the per-item filter value matches the chip set
+      var sevTone = SEV_RANK[f.tone] != null ? f.tone : 'neutral';
+      var show = withFilter ? ' x-show="sev===\'all\' || sev===\'' + sevTone + '\'"' : '';
       var where = f.where ? '<span class="font-mono">' + esc(f.where) + '</span>' : '';
       var note = f.note ? (where ? ' · ' : '') + esc(f.note) : '';
       var sub = (where || note)
@@ -384,11 +404,31 @@
         '<div class="min-w-0"><p class="text-body-14 font-semibold">' + esc(f.title) + '</p>' + sub + '</div></li>';
     }).join('');
 
+    // chips = ['all'] + tones actually present in items, ordered by SEV_RANK. This
+    // is the UNION of tone values used in the per-item x-show above, so every
+    // rendered finding stays reachable (a lone Low/neutral can't vanish on filter).
+    var presentTones = [];
+    list.forEach(function (f) {
+      var tn = SEV_RANK[f.tone] != null ? f.tone : 'neutral';
+      if (presentTones.indexOf(tn) < 0) presentTones.push(tn);
+    });
+    presentTones.sort(function (a, b) { return SEV_RANK[a] - SEV_RANK[b]; });
+    var chips = ['all'].concat(presentTones);
+    // each chip is { tone, label }: bind the filter to the tone value, show the
+    // readable severity label (neutral -> 'Low') as the chip text.
+    // single-quoted JS array literal — JSON.stringify would inject double quotes that
+    // terminate the double-quoted x-for attribute (Alpine expr truncates, chips vanish).
+    var sqChip = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
+    var chipDefs = '[' + chips.map(function (tn) {
+      var label = tn === 'all' ? 'All' : (SEV_LABEL[tn] || tn);
+      return '{tone:' + sqChip(tn) + ',label:' + sqChip(label) + '}';
+    }).join(',') + ']';
+
     var filterRow = withFilter
       ? '<div class="flex gap-6 mb-12 text-caption-12">' +
-        '<template x-for="s in [\'all\',\'critical\',\'warning\',\'info\']">' +
-        '<button @click="sev=s" :class="sev===s ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
-        'class="px-10 py-4 rounded-small capitalize" x-text="s"></button></template></div>'
+        '<template x-for="c in ' + chipDefs + '" :key="c.tone">' +
+        '<button @click="sev=c.tone" :class="sev===c.tone ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
+        'class="px-10 py-4 rounded-small" x-text="c.label"></button></template></div>'
       : '';
 
     var inner = filterRow + '<ul class="space-y-8">' + lis + '</ul>';
@@ -571,6 +611,20 @@
 
     // numeric column right-align (header AND cells), 1-based nth-child
     if (config.numericCols && config.numericCols.length) {
+      // comma-formatted STRING cells in a numericCol sort lexicographically (wrong)
+      // — hint the author to pass raw Numbers + a formatter instead.
+      var warnedNumeric = false;
+      (config.rows || []).forEach(function (r) {
+        if (warnedNumeric || !Array.isArray(r)) return;
+        config.numericCols.forEach(function (c) {
+          if (warnedNumeric) return;
+          if (typeof r[c] === 'string' && /\d,\d/.test(r[c])) {
+            console.warn('[cookiebite] COOKIEBITE.table: numericCols column ' + c + ' has comma-formatted string cells (e.g. "' + r[c] + '") — these sort lexicographically. Pass raw Numbers and a column formatter for correct sorting.');
+            warnedNumeric = true;
+          }
+        });
+      });
+
       var rules = config.numericCols.map(function (c) {
         var n = c + 1;
         return sel + ' .gridjs-th:nth-child(' + n + '),' + sel + ' .gridjs-td:nth-child(' + n + ')';
@@ -639,6 +693,20 @@
 
   var chartSeq = 0;
 
+  /* view-toggle labels: author overrides win, else locale default.
+     Korean when REPORT_LOCALE.number starts with 'ko', English otherwise.
+     Returns { table: show-table label, chart: show-chart label }. */
+  function toggleLabels(cfg) {
+    cfg = cfg || {};
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var dTable = ko ? '표로 보기' : 'View as table';
+    var dChart = ko ? '차트로 보기' : 'View as chart';
+    return {
+      table: cfg.tableLabel != null ? cfg.tableLabel : dTable,
+      chart: cfg.chartLabel != null ? cfg.chartLabel : dChart,
+    };
+  }
+
   CB.chart = function (target, config) {
     var host = resolveTarget(target);
     if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.chart needs echarts.'); return null; }
@@ -668,9 +736,14 @@
         '<caption class="sr-only">' + esc(aria) + '</caption>' + thead + tbody + '</table></div>';
     }
 
+    var tl = toggleLabels(config);
+    // single-quoted literals: JSON.stringify's double quotes would terminate the
+    // double-quoted x-text attribute and blank the label.
+    var sqLabel = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
     var toggleBtn = hasTable
       ? '<div class="flex justify-end mb-8"><button @click="table=!table" :aria-pressed="table" ' +
-        'class="text-caption-12 text-secondary hover:text-primary" x-text="table ? \'차트로 보기\' : \'표로 보기\'"></button></div>'
+        'class="text-caption-12 text-secondary hover:text-primary" x-text="table ? ' +
+        sqLabel(tl.chart) + ' : ' + sqLabel(tl.table) + '"></button></div>'
       : '';
 
     host.innerHTML = caption +
@@ -707,13 +780,14 @@
     if (!chartEl || !config || !config.columns) return;
     var cols = config.columns, rows = config.rows || [];
     var aria = config.ariaLabel || chartEl.getAttribute('aria-label') || 'data table';
+    var tl = toggleLabels(config);
 
     var bar = document.createElement('div');
     bar.className = 'flex justify-end mb-8';
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'text-caption-12 text-secondary hover:text-primary';
-    btn.textContent = '표로 보기';
+    btn.textContent = tl.table;
     btn.setAttribute('aria-pressed', 'false');
     bar.appendChild(btn);
 
@@ -738,7 +812,7 @@
       showingTable = !showingTable;
       chartEl.style.display = showingTable ? 'none' : '';
       tableWrap.style.display = showingTable ? '' : 'none';
-      btn.textContent = showingTable ? '차트로 보기' : '표로 보기';
+      btn.textContent = showingTable ? tl.chart : tl.table;
       btn.setAttribute('aria-pressed', showingTable ? 'true' : 'false');
     });
   };
@@ -881,10 +955,10 @@
      a minimal footer if the report has none. Idempotent; never duplicates.
      ========================================================================== */
   function initCredit() {
-    if (document.querySelector('[data-cb-credit]')) return;
+    if (document.querySelector('[data-cb-credit], a[href*="github.com/korECM/cookiebite"]')) return;
     var link =
       '<a data-cb-credit href="https://github.com/korECM/cookiebite" target="_blank" rel="noopener" ' +
-      'class="text-caption-12 text-text-disabled hover:text-secondary transition-colors">' +
+      'class="text-caption-12 text-secondary hover:text-primary transition-colors">' +
       'Made with <span class="font-medium">cookiebite</span></a>';
     var footer = document.querySelector('main footer') || document.querySelector('footer');
     if (footer) {

@@ -318,6 +318,14 @@ dark-set machine the report opens dark. To **force a fixed mode** (e.g. a light-
 PDF), set `window.REPORT_THEME = 'light'` (or `'dark'`) in the THEME block; it overrides both
 the OS preference and any saved choice on load. The toggle still lets the reader switch.
 
+**`accentDark` — a dark-only accent override (for near-black accents).** A preset whose
+accent is near-black (e.g. an ink/black brand) vanishes on the dark surface. Give such a
+preset an optional JSON field `accentDark` (a hex string): `apply-theme.py` /
+theme-studio then emit, **after** the `:root{…}` block, the line
+`html[data-theme="dark"]{ --accent: <accentDark>; --accent-strong: <accentDark>; }`, so
+that hex becomes the accent **only in dark mode**. Presets without `accentDark` emit
+nothing extra (unchanged behavior).
+
 **Choosing/changing the theme:**
 
 - **Default**: the template ships with the **Persimmon** preset (Pretendard, Tomato
@@ -374,7 +382,7 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | `COOKIEBITE.timeline(target, items, opts?)` | Alpine `x-for` vertical timeline (icon-in-badge marker + spine + expandable detail) | incident-timeline pattern (`interactions.md`) |
 | `COOKIEBITE.table(target, config)` | Grid.js table, footguns fixed (pager >15, search >10, right-aligned numerics, accent theme) | `interactions.md` §4 |
 | `COOKIEBITE.chart(target, config)` | **wrapper only**: §10 view-toggle + data-table + aria scaffold, merges your hand-written `option` over `baseChart`, registers for dark re-theme | `interactions.md` §10 + template trend chart |
-| `COOKIEBITE.mermaid(target, definition, opts?)` | text → themed, dark-aware diagram (flowchart / sequence / state / ER); dynamically imports Mermaid (no CDN tag), themeVars from CSS vars | `libraries.md` "Diagrams" + `references/craft.md` |
+| `COOKIEBITE.mermaid(target, definition, opts?)` | text → themed, dark-aware diagram (flowchart / sequence / state / ER / gantt); dynamically imports Mermaid (no CDN tag), themeVars from CSS vars | `libraries.md` "Diagrams" + `references/craft.md` |
 | `COOKIEBITE.pill(label, opts)` / `COOKIEBITE.callout(html, opts)` | tone badge / left-accent insight box (return **strings**, compose anywhere) | `components.md` tone table |
 
 `COOKIEBITE.chart` is the fast/escape **seam**: the wrapper is data, but the ECharts
@@ -400,7 +408,8 @@ flip. Pure CSS/SVG using `var(--*)` re-themes automatically (see "Theming → Da
 - `findings` reuses `tone` as the **severity label**: `critical` renders "Critical", `warning` "High", `info` "Medium", `neutral` "Low". This is the one place `tone` changes the *text*, not just the color (everywhere else — pill, callout, table — it only sets color). `success` has no severity meaning here, so it falls back to "Note". Pass `label` on the item to override the chip text.
 - `kpis` delta/spark are **optional**: a KPI is just `{ label, value }`. **Omit** the `delta` key for no badge at all; pass `delta: null` to render the `—` "no baseline" sentinel. When no KPI has a baseline, omit it on all of them (a row of `—` reads as stray underscores). Likewise omit `spark` for a flat number — don't fabricate a baseline series for a status report that has none. (The template example ships fully loaded to *demo* delta+spark; that's a demo, not a floor.)
 - `table` auto-hides the search box on small tables (`rows ≤ 10`) and the pager on `rows ≤ 15`; pass `search: true/false` to force it. Don't hand a 5-row table a search field.
-- A **hand-written** (escape-hatch) chart still owes a data-table alternative + `aria-label` (the a11y rule). `CB.chart` adds them automatically; for a bespoke chart, call `COOKIEBITE.dataTableToggle(chartSelector, { columns, rows, ariaLabel })` to inject the "표로 보기" toggle + table.
+- A **hand-written** (escape-hatch) chart still owes a data-table alternative + `aria-label` (the a11y rule). `CB.chart` adds them automatically; for a bespoke chart, call `COOKIEBITE.dataTableToggle(chartSelector, { columns, rows, ariaLabel })` to inject the table toggle + table.
+- **Chart/table toggle labels are locale-driven, and overridable.** The show-table / show-chart button text defaults from the locale: when `window.REPORT_LOCALE && /^ko/i.test(REPORT_LOCALE.number)` it's Korean `'표로 보기'` (show-table) / `'차트로 보기'` (show-chart); otherwise English `'View as table'` / `'View as chart'`. Override per-chart with the optional `tableLabel` / `chartLabel` config keys, accepted on **both** `CB.chart(config)` and `CB.dataTableToggle(opts)`; an author-supplied label always wins over the locale default.
 
 - **Table of contents (sidebar)**: include a TOC by default on any report with 3+
   sections. Put it in a **right rail** that's `sticky top-24` next to the main column,
@@ -415,16 +424,23 @@ flip. Pure CSS/SVG using `var(--*)` re-themes automatically (see "Theming → Da
   ```html
   <div class="mx-auto max-w-[1400px] flex flex-row-reverse gap-40">
     <nav class="hidden lg:block w-[190px] shrink-0">
-      <ul class="sticky top-24 space-y-2 text-body-14" id="toc">
-        <li><a href="#summary" class="block px-12 py-8 rounded-small text-secondary hover:text-primary">요약</a></li>
-        <li><a href="#metrics" class="block px-12 py-8 rounded-small text-secondary hover:text-primary">지표</a></li>
-        <!-- … one per section … -->
-      </ul>
+      <div class="sticky top-24">
+        <!-- the heading word is part of the editable TOC slot — LOCALIZE it ('Contents'
+             for an English report); leaving '목차' on an en report is the footgun. -->
+        <p class="text-caption-12 text-text-disabled mb-12 pl-12">목차</p>
+        <ul class="space-y-2 text-body-14" id="toc">
+          <li><a href="#summary" class="block px-12 py-8 rounded-small text-secondary hover:text-primary">요약</a></li>
+          <li><a href="#metrics" class="block px-12 py-8 rounded-small text-secondary hover:text-primary">지표</a></li>
+          <!-- … one per section … -->
+        </ul>
+      </div>
     </nav>
     <main class="min-w-0 flex-1"><!-- sections with matching ids --></main>
   </div>
   ```
-  (The runtime observes every `main section[id]`; you just keep the ids in sync.)
+  (The runtime observes every `main section[id]`; you just keep the ids in sync. The
+  "목차" heading now lives **inside** the `COOKIEBITE:TOC` editable slot — localize it to
+  "Contents" for an English report.)
 - **Header**: title (`headline-36`/`title-28`), a one-line takeaway in `text-secondary`, context chips (date, scope, author) as small rounded tags in `bg-accent-weak text-accent-strong`.
 - **Stat cards**: a responsive grid of `bg-surface border border-line-weak rounded-medium shadow-sm` cards, each with a big accent number (animate with CountUp), a label, and a small delta in a semantic color.
 - **Section**: a `title-20`/`title-24` heading, optional one-line intro, then the visual (chart/table/diagram) as the centerpiece.

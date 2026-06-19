@@ -15,3 +15,7 @@ Thumbs.db
 # logs / temp
 *.log
 tmp/
+
+# generated reports (dogfooding artifacts, not shipped)
+cookiebite-audit-*.html
+*.final.html

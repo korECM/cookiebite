@@ -107,17 +107,28 @@ info(medium) > neutral(low)). Sort highest-severity first; the badge + count is 
 scannable headline.
 
 ```html
-<div x-data="{ sev:'all' }">
+<div x-data="{
+  sev:'all',
+  // build the chip set from the tones actually present — never a hardcoded list,
+  // or a `neutral` ('Low') finding becomes UNREACHABLE (no chip ever shows it).
+  // map neutral -> 'Low' so the chip label matches the findings severity label.
+  get chips(){
+    const present = [...new Set([...document.querySelectorAll('[data-sev]')].map(el=>el.dataset.sev))];
+    const order = ['critical','warning','info','neutral'];
+    return ['all', ...order.filter(s=>present.includes(s))];
+  },
+  chipText(s){ return s==='neutral' ? 'Low' : s; },
+}">
   <!-- filter by severity (optional) -->
   <div class="flex gap-6 mb-12 text-caption-12">
-    <template x-for="s in ['all','critical','warning','info']">
+    <template x-for="s in chips" :key="s">
       <button @click="sev=s" :class="sev===s ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
-        class="px-10 py-4 rounded-small capitalize" x-text="s"></button>
+        class="px-10 py-4 rounded-small capitalize" x-text="chipText(s)"></button>
     </template>
   </div>
   <ul class="space-y-8">
-    <!-- one finding; data-sev drives the filter -->
-    <li x-show="sev==='all' || sev==='critical'" class="flex gap-12 rounded-medium border border-line-weak bg-surface p-16">
+    <!-- one finding; data-sev drives the filter AND feeds the chip set above -->
+    <li data-sev="critical" x-show="sev==='all' || sev==='critical'" class="flex gap-12 rounded-medium border border-line-weak bg-surface p-16">
       <span class="inline-flex items-center gap-4 px-8 py-2 h-fit rounded-xxs bg-critical/10 text-critical text-caption-12 font-semibold shrink-0">
         <i data-lucide="octagon-x" class="w-12 h-12"></i>Critical
       </span>
@@ -130,6 +141,10 @@ scannable headline.
   </ul>
 </div>
 ```
+Build the filter chips from the tones present (`neutral`→`'Low'`), never a fixed
+`['all','critical','warning','info']` set — otherwise a `neutral` (Low) finding has no
+chip and is unreachable behind the filter.
+
 Lead each finding with **what's wrong + where** (`file:line`), not a vague title. Pair
 with the Diff view above when you're proposing the fix.
 

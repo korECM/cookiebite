@@ -45,7 +45,11 @@ checklist re-encodes the must-pass items as checkboxes.
   `references/interactions.md` §4. **Paginate only when the data overflows the screen**
   — Grid.js draws the pager even for one page, so a table that fits ends up with a
   useless "1–7 / 7" strip; turn pagination off (>~15 rows before it earns a pager).
-  Reserve hand-written `<table>` for short, static tables.
+  Reserve hand-written `<table>` for short, static tables. **Pass raw numbers, not
+  formatted strings, for sortable numeric columns** — Grid.js sorts `'72,000'`
+  lexically (ranking `'9,402'` after it); feed it raw `Number`s and format for display
+  with a per-column `formatter` (`CB.money`/`CB.nf`). (`COOKIEBITE.table` does this for
+  you via `numericCols`.)
 - **Align and digit-pad numbers.** Use `tabular-nums` (the `.nums` class) on anything
   numeric and right-align numeric columns **together with their headers** so figures
   line up and stay comparable — don't let a right-aligned header float over left-aligned

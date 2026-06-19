@@ -4,8 +4,9 @@ Reports are a **single self-contained `.html` file** loaded over CDN so the user
 double-click it, email it, or drop it in Slack and it just works. No build step,
 no `npm install`, no local assets. Pick from this catalog; don't reinvent.
 
-Pin major versions (as written below) so output is reproducible. If a CDN is
-blocked in the user's environment, say so and offer an inline fallback.
+Pin the EXACT versions used in `assets/template.html` (written below) so output is
+reproducible — never `@latest`. If a CDN is blocked in the user's environment, say so
+and offer an inline fallback.
 
 ## Core (always)
 
@@ -13,7 +14,7 @@ blocked in the user's environment, say so and offer an inline fallback.
 |------|---------|-----|
 | Styling | Tailwind CSS Play CDN | `<script src="https://cdn.tailwindcss.com"></script>` |
 | Font | theme font (default Inter; WDS preset = Pretendard) | the theme's font `<link>` — see SKILL.md "Theming" |
-| Icons | Lucide | `<script src="https://unpkg.com/lucide@latest"></script>` then `lucide.createIcons()` |
+| Icons | Lucide | `<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>` then `lucide.createIcons()` |
 
 Tailwind Play CDN prints a console warning about production use — harmless for a
 standalone report; ignore it.
@@ -27,7 +28,7 @@ would be overkill.
 
 | Library | Best for | CDN |
 |---------|----------|-----|
-| Apache ECharts | Rich/interactive: lines, bars, pie, scatter, heatmap, treemap, sankey, gauge, radar, candlestick, geo/map, large datasets, zoom/brush | `<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>` |
+| Apache ECharts | Rich/interactive: lines, bars, pie, scatter, heatmap, treemap, sankey, gauge, radar, candlestick, geo/map, large datasets, zoom/brush | `<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>` |
 | Chart.js | Simple, clean line/bar/doughnut/radar | `<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>` |
 | ApexCharts | Polished mixed/combo, sparklines, timelines | `<script src="https://cdn.jsdelivr.net/npm/apexcharts@3"></script>` |
 
@@ -36,13 +37,21 @@ Always theme charts with the theme accent (`--accent`) + neutral grid lines
 series. Don't accept the library's default rainbow palette — it breaks the designed
 look.
 
+**NEGATIVE caveat — `color-mix()` and `var(--*)` do NOT work inside an ECharts canvas
+option.** They resolve in CSS and SVG, but an ECharts series/itemStyle color is parsed
+by the chart, not the browser, so a `'color-mix(...)'` or `'var(--accent)'` string
+renders black or wrong on the canvas. Inside a chart option use a resolved value:
+`COOKIEBITE.accentRgba(alpha)` for an accent tint, or a concrete hex from
+`COOKIEBITE.css('--accent')` (`COOKIEBITE.theme.ACCENT` for the accent). Reserve raw
+`var(--*)`/`color-mix` for CSS/SVG/`@keyframes`.
+
 ## Interactivity & motion — use when they add signal, not noise
 
 | Need | Library / approach | CDN |
 |------|--------------------|-----|
-| Small reactive UI (tabs, filters, toggles, counters) | Alpine.js | `<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>` |
+| Small reactive UI (tabs, filters, toggles, counters) | Alpine.js (+ collapse plugin for `COOKIEBITE.timeline`) | `<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.1/dist/cdn.min.js"></script>` then `<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>` (collapse MUST load before core) |
 | Scroll-reveal animation | AOS | css `https://unpkg.com/aos@2/dist/aos.css`, js `https://unpkg.com/aos@2/dist/aos.js` |
-| Animated count-up numbers | CountUp.js | `<script src="https://cdn.jsdelivr.net/npm/countup.js@2/dist/countUp.umd.js"></script>` |
+| Animated count-up numbers | CountUp.js | `<script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.js"></script>` |
 | Fine-grained timeline/motion | anime.js | `<script src="https://cdn.jsdelivr.net/npm/animejs@3/lib/anime.min.js"></script>` |
 | Sequenced + scroll-triggered motion | GSAP (+ ScrollTrigger) | `https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js` + `https://cdn.jsdelivr.net/npm/gsap@3/dist/ScrollTrigger.min.js` |
 | Animate a packet along a flow path | CSS `offset-path` (no dep) or GSAP MotionPath | `https://cdn.jsdelivr.net/npm/gsap@3/dist/MotionPathPlugin.min.js` (only if you need replay/scrub) — see motion.md §6 |
@@ -50,8 +59,8 @@ look.
 | Diagrams/flowcharts from text | Mermaid | `<script type="module">import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'</script>` |
 | Graph layout (module map, call graph) | Graphviz / viz.js | `import { instance } from 'https://cdn.jsdelivr.net/npm/@viz-js/viz@3/lib/viz-standalone.mjs'` (~1.4 MB) |
 | UML / class sketch from text | nomnoml | `<script src="https://cdn.jsdelivr.net/npm/nomnoml@1/dist/nomnoml.min.js"></script>` |
-| Data tables (sort/search/paginate) | Grid.js | css `https://unpkg.com/gridjs/dist/theme/mermaid.min.css`, js `https://unpkg.com/gridjs/dist/gridjs.umd.js` |
-| Tooltips / glossary popovers (edge-aware) | Tippy.js (+ Popper) | css `https://unpkg.com/tippy.js@6/dist/tippy.css`, js `https://unpkg.com/@popperjs/core@2` + `https://unpkg.com/tippy.js@6` |
+| Data tables (sort/search/paginate) | Grid.js | css `https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/theme/mermaid.min.css`, js `https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.umd.js` |
+| Tooltips / glossary popovers (edge-aware) | Tippy.js (+ Popper) | css `https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.css`, js `https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js` + `https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.umd.min.js` |
 
 ### Restraint
 Motion should help the reader (reveal structure, draw the eye to the headline
@@ -126,3 +135,29 @@ the visual self-check (`scripts/verify-report.sh`).
   hide labels on tiny cells.
 - **General rule**: pick the chart type that *fits the labels you actually have*, not
   the fanciest one. A clean bar beats an impressive-but-unreadable Sankey.
+
+## Treemap (and any ECharts type that ignores the series `color` array)
+
+A treemap (also sunburst, and other hierarchy types) ignores the top-level `color`
+palette and paints each leaf from ECharts' **default rainbow** — off-theme. Derive each
+leaf's `itemStyle.color` from an **accent ramp** instead, so the figure reads as one
+themed family. Two ways:
+
+```js
+// (a) per-leaf color from an accent ramp (opacity steps off COOKIEBITE.accentRgba)
+const data = leaves.map((d, i) => ({
+  name: d.name, value: d.value,
+  itemStyle: { color: CB.accentRgba(0.30 + 0.55 * (i / (leaves.length - 1))) },
+}));
+chart.setOption({ series:[{ type:'treemap', data, breadcrumb:{ show:false } }] });
+
+// (b) or drive it with a visualMap accent gradient keyed to value
+chart.setOption({
+  visualMap:{ show:false, min, max,
+    inRange:{ color:[CB.accentRgba(0.25), CB.theme.ACCENT] } },
+  series:[{ type:'treemap', data:leaves }],
+});
+```
+
+Use resolved colors (`accentRgba`/`theme.ACCENT`), not `var(--*)`/`color-mix` strings —
+those render black inside the canvas (see the chart-color caveat above).

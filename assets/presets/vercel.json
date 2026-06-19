@@ -9,6 +9,7 @@
   },
   "colors": {
     "accent": "#171717",
+    "accentDark": "#EDEDED",
     "accentStrong": "#000000",
     "accentWeak": "#F4F4F5",
     "accentOn": "#FFFFFF",

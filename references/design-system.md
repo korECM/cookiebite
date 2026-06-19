@@ -6,8 +6,9 @@ It targets information-dense interfaces, not marketing pages: clear hierarchy,
 predictable spacing, restrained surfaces, theme-driven emphasis — good principles for
 any report theme, not just this one.
 
-The skill is theme-agnostic: the default is the **Neutral** preset, and tokens are
-swappable (`assets/presets/*.json`, `assets/theme-studio.html`). Read this file when
+The skill is theme-agnostic: the built-in default is the **Persimmon** preset, and
+tokens are swappable (`assets/presets/*.json`, `assets/theme-studio.html`) — **Neutral**
+is the bundled Latin alternative. Read this file when
 you want the exact Persimmon values, or as an example of how a coherent token set
 (neutrals + one accent + semantic colors + type/spacing scales) fits together — the
 same structure applies to any theme you build.

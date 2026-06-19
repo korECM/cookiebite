@@ -76,10 +76,13 @@ the column they care about. Three things decide whether it actually *reads* well
 - **Keep inline-bar / share columns compact.** A bar + "%" belongs in one fixed-width
   cell aligned the same way as its header — never a right-aligned header stranded over
   left-aligned bars.
+- **Pass raw numbers, not formatted strings, for sortable numeric columns.** Grid.js
+  sorts a `'72,000'` string *lexically* (so `'9,402'` lands after `'72,000'`); hand it raw
+  `Number`s and format only for display via a per-column `formatter` (`CB.money`/`CB.nf`).
 
 ```html
-<link rel="stylesheet" href="https://unpkg.com/gridjs/dist/theme/mermaid.min.css">
-<script src="https://unpkg.com/gridjs/dist/gridjs.umd.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/theme/mermaid.min.css">
+<script src="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.umd.js"></script>
 <div id="tbl"></div>
 <style>
   /* right-align the numeric columns (here: 2nd + 3rd) — header AND cells */
@@ -88,9 +91,15 @@ the column they care about. Three things decide whether it actually *reads* well
   }
 </style>
 <script>
-  const rows = [['Stripe','98.1%','72,000'], /* … */];
+  // raw Numbers in numeric columns so Grid.js sorts NUMERICALLY (9402 < 72000);
+  // a comma string like '72,000' would sort lexically and rank '9,402' after it.
+  const rows = [['Stripe', 98.1, 72000], /* … */];
   new gridjs.Grid({
-    columns:['PSP', {name:'성공률', sort:true}, {name:'건수', sort:true}],
+    columns:[
+      'PSP',
+      { name:'성공률', sort:true, formatter:c => CB.nf.format(c) + '%' },
+      { name:'건수',   sort:true, formatter:c => CB.nf.format(c) },     // display via formatter
+    ],
     data: rows,
     sort:true, search:true,
     pagination: rows.length > 15 ? { limit:15 } : false,   // pager only when it earns it
@@ -148,8 +157,11 @@ Either way: after any tab/accordion/toggle that reveals a chart, call `chart.res
 on the next frame. Verify by actually clicking each tab in the visual self-check.
 
 ## 7. Animated reveal on scroll (AOS) + count-up hero numbers
-Use sparingly to pace a long report and land the headline figure.
+Use sparingly to pace a long report and land the headline figure. **CountUp is
+auto-loaded by the template; AOS is NOT — add its css/js tags (`libraries.md`) first.**
 ```html
+<link rel="stylesheet" href="https://unpkg.com/aos@2/dist/aos.css">
+<script src="https://unpkg.com/aos@2/dist/aos.js"></script>
 <span data-aos="fade-up" class="headline-36 text-accent" id="hero">0</span>
 <script>new CountUp('hero', 2418).start(); AOS.init({once:true, duration:600});</script>
 ```

@@ -20,9 +20,16 @@ const MOTION_OK = window.matchMedia('(prefers-reduced-motion: no-preference)').m
 With reduced motion, jump elements to their final state (no transition) rather than
 hiding them.
 
+> **Verifying AOS / lazy sections:** a single `full-*.png` overview screenshot can
+> under-render AOS-revealed or lazy-loaded sections (they shoot before the reveal fires),
+> so they look blank or clipped. Trust the **per-scroll tiles** as the source of truth for
+> these sections, not the stitched full-page capture.
+
 ## 1. Scroll-triggered reveal + count (paces a long report)
 Reveal sections/cards as they enter, and start a hero number counting when seen.
-Lightweight option: AOS (`data-aos="fade-up"`) + CountUp (already in the template).
+Lightweight option: AOS (`data-aos="fade-up"`) + CountUp. **CountUp is auto-loaded by the
+template; AOS is NOT** — only CountUp + ECharts ship in the template's chart/KPI
+runtime, so add the AOS css/js tags (see `libraries.md`) before using `data-aos`.
 Pro option (sequenced, scrubbable): GSAP ScrollTrigger.
 ```html
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>

@@ -30,6 +30,33 @@ COLOR_VARS = {
 BLOCK_RE = re.compile(r"<!-- THEME.*?<!-- end THEME -->", re.DOTALL)
 
 
+def validate_preset(preset: object) -> list[str]:
+    """Return a list of human-readable problems with the preset, empty if valid."""
+    problems = []
+    if not isinstance(preset, dict):
+        return ["preset is not a JSON object"]
+
+    font = preset.get("font")
+    if not isinstance(font, dict):
+        problems.append("missing 'font' object")
+    else:
+        for k in ("family", "url"):
+            if k not in font:
+                problems.append(f"missing font key 'font.{k}'")
+
+    if "locale" not in preset:
+        problems.append("missing 'locale'")
+
+    colors = preset.get("colors")
+    if not isinstance(colors, dict):
+        problems.append("missing 'colors' object")
+    else:
+        for k in COLOR_VARS:
+            if k not in colors:
+                problems.append(f"missing color key 'colors.{k}'")
+    return problems
+
+
 def build_block(preset: dict) -> str:
     font = preset["font"]
     family = font["family"]
@@ -52,8 +79,19 @@ def build_block(preset: dict) -> str:
     )
     locale = json.dumps(loc).replace('"', "'")
 
+    # ACCENT-DARK CONTRACT: an optional preset hex used as the accent ONLY in dark
+    # mode (for near-black accents that vanish on a dark surface). When present, emit a
+    # dark-scoped override AFTER the :root block; presets without it emit nothing extra.
+    accent_dark = colors.get("accentDark")
+    dark_override = (
+        f'  html[data-theme="dark"]{{ --accent: {accent_dark}; '
+        f"--accent-strong: {accent_dark}; }}\n"
+        if accent_dark
+        else ""
+    )
+
     return (
-        f"<!-- THEME — preset: {preset.get('label', preset['name'])}. "
+        f"<!-- THEME — preset: {preset.get('label', preset.get('name', '?'))}. "
         f"Swap this block to re-theme (see assets/theme-studio.html). -->\n"
         f'<link rel="stylesheet" href="{font["url"]}" />\n'
         f"<style>\n"
@@ -63,6 +101,7 @@ def build_block(preset: dict) -> str:
         f"    {neutrals}\n"
         f"    {semantic}\n"
         f"  }}\n"
+        f"{dark_override}"
         f"</style>\n"
         f"<script>window.REPORT_LOCALE = {locale};</script>\n"
         f"<!-- end THEME -->"
@@ -78,6 +117,15 @@ def main() -> int:
 
     with open(args.preset, encoding="utf-8") as f:
         preset = json.load(f)
+
+    problems = validate_preset(preset)
+    if problems:
+        print(f"error: preset '{args.preset}' is missing required fields:",
+              file=sys.stderr)
+        for p in problems:
+            print(f"  - {p}", file=sys.stderr)
+        return 1
+
     with open(args.html, encoding="utf-8") as f:
         html = f.read()
 
@@ -90,7 +138,7 @@ def main() -> int:
     out_path = args.out or args.html
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(out_html)
-    print(f"applied '{preset.get('label', preset['name'])}' -> {out_path}")
+    print(f"applied '{preset.get('label', preset.get('name', '?'))}' -> {out_path}")
     return 0
 
 
