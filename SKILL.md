@@ -35,6 +35,15 @@ hold both:
    timeline, a diagram, a progress ring, or a comparison table instead of a
    paragraph, make it the visual. Lead with the headline number. Let the reader
    *see* the story. Long prose is the fallback, not the default.
+   **The most-missed case is structure described in words** — "A calls B, which
+   verifies with C, then returns to A", "request flows through gateway → auth →
+   service", a state machine, a decision tree, an entity relationship. Prose like
+   that is a **diagram that hasn't been drawn yet**: reach for `COOKIEBITE.mermaid`
+   (flowchart / sequence / state / ER — themed and dark-aware, one call, no setup) or
+   a hand SVG flow (`references/motion.md` §6). Before shipping a section that is
+   three-plus sentences of "X does Y to Z", ask whether it should be a picture — it
+   usually should. Do **not** reach for GIFs/screenshots for system flows; draw them
+   natively so they stay on-theme, crisp, and dark-aware.
 
 2. **On-theme via design tokens.** The look comes from a small set of design tokens
    (accent, neutrals, semantic colors, typography, spacing, radii) — not from one-off
@@ -165,7 +174,11 @@ in — is far more useful than a static one, and it's what makes these feel aliv
   findings, and tabbed or filtered sections when there are peer views.
 - **Explainer** (how something works, a concept, a feature walkthrough): a TL;DR box
   up top, collapsible sections so the reader controls depth, tabbed code samples where
-  relevant, and glossary tooltips on jargon. For a request/system flow, draw it as
+  relevant, and glossary tooltips on jargon. **An explainer without a single diagram is
+  a red flag** — these reports live or die on diagrams. For any sequence, relationship,
+  or decision, draw it: `COOKIEBITE.mermaid` (sequence diagram for "who calls whom",
+  flowchart for branching logic, state diagram for lifecycles, ER for data shapes) is
+  the one-call default. For a request/system flow you want *animated*, draw it as
   labelled stages with a packet that travels through them (ByteByteGo-style animated
   flow, `references/motion.md` §6) — build it natively, not as an embedded GIF.
   Scaffolding that makes a new topic navigable reads very differently from the same
@@ -349,7 +362,7 @@ hand-written sections in one report is fine and backward-compatible — `referen
 (`components.md`, `interactions.md`, `motion.md`) stay valid for hand-building every
 section by hand.
 
-The fast path is exactly **6 helpers** on the global `COOKIEBITE` namespace. There is
+The fast path is **7 helpers** on the global `COOKIEBITE` namespace. There is
 deliberately **no** `header()`/`page()`/`toc()` shell helper and **no** chart `{kind}`
 enum — those would recreate the closed-vocabulary failure mode; the header, footer,
 layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
@@ -358,9 +371,10 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | --- | --- | --- |
 | `COOKIEBITE.kpis(target, items, opts?)` | responsive KPI card grid (label + countup number + delta badge + sparkline) | `components.md` KPI / "Stat cards" + template KPI section |
 | `COOKIEBITE.findings(target, items, opts?)` | ranked severity findings list + Alpine filter chips | `components.md` "Severity-coded findings list" |
-| `COOKIEBITE.timeline(target, items, opts?)` | Alpine `x-for` vertical timeline (marker + expandable detail) | incident-timeline pattern (`interactions.md`) |
+| `COOKIEBITE.timeline(target, items, opts?)` | Alpine `x-for` vertical timeline (icon-in-badge marker + spine + expandable detail) | incident-timeline pattern (`interactions.md`) |
 | `COOKIEBITE.table(target, config)` | Grid.js table, footguns fixed (pager >15, search >10, right-aligned numerics, accent theme) | `interactions.md` §4 |
 | `COOKIEBITE.chart(target, config)` | **wrapper only**: §10 view-toggle + data-table + aria scaffold, merges your hand-written `option` over `baseChart`, registers for dark re-theme | `interactions.md` §10 + template trend chart |
+| `COOKIEBITE.mermaid(target, definition, opts?)` | text → themed, dark-aware diagram (flowchart / sequence / state / ER); dynamically imports Mermaid (no CDN tag), themeVars from CSS vars | `libraries.md` "Diagrams" + `references/craft.md` |
 | `COOKIEBITE.pill(label, opts)` / `COOKIEBITE.callout(html, opts)` | tone badge / left-accent insight box (return **strings**, compose anywhere) | `components.md` tone table |
 
 `COOKIEBITE.chart` is the fast/escape **seam**: the wrapper is data, but the ECharts

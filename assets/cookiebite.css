@@ -51,7 +51,12 @@ html:not([data-theme="dark"]) body, html[data-theme="dark"] body{ transition:bac
 
 /* (3) base utilities */
 html{ scroll-behavior:smooth; }
-body{ font-family:var(--font-family); letter-spacing:-0.01em; }
+/* word-break:keep-all stops CJK (Korean) lines from breaking mid-word — the
+   default CJK rule breaks between any two characters, so "않습니다" splits to
+   "않습니" + "다". keep-all breaks only at spaces/punctuation (eojeol boundaries);
+   overflow-wrap:break-word still lets a single over-long token wrap so it can't
+   overflow its container. */
+body{ font-family:var(--font-family); letter-spacing:-0.01em; word-break:keep-all; overflow-wrap:break-word; }
 /* tabular-nums keeps figures vertically aligned in cards and tables */
 .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
 /* cap prose line length for readability */

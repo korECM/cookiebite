@@ -26,6 +26,18 @@ checklist re-encodes the must-pass items as checkboxes.
   every icon an explicit `width`/`height` (Lucide renders at 24px and scales up
   otherwise — an unsized icon looks oversized and clumsy next to text). One per
   section/card is plenty; never let an icon dwarf the number or label beside it.
+  - **The spacing scale is px-valued — size icons with `w-16 h-16` / `w-20 h-20` /
+    `w-24 h-24` (= 16/20/24px), or `w-14`/`w-18` for tight inline.** Two footguns,
+    both producing wrong-sized icons that the source looks innocent for:
+    1. **Don't borrow the standard-Tailwind icon idiom** `w-4 h-4` / `w-5 h-5` /
+       `w-6 h-6` expecting 16/20/24px — here `w-4` = **4px**, `w-6` = **6px** (a
+       near-invisible icon). The scale maps `wN → N px`, not the rem default.
+    2. The scale is `theme.extend`, so a **key that isn't defined falls back to
+       Tailwind's rem default and explodes** — historically `w-14`/`h-14` rendered at
+       **56px** (3.5rem), the classic "giant checkmark" bug. The common px keys (incl.
+       14, 18) are now filled in `cookiebite.js`, but stay on the documented sizes
+       above rather than guessing a key. **The visual self-check catches oversized
+       icons — look for them.**
 - **Use a real table library for data tables.** Anything beyond a tiny 2–3 row table
   should be a **Grid.js** table (sortable, searchable) rather than a hand-rolled
   `<table>` with custom sort code — it's less code, fewer bugs, and consistent.

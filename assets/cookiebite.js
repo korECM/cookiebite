@@ -44,10 +44,18 @@
           xs: '0 1px 2px rgba(0,0,0,0.5)', sm: '0 2px 8px rgba(0,0,0,0.15)',
           md: '0 8px 20px rgba(0,0,0,0.12)', lg: '0 7px 30px rgba(0,0,0,0.2)',
         },
+        // px-valued scale: key N renders exactly N px. Keys are filled DENSELY
+        // across the icon/spacing range on purpose — this is `extend`, so any GAP
+        // falls back to Tailwind's default REM scale (e.g. w-14 -> 3.5rem -> 56px),
+        // which silently blows up icon sizes. Icons should use w-16/w-20/w-24
+        // (16/20/24px); do NOT reach for std-Tailwind w-4/w-5/w-6 expecting
+        // 16/20/24px — here w-4 = 4px, w-6 = 6px (tiny). See craft.md "Icons".
         spacing: {
-          '2': '2px', '4': '4px', '6': '6px', '8': '8px', '10': '10px', '12': '12px', '16': '16px',
-          '20': '20px', '24': '24px', '28': '28px', '32': '32px', '40': '40px', '48': '48px',
-          '56': '56px', '64': '64px', '72': '72px',
+          '1': '1px', '2': '2px', '3': '3px', '4': '4px', '5': '5px', '6': '6px', '7': '7px',
+          '8': '8px', '9': '9px', '10': '10px', '11': '11px', '12': '12px', '14': '14px',
+          '16': '16px', '18': '18px', '20': '20px', '24': '24px', '28': '28px', '32': '32px',
+          '36': '36px', '40': '40px', '44': '44px', '48': '48px', '52': '52px', '56': '56px',
+          '60': '60px', '64': '64px', '72': '72px', '80': '80px', '96': '96px',
         },
         fontSize: {
           'caption-12': ['12px', '16px'], 'body-14': ['14px', '20px'], 'body-16': ['16px', '24px'],
@@ -425,12 +433,14 @@
         : '<p class="text-body-16 font-semibold">' + esc(it.title) + '</p>';
       var sub = it.sub ? '<p class="text-caption-12 text-secondary mt-2">' + esc(it.sub) + '</p>' : '';
 
-      return '<li class="relative pl-32 pb-24 last:pb-0">' +
-        // spine
-        '<span class="absolute left-12 top-2 bottom-0 w-px bg-line-weak"></span>' +
-        // marker
-        '<span class="absolute left-6 top-2 w-12 h-12 rounded-full ' + dot + ' ring-4 ring-bg flex items-center justify-center"></span>' +
-        '<p class="text-caption-12 ' + t.text + ' font-semibold nums">' + iconTag(icon, 'inline w-12 h-12 mr-2 align-[-1px]') + esc(it.t) + '</p>' +
+      return '<li class="relative pl-40 pb-28 last:pb-0">' +
+        // spine — 2px rail centered under the 28px badge (badge left:0 -> center x = 14px),
+        // starting just below the badge so the disc reads as a node on the line
+        '<span class="absolute left-[13px] top-32 bottom-0 w-2 rounded-full bg-line-weak"></span>' +
+        // badge — tone-tinted disc with the step icon inside, ring-punched out of the page
+        '<span class="absolute left-0 top-2 w-28 h-28 rounded-full ' + dot + ' ring-4 ring-bg shadow-sm flex items-center justify-center">' +
+        iconTag(icon, 'w-14 h-14 text-white') + '</span>' +
+        '<p class="text-caption-12 ' + t.text + ' font-semibold nums tracking-wide mb-2">' + esc(it.t) + '</p>' +
         titleRow + sub + detailBlock +
         '</li>';
     }).join('');
@@ -441,6 +451,100 @@
     host.innerHTML = '<ul x-data="{ ' + openState + ' }" class="relative">' + rows + '</ul>';
 
     CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER — COOKIEBITE.mermaid(target, definition, opts?)
+     Text -> diagram (flowchart / sequence / state / ER / gantt), themed from the
+     report's CSS vars and dark-aware FOR FREE. Lowers the friction that makes the
+     model wall-of-text instead of drawing: no <script> tag, no init, no theming —
+     just `COOKIEBITE.mermaid('#flow', 'flowchart LR\n A-->B')`.
+       - dynamically imports Mermaid v11 (cached on window.__cbMermaid); the model
+         does NOT add a CDN tag.
+       - themeVariables are READ FROM CSS VARS at render time, so toggling dark
+         re-renders with the dark palette (registered via onThemeChange).
+       - opts.aria sets the container aria-label (a11y). opts.onError swaps the
+         fallback. The file stays online-only (Mermaid is on CDN, like the charts).
+     ========================================================================== */
+  var mmdSeq = 0;
+  var MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+  // Resolve a token to a CONCRETE rgb(...) via a throwaway probe element.
+  // getComputedStyle on a custom property returns its raw declared value, so a
+  // token defined as `color-mix(...)` (e.g. --accent-weak in the dark layer) comes
+  // back as the literal "color-mix(...)" string — which Mermaid's color parser
+  // (khroma) rejects with "Unsupported color format". Painting it onto an element
+  // and reading .color forces the browser to resolve var()/color-mix to rgb.
+  function cssColor(varName, fallback) {
+    var probe = document.createElement('span');
+    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;color:var(' + varName + ',' + fallback + ')';
+    document.body.appendChild(probe);
+    var c = getComputedStyle(probe).color;
+    document.body.removeChild(probe);
+    // color-mix() in srgb serializes as `color(srgb r g b / a)` (0–1 floats), which
+    // khroma also can't parse — normalize to rgb()/rgba(). Plain rgb()/hex pass through.
+    var m = (c || '').match(/^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/i);
+    if (m) {
+      var r = Math.round(+m[1] * 255), g = Math.round(+m[2] * 255), b = Math.round(+m[3] * 255);
+      return m[4] != null ? 'rgba(' + r + ',' + g + ',' + b + ',' + m[4] + ')' : 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
+    return c || fallback;
+  }
+
+  function mermaidThemeVars() {
+    // map report tokens -> Mermaid 'base' theme variables. accent drives node
+    // fills/borders; neutrals drive text + edges. Resolved live so dark re-themes.
+    var accent = cssColor('--accent', '#E8552D');
+    var accentWeak = cssColor('--accent-weak', '#FCE9E2');
+    var line = cssColor('--c-line', '#E4E4E7');
+    var primary = cssColor('--c-primary', '#18181B');
+    var secondary = cssColor('--c-secondary', '#52525B');
+    var surface = cssColor('--c-surface', '#FFFFFF');
+    var disabledBg = cssColor('--c-disabled-bg', '#F4F4F5');
+    return {
+      primaryColor: accentWeak, primaryBorderColor: accent, primaryTextColor: primary,
+      secondaryColor: surface, secondaryBorderColor: line, secondaryTextColor: primary,
+      tertiaryColor: surface, tertiaryBorderColor: line, tertiaryTextColor: secondary,
+      lineColor: line, textColor: primary, mainBkg: accentWeak, nodeBorder: accent,
+      clusterBkg: surface, clusterBorder: line, edgeLabelBackground: surface,
+      // notes: neutral surface instead of Mermaid's default yellow, so they sit on-theme
+      noteBkgColor: disabledBg, noteTextColor: primary, noteBorderColor: line,
+      // sequence-diagram actors + signal labels
+      actorBkg: accentWeak, actorBorder: accent, actorTextColor: primary, actorLineColor: line,
+      signalColor: primary, signalTextColor: primary, labelBoxBkgColor: surface, labelTextColor: primary,
+      fontFamily: css('--font-family') || 'Inter, sans-serif',
+    };
+  }
+
+  CB.mermaid = function (target, definition, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    opts = opts || {};
+    host.setAttribute('role', 'img');
+    if (opts.aria) host.setAttribute('aria-label', opts.aria);
+    var loader = (window.__cbMermaid = window.__cbMermaid || import(MERMAID_URL).then(function (m) { return m.default; }));
+
+    function render(mermaid) {
+      mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'base', themeVariables: mermaidThemeVars() });
+      var id = 'cbmmd' + (mmdSeq++);
+      return mermaid.render(id, definition).then(function (res) {
+        host.innerHTML = res.svg;
+        // let the SVG scale to the container instead of its intrinsic width
+        var svg = host.querySelector('svg');
+        if (svg) { svg.removeAttribute('width'); svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
+        if (res.bindFunctions) res.bindFunctions(host);
+      });
+    }
+
+    loader.then(function (mermaid) {
+      render(mermaid);
+      CB.onThemeChange(function () { render(mermaid); }); // re-render with dark palette on toggle
+    }).catch(function (e) {
+      console.warn('[cookiebite] COOKIEBITE.mermaid failed', e);
+      if (opts.onError) host.innerHTML = opts.onError;
+      else host.innerHTML = '<pre class="text-caption-12 text-critical p-12 rounded-small bg-disabled-bg overflow-auto">다이어그램 렌더 실패 — Mermaid 정의를 확인하세요.</pre>';
+    });
+    return host;
   };
 
   /* ==========================================================================

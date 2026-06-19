@@ -73,7 +73,7 @@ with real structure.
 | Small bespoke figure (≤ ~6 shapes), annotated illustration, precise custom art | **Hand inline SVG** | full control, crisp, themeable, hand-editable. Layout is on you — keep it small. |
 | Node-link / hierarchy / flow from data (org, dependency, process) | **ECharts `graph` / `tree` / `sankey`** | already loaded, auto-layout, themes from your CSS vars for free. The default here. |
 | Boxes-and-arrows graph where layout quality matters (module map, call graph, ER) | **Graphviz** via [viz.js](https://github.com/mdaines/viz-js) (`@viz-js/viz`, ~1.4 MB) | real hierarchical/graph layout — the thing LLMs can't do by hand. Render DOT to SVG, then recolor with theme vars. |
-| Flowchart / sequence / state / gantt from a text description | **Mermaid** | fastest text→diagram. `mermaid.initialize({ theme:'base', themeVariables:{...} })` from CSS vars. |
+| Flowchart / sequence / state / gantt from a text description | **Mermaid** | fastest text→diagram. **Use the `COOKIEBITE.mermaid(target, definition, opts?)` helper** — it dynamically imports Mermaid (no CDN tag), themes `themeVariables` from your CSS vars, and re-renders on the dark toggle. Drop to raw `mermaid.initialize({ theme:'base', themeVariables:{...} })` only for something the helper can't express. |
 | Quick UML / class / component sketch | **nomnoml** (`nomnoml@1`, ~30 KB) | tiny, text→SVG. |
 
 Hand inline SVG, when it fits, uses `currentColor` + theme vars and real `<text>`:
