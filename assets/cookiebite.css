@@ -55,8 +55,10 @@ html{ scroll-behavior:smooth; }
    default CJK rule breaks between any two characters, so "않습니다" splits to
    "않습니" + "다". keep-all breaks only at spaces/punctuation (eojeol boundaries);
    overflow-wrap:break-word still lets a single over-long token wrap so it can't
-   overflow its container. */
-body{ font-family:var(--font-family); letter-spacing:-0.01em; word-break:keep-all; overflow-wrap:break-word; }
+   overflow its container. text-wrap:pretty rebalances the last lines so a short
+   trailing eojeol ("초기화 담당.") isn't orphaned alone on its own line — the
+   keep-all complement; degrades to greedy wrap on older engines. */
+body{ font-family:var(--font-family); letter-spacing:-0.01em; word-break:keep-all; overflow-wrap:break-word; text-wrap:pretty; }
 /* tabular-nums keeps figures vertically aligned in cards and tables */
 .nums{ font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; }
 /* cap prose line length for readability */
