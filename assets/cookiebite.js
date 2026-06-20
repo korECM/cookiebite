@@ -5511,13 +5511,15 @@
   function calloutVariant(variant, html, opts) {
     opts = opts || {};
     var v = CALLOUT_VARIANTS[variant] || CALLOUT_VARIANTS.note;
-    var tn = tone(v.tone);
-    var kicker = opts.title != null ? opts.title : t(v.key, v.fallback);
-    var ic = iconTag(v.icon, 'cb-callout__icon w-16 h-16 ' + tn.text);
-    return '<div class="cb-callout cb-callout--' + variant + ' ' + tn.tint + ' ' + tn.text + '" role="note">' +
-      '<div class="cb-callout__kicker">' + ic +
-      '<span class="cb-callout__label ' + tn.text + '">' + esc(kicker) + '</span></div>' +
-      '<div class="cb-callout__body text-primary">' + (html == null ? '' : html) + '</div></div>';
+    var title = opts.title != null ? opts.title : t(v.key, v.fallback);
+    var ic = iconTag(v.icon, 'cb-callout__icon');
+    // GitHub/Notion-style: a clean header row (tone icon + normal-case title) then the body —
+    // not a stacked uppercase label column in a heavy-bordered box (that read as 'AI'). The
+    // tone drives a soft tint + hairline border + the icon/title color, all from --cb-tone.
+    return '<div class="cb-callout cb-callout--' + variant + '" role="note">' +
+      (title ? '<p class="cb-callout__title">' + ic + '<span>' + esc(title) + '</span></p>'
+             : '<span class="cb-callout__icon cb-callout__icon--lead">' + ic + '</span>') +
+      '<div class="cb-callout__body">' + (html == null ? '' : html) + '</div></div>';
   }
   CB.note = function (html, opts) { return calloutVariant('note', html, opts); };
   CB.tip = function (html, opts) { return calloutVariant('tip', html, opts); };

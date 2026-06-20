@@ -246,21 +246,22 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
 .cb-prose .cb-bleed{ max-width:none; width:100%; }
 
 /* --- .cb-callout + 5 tone variants ----------------------------------------- */
-/* tone is carried by --cb-tone (default = informative) so the body shares one rule;
-   each variant just rebinds the token + bg mix. border-l-4 in the tone, icon shrink-0,
-   uppercase tracked kicker, body-14. amber/warning gets a richer 15% mix for contrast. */
-.cb-callout{ --cb-tone:var(--c-informative); --cb-tone-bg:color-mix(in srgb, var(--c-informative) 10%, var(--c-surface)); display:flex; gap:12px; align-items:flex-start; border-radius:var(--r-medium,16px); border-left:4px solid var(--cb-tone); background:var(--cb-tone-bg); padding:16px; font-size:14px; line-height:1.55; color:var(--c-primary); }
-.cb-callout--note{ --cb-tone:var(--c-informative); --cb-tone-bg:color-mix(in srgb, var(--c-informative) 10%, var(--c-surface)); }
-.cb-callout--tip{ --cb-tone:var(--c-positive); --cb-tone-bg:color-mix(in srgb, var(--c-positive) 10%, var(--c-surface)); }
-.cb-callout--warning{ --cb-tone:var(--c-cautionary); --cb-tone-bg:color-mix(in srgb, var(--c-cautionary) 15%, var(--c-surface)); }
-.cb-callout--danger{ --cb-tone:var(--c-critical); --cb-tone-bg:color-mix(in srgb, var(--c-critical) 10%, var(--c-surface)); }
-.cb-callout--example{ --cb-tone:var(--c-secondary); --cb-tone-bg:color-mix(in srgb, var(--c-secondary) 8%, var(--c-surface)); }
-.cb-callout__icon{ flex:0 0 auto; width:20px; height:20px; color:var(--cb-tone); margin-top:1px; }
+/* tone is carried by --cb-tone (default = informative); each variant just rebinds it.
+   GitHub/Notion-style: a SOFT tint + hairline tone border (no heavy left bar), a clean
+   header row (tone icon + normal-case title), then the body. */
+.cb-callout{ --cb-tone:var(--c-informative); border-radius:var(--r-medium,12px); background:color-mix(in srgb, var(--cb-tone) 6%, var(--c-surface)); border:1px solid color-mix(in srgb, var(--cb-tone) 22%, var(--c-surface)); padding:13px 15px; font-size:14px; line-height:1.6; color:var(--c-primary); }
+.cb-callout--note{ --cb-tone:var(--c-informative); }
+.cb-callout--tip{ --cb-tone:var(--c-positive); }
+.cb-callout--warning{ --cb-tone:var(--c-cautionary); }
+.cb-callout--danger{ --cb-tone:var(--c-critical); }
+.cb-callout--example{ --cb-tone:var(--c-secondary); }
+.cb-callout__title{ display:flex; align-items:center; gap:7px; margin:0 0 4px; font-weight:600; font-size:13px; color:color-mix(in srgb, var(--cb-tone) 68%, var(--c-primary)); }
+.cb-callout__icon{ flex:0 0 auto; width:17px; height:17px; color:var(--cb-tone); }
 .cb-callout__icon svg{ width:100%; height:100%; display:block; }
+.cb-callout__icon--lead{ float:left; margin:2px 8px 0 0; }
 .cb-callout__body{ min-width:0; }
-.cb-callout__kicker{ display:block; font-size:12px; line-height:16px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; color:color-mix(in srgb, var(--cb-tone) 80%, var(--c-primary)); margin-bottom:4px; }
-.cb-callout p{ margin-block:0 .5em; }
-.cb-callout p:last-child{ margin-bottom:0; }
+.cb-callout__body p{ margin-block:0 .5em; }
+.cb-callout__body p:last-child{ margin-bottom:0; }
 
 /* --- .cb-quote — inline pull/attribution quote with a hanging mark ---------- */
 .cb-quote{ position:relative; margin:0 0 .9em; padding-left:1.1em; color:var(--c-primary); font-style:italic; line-height:1.6; text-indent:-.5em; }
