@@ -373,10 +373,12 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
 .cb-epigraph, .cb-pullquote{ position:relative; margin:0 0 24px; padding-left:1.1em; border-left:3px solid var(--accent-weak); color:var(--c-primary); }
 /* the hanging open-quote glyph is a PULLQUOTE flourish only — on the small epigraph it
    collided with the first words, so the epigraph keeps just the italic + left keyline. */
-.cb-pullquote::before{ content:"\201C"; position:absolute; left:.18em; top:-.12em; color:var(--accent-strong); font-weight:700; line-height:1; }
 .cb-epigraph{ font-style:italic; font-size:15px; line-height:1.55; color:var(--c-secondary); }
-.cb-pullquote{ font-size:clamp(20px, 3.2vw, 28px); line-height:1.3; font-weight:600; text-wrap:balance; }
-.cb-pullquote::before{ font-size:2.4em; top:-.18em; }
+.cb-pullquote{ font-size:clamp(20px, 3.2vw, 28px); line-height:1.35; font-weight:600; text-wrap:balance; border-left-width:4px; border-left-color:var(--accent); padding-left:1.25em; }
+/* a SERIF opening quote — the body font (Pretendard) renders “ as an ugly bold double
+   stroke; a serif face draws a proper elegant curly mark. Hangs over the keyline, raised
+   above the first line so it reads as a flourish, not a colliding glyph. */
+.cb-pullquote::before{ content:"\201C"; position:absolute; left:.06em; top:.2em; font-family:Georgia,'Times New Roman','Noto Serif KR',serif; font-weight:400; line-height:0; font-size:3em; color:var(--accent); opacity:.92; }
 .cb-epigraph cite, .cb-pullquote cite{ display:block; margin-top:.5em; font-style:normal; font-weight:400; font-size:13px; color:var(--c-secondary); }
 .cb-epigraph cite::before, .cb-pullquote cite::before{ content:"\2014\00a0"; }
 

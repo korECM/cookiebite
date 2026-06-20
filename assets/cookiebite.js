@@ -1836,16 +1836,16 @@
       // the slanted edges onto white). Below ~420px shrink the label font and DROP the
       // '· N% vs prev' qualifier (it stays in the tooltip + data-table). Desktop unchanged.
       var narrow = (el.clientWidth || host.clientWidth || 600) < 420;
-      var labelFs = narrow ? 11 : 12;
       var data = steps.map(function (s, i) {
-        // label shows the step name + step-to-step conversion vs the PREVIOUS step
+        // step-to-step conversion vs the PREVIOUS step, shown on its OWN line (below the step
+        // name) so a long label reads cleanly instead of a cramped one-liner.
         var prev = i === 0 ? null : (steps[i - 1].value || 0);
         var pct = prev ? Math.round((s.value / prev) * 1000) / 10 : null;
-        var name = s.label + (!narrow && pct != null ? ' · ' + pct + '%' + vsPrev : '');
         // per-slice label ink by the FILL luminance: the ramp lightens toward the bottom, so
-        // white-on-(light slice) fails at 390px. Pick dark ink once the fill is light enough.
+        // white-on-(light slice) fails. Pick dark ink once the fill is light enough.
         var ink = inkOn(colors[i], accentOn, darkInk);
-        return { value: s.value, name: name, itemStyle: { color: colors[i] }, label: { color: ink } };
+        return { value: s.value, name: s.label, itemStyle: { color: colors[i] }, label: { color: ink },
+          pctText: (!narrow && pct != null) ? (pct + '%' + vsPrev) : '' };
       });
       var overall = top ? Math.round((steps[steps.length - 1].value / top) * 1000) / 10 : null;
       return {
@@ -1859,8 +1859,20 @@
         series: [{
           type: 'funnel', top: 12, bottom: 28, left: '8%', right: '8%',
           minSize: '24%', sort: 'descending', gap: 2,
-          // INSIDE labels never clip at narrow widths (the outside-label footgun)
-          label: { show: true, position: 'inside', color: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT, fontSize: labelFs },
+          // INSIDE labels never clip at narrow widths (the outside-label footgun). Two lines:
+          // the step NAME (semibold), then the step-to-step % muted below it — the rich blocks
+          // inherit the per-slice ink (label.color) so both lines stay readable on every slice.
+          label: {
+            show: true, position: 'inside', color: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT,
+            formatter: function (p) {
+              var pt = p.data && p.data.pctText;
+              return pt ? ('{nm|' + p.name + '}\n{pc|' + pt + '}') : ('{nm|' + p.name + '}');
+            },
+            rich: {
+              nm: { fontSize: narrow ? 12 : 14, fontWeight: 600, fontFamily: CB.theme.FONT, lineHeight: narrow ? 16 : 21 },
+              pc: { fontSize: 11, opacity: 0.82, fontFamily: CB.theme.FONT, lineHeight: 15 },
+            },
+          },
           labelLine: { show: false },
           itemStyle: { borderColor: CB.theme.C_LINE, borderWidth: 1 },
           data: data,
