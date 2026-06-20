@@ -27,9 +27,12 @@ hiding them.
 
 ## 1. Scroll-triggered reveal + count (paces a long report)
 Reveal sections/cards as they enter, and start a hero number counting when seen.
-Lightweight option: AOS (`data-aos="fade-up"`) + CountUp. **CountUp is auto-loaded by the
-template; AOS is NOT** — only CountUp + ECharts ship in the template's chart/KPI
-runtime, so add the AOS css/js tags (see `libraries.md`) before using `data-aos`.
+Lightweight option: AOS (`data-aos="fade-up"`) + CountUp. **CountUp ships as a HEAD CDN
+tag in the template; AOS does NOT** — the template's HEAD carries the `countup` (and
+`echarts`) `<script>` tags (kept for KPI/chart reports; deleting `countup` makes
+`CB.kpis` numbers render a literal `0` — see SKILL.md "Which CDN tags to keep"), but it
+does **not** carry AOS, so add the AOS css/js tags (see `libraries.md`) before using
+`data-aos`.
 Pro option (sequenced, scrubbable): GSAP ScrollTrigger.
 ```html
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>

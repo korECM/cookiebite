@@ -123,7 +123,7 @@ with real structure.
 | Small bespoke figure (≤ ~6 shapes), annotated illustration, precise custom art | **Hand inline SVG** | full control, crisp, themeable, hand-editable. Layout is on you — keep it small. |
 | Node-link / hierarchy / flow from data (org, dependency, process) | **ECharts `graph` / `tree` / `sankey`** | already loaded, auto-layout, themes from your CSS vars for free. The default here. |
 | Boxes-and-arrows graph where layout quality matters (module map, call graph, ER) | **Graphviz** via [viz.js](https://github.com/mdaines/viz-js) (`@viz-js/viz`, ~1.4 MB) | real hierarchical/graph layout — the thing LLMs can't do by hand. Render DOT to SVG, then recolor with theme vars. |
-| Flowchart / sequence / state / gantt from a text description | **Mermaid** | fastest text→diagram. **Use the `COOKIEBITE.mermaid(target, definition, opts?)` helper** — it dynamically imports Mermaid (no CDN tag), themes `themeVariables` from your CSS vars, re-renders on the dark toggle, and now **scales the rendered SVG to fit its container** (drops the intrinsic px width; the viewBox keeps the aspect ratio, so a wide sequence diagram shrinks to width instead of clipping on desktop or vanishing on mobile, and the host scrolls horizontally only as a fallback for a genuinely huge diagram). Still keep participant counts / label lengths reasonable — a 12-actor sequence shrinks legible-but-tiny; split it or use a flowchart. Drop to raw `mermaid.initialize({ theme:'base', themeVariables:{...} })` only for something the helper can't express. |
+| Flowchart / sequence / state / gantt from a text description | **Mermaid** | fastest text→diagram. **Use the `COOKIEBITE.mermaid(target, definition, opts?)` helper** — it dynamically imports Mermaid (no CDN tag), themes `themeVariables` from your CSS vars, re-renders on the dark toggle, and **scales the rendered SVG to a readable size**: a small diagram is scaled **UP** to fill the column (capped at 760px, centered) so it isn't a tiny thumbnail, while a naturally-wide one fills 100% and shrinks to width (the host scrolls horizontally only as a fallback for a genuinely huge diagram) — see the sizing contract in `helpers.md`. Still keep participant counts / label lengths reasonable — a 12-actor sequence shrinks legible-but-tiny; split it or use a flowchart. Drop to raw `mermaid.initialize({ theme:'base', themeVariables:{...} })` only for something the helper can't express. |
 | Quick UML / class / component sketch | **nomnoml** (`nomnoml@1`, ~30 KB) | tiny, text→SVG. |
 
 Hand inline SVG, when it fits, uses `currentColor` + theme vars and real `<text>`:
@@ -239,3 +239,13 @@ categorical palette for ordered data is the most common "silently worse" chart. 
 `accentRgba` opacity-step approach above still works for a quick hand-rolled ramp; `CB.ramp`
 is the named one-call version. The new `CB.funnel` / `CB.heatmap` helpers (`helpers.md`)
 already ramp internally.
+
+**Keeping the "no rainbow" claim honest.** Two recent tightenings back the claim:
+- `categoricalColors`' default (`analogous`) arc was **narrowed** — it now spans only
+  ~12° (n≤2) / ~30° (n=3) / ~60° (n≥4) around the accent with a saturation taper, instead
+  of the old ~100° that slid orange→lime→green at the Persimmon accent. Index 0 sits *on*
+  the accent so the primary series stays the brand color; peers read as one accent family.
+- Anywhere a swatch/cell/chip is **filled with the accent**, its text/ink uses the
+  dedicated **`--accent-on`** token (e.g. matrix high cells, active filter/severity chips,
+  the copy button) rather than a guessed light/dark — so accent-filled labels stay legible
+  in both modes without reaching for an off-theme color.

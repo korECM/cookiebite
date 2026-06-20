@@ -178,58 +178,126 @@ def validate_preset(preset: object) -> list[str]:
     return problems
 
 
-def validate_look(look: object) -> list[str]:
-    """Return a list of problems with the optional preset['look'] object, empty if valid
-    or absent. A present-but-broken look fails loudly (rather than silently emitting junk)."""
-    problems: list[str] = []
+def _coerce_heading_font(hf: object) -> tuple[dict | None, str | None]:
+    """Coerce a headingFont knob to the canonical {family,url?,fallback?} object.
+    Returns (coerced_or_None, problem_or_None). LENIENT on read so an older theme.json
+    that stored a bare family string still applies (canon: studio EXPORTS the object,
+    apply-theme + runtime TOLERATE a bare string). A coerced value is re-validated."""
+    if isinstance(hf, str):
+        hf = {"family": hf}  # back-compat: bare family string -> {family}
+    if not isinstance(hf, dict):
+        return None, "look.headingFont must be an object {family,url?,fallback?} or a family string"
+    family = hf.get("family")
+    if not isinstance(family, str) or not family.strip():
+        return None, "look.headingFont.family is required (non-empty string)"
+    out: dict = {"family": family}
+    url = hf.get("url")
+    if url is not None:
+        if not isinstance(url, str) or '"' in url:
+            return None, "look.headingFont.url must be a quote-safe string"
+        out["url"] = url
+    fb = hf.get("fallback")
+    if fb is not None:
+        if not _is_safe_css_token(fb):
+            return None, "look.headingFont.fallback must be a safe CSS token"
+        out["fallback"] = fb
+    return out, None
+
+
+def _coerce_measure(value: object, default_unit: str) -> tuple[str | None, str | None]:
+    """Coerce a measure knob to a unit-bearing CSS length string. Canon: the studio
+    EXPORTS a unit string ('58ch','1200px'); on read we tolerate a bare number by
+    appending the field's default unit ('ch' for prose, 'px' for page)."""
+    if isinstance(value, bool):
+        return None, "must be a unit-bearing CSS length string (e.g. '58ch')"
+    if isinstance(value, (int, float)):
+        return f"{value}{default_unit}", None  # bare number -> append the canonical unit
+    if _is_safe_css_token(value):
+        return str(value), None
+    return None, "must be a safe CSS length token (e.g. '58ch', '1200px')"
+
+
+def normalize_look(look: object) -> tuple[dict, list[str]]:
+    """Validate the optional preset['look'] PER KNOB and return (clean_look, warnings).
+
+    Contract: a single bad knob must NOT abort the whole apply — we warn + SKIP the
+    invalid knob and keep the rest. We are LENIENT on read (coerce a bare-string
+    headingFont to {family}, a bare-number measure to a unit string) so an older
+    theme.json still applies, while the studio now exports the canonical shapes.
+
+    Returns the cleaned look (only valid, canonicalized knobs) and a list of warnings.
+    An absent/None look returns ({}, []) so emission stays byte-identical."""
+    warnings: list[str] = []
     if look is None:
-        return problems
+        return {}, warnings
     if not isinstance(look, dict):
-        return ["'look' is not a JSON object"]
-    for key, allowed in LOOK_ENUM.items():
-        if key in look and look[key] is not None and look[key] not in allowed:
-            problems.append(
-                f"look.{key} must be one of {allowed}, got {look[key]!r}")
-    for key in ("radiusScale", "borderW"):
-        if key in look and look[key] is not None and not isinstance(
-                look[key], (int, float)) or isinstance(look.get(key), bool):
-            problems.append(f"look.{key} must be a number, got {look.get(key)!r}")
-    for key in ("measureProse", "measurePage"):
-        if key in look and look[key] is not None and not _is_safe_css_token(look[key]):
-            problems.append(
-                f"look.{key} must be a safe CSS length token, got {look.get(key)!r}")
-    hf = look.get("headingFont")
-    if hf is not None:
-        if not isinstance(hf, dict):
-            problems.append("look.headingFont must be an object")
+        return {}, ["'look' is not a JSON object — ignoring it"]
+
+    clean: dict = {}
+    for key, value in look.items():
+        if value is None:
+            continue
+        if key in LOOK_ENUM:
+            if value in LOOK_ENUM[key]:
+                clean[key] = value
+            else:
+                warnings.append(
+                    f"look.{key}={value!r} is not one of {LOOK_ENUM[key]} — skipping it")
+        elif key == "radiusScale":
+            # number OR a named scale the runtime understands ('sharp'/'subtle'/'default'/'round')
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                clean[key] = value
+            elif value in ("sharp", "subtle", "default", "round"):
+                clean[key] = value
+            else:
+                warnings.append(
+                    f"look.radiusScale={value!r} must be a number or "
+                    "'sharp'/'subtle'/'default'/'round' — skipping it")
+        elif key == "borderW":
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                clean[key] = value
+            else:
+                warnings.append(f"look.borderW={value!r} must be a number — skipping it")
+        elif key in ("measureProse", "measurePage"):
+            unit = "ch" if key == "measureProse" else "px"
+            coerced, problem = _coerce_measure(value, unit)
+            if coerced is not None:
+                clean[key] = coerced
+            else:
+                warnings.append(f"look.{key}={value!r} {problem} — skipping it")
+        elif key == "headingFont":
+            coerced, problem = _coerce_heading_font(value)
+            if coerced is not None:
+                clean[key] = coerced
+            else:
+                warnings.append(f"{problem} — skipping look.headingFont")
         else:
-            if "family" not in hf or not isinstance(hf.get("family"), str) \
-                    or not hf["family"].strip():
-                problems.append("look.headingFont.family is required (non-empty string)")
-            if "url" in hf and hf["url"] is not None and (
-                    not isinstance(hf["url"], str) or '"' in hf["url"]):
-                problems.append("look.headingFont.url must be a quote-safe string")
-            if "fallback" in hf and hf["fallback"] is not None \
-                    and not _is_safe_css_token(hf["fallback"]):
-                problems.append("look.headingFont.fallback must be a safe CSS token")
-    return problems
+            # unknown knob: pass it through to REPORT_LOOK only if it's a JSON-safe scalar
+            # the runtime might understand; otherwise skip it. Strings are guarded for
+            # CSS-rule safety since they may reach a `--var:VALUE;` emit.
+            if isinstance(value, (int, float)) or _is_safe_css_token(value):
+                clean[key] = value
+            else:
+                warnings.append(f"look.{key}={value!r} is not a safe value — skipping it")
+    return clean, warnings
 
 
 def build_look(look: dict) -> tuple[str, str, str]:
     """Build the three look fragments for an emitted THEME block:
       (link_html, root_vars, runtime_script)
     - link_html:    a heading-font <link> if look.headingFont.url is given, else ''.
-    - root_vars:    extra :root CSS vars (--radius-scale/--border-w/--border-style/
-                    --font-heading/--measure-prose/--measure-page/--dark-tint via REPORT_LOOK
-                    is runtime-owned; the FIRST-PAINT-critical vars are inlined here).
+    - root_vars:    extra :root CSS vars that must be correct at FIRST PAINT
+                    (--radius-scale/--border-w/--border-style/--font-heading/
+                    --measure-prose/--measure-page). The runtime fills the rest
+                    (data-* attrs, --dark-tint, etc.) from REPORT_LOOK.
     - runtime_script: window.REPORT_LOOK = {...} (+ window.PALETTE_MODE) the runtime reads.
-    All empty when `look` is empty/absent (caller emits nothing extra → byte-identical)."""
+    All empty when `look` is empty/absent (caller emits nothing extra → byte-identical).
+    `look` is the already-normalized dict from normalize_look (canonical shapes)."""
     if not look:
         return "", "", ""
 
-    # (1) heading-font <link> (only if a url is given). family interpolation happens in the
-    # runtime via REPORT_LOOK; here we only emit the stylesheet link so the font is fetched
-    # at first paint. url is validated quote-safe in validate_look.
+    # (1) heading-font <link> (only if a url is given). headingFont is the canonical
+    # {family,url?,fallback?} object after normalize_look; url is validated quote-safe there.
     hf = look.get("headingFont") or {}
     link_html = (
         f'<link rel="stylesheet" href="{hf["url"]}" />\n'
@@ -237,8 +305,8 @@ def build_look(look: dict) -> tuple[str, str, str]:
     )
 
     # (2) extra :root vars that must be correct at FIRST PAINT (before the runtime's
-    # CB.applyLook runs). We emit a numeric/length subset; the runtime fills the rest
-    # (data-* attrs, --font-heading from headingFont.family, etc.) from REPORT_LOOK.
+    # CB.applyLook runs). We emit the numeric/length/font subset; the runtime fills the
+    # rest (data-* attrs, --dark-tint) from REPORT_LOOK.
     var_lines: list[str] = []
     if isinstance(look.get("radiusScale"), (int, float)) \
             and not isinstance(look.get("radiusScale"), bool):
@@ -248,6 +316,13 @@ def build_look(look: dict) -> tuple[str, str, str]:
         var_lines.append(f"--border-w:{look['borderW']}px;")
     if look.get("borderStyle"):
         var_lines.append(f"--border-style:{look['borderStyle']};")
+    # --font-heading from headingFont.family (+ optional fallback). Canon: apply-theme
+    # emits --font-heading:family(,fallback). The family is interpolated inside a single-
+    # quoted CSS string, so escape backslash/apostrophe the same way build_block does.
+    if isinstance(hf, dict) and hf.get("family"):
+        fam = hf["family"].replace("\\", "\\\\").replace("'", "\\'")
+        fb = hf.get("fallback")
+        var_lines.append(f"--font-heading:'{fam}'{',' + fb if fb else ''};")
     if look.get("measureProse"):
         var_lines.append(f"--measure-prose:{look['measureProse']};")
     if look.get("measurePage"):
@@ -414,13 +489,21 @@ def main() -> int:
         return 1
 
     problems = validate_preset(preset)
-    problems += validate_look(preset.get("look"))
     if problems:
         print(f"error: preset '{args.preset}' is missing required fields:",
               file=sys.stderr)
         for p in problems:
             print(f"  - {p}", file=sys.stderr)
         return 1
+
+    # LOOK: validate per-knob and warn+skip an invalid knob (a single bad knob must NOT
+    # abort the whole apply). Replace the raw look with the cleaned/canonicalized one so
+    # build_block emits only valid knobs.
+    clean_look, look_warnings = normalize_look(preset.get("look"))
+    for w in look_warnings:
+        print(f"warning: {w}", file=sys.stderr)
+    if "look" in preset:
+        preset["look"] = clean_look
 
     with open(args.html, encoding="utf-8") as f:
         html = f.read()

@@ -200,8 +200,8 @@ prebuilt Tailwind CSS, which is out of scope.
      `references/libraries.md` ("which chart-shape builder when").
 
    **Before building any chart/diagram, read `references/libraries.md`** — "Chart-type
-   gotchas" (line 117; *long Korean labels are the #1 source of broken-looking charts*)
-   and "Diagrams: pick by layout" (line 72). The one-line rule: **pick the chart that
+   gotchas" (*long Korean labels are the #1 source of broken-looking charts*)
+   and "Diagrams: pick by layout, not by habit". The one-line rule: **pick the chart that
    fits the labels you have.**
 
    **Which CDN tags to keep (the one rule — also in template.html's head comment):**

@@ -285,6 +285,56 @@
     return [r, g, b];
   }
 
+  // Parse ANY color string (#RGB/#RRGGBB, rgb()/rgba(), hsl()/hsla()) to [r,g,b].
+  // Returns null when it can't parse (caller falls back). Shared by the on-color ink picker
+  // (F13 funnel labels, F17 solid-fill badges) which need a slice/fill luminance.
+  function colorToRgb(str) {
+    str = String(str == null ? '' : str).trim();
+    var h, m;
+    if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(str)) {
+      h = str.replace('#', '');
+      if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+      return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+    }
+    m = str.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (m) return [+m[1], +m[2], +m[3]];
+    m = str.match(/^hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/i);
+    if (m) return hslToRgb(+m[1], +m[2] / 100, +m[3] / 100);
+    return null;
+  }
+  function hslToRgb(h, s, l) {
+    h = ((h % 360) + 360) % 360 / 360;
+    if (s === 0) { var v = Math.round(l * 255); return [v, v, v]; }
+    var hue = function (p, q, t) {
+      if (t < 0) t += 1; if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    };
+    var q = l < 0.5 ? l * (1 + s) : l + s - l * s, p = 2 * l - q;
+    return [Math.round(hue(p, q, h + 1 / 3) * 255), Math.round(hue(p, q, h) * 255), Math.round(hue(p, q, h - 1 / 3) * 255)];
+  }
+  // relative luminance (WCAG) of an [r,g,b] triple.
+  function rgbLuminance(rgb) {
+    var c = rgb.map(function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  // Pick the legible ink for text sitting ON `fill`: compare the WCAG contrast of the light
+  // ink (onDark) vs the dark ink (onLight) against the fill and return whichever is HIGHER.
+  // (A fixed luminance threshold misfires on saturated mid-tones — a 72%-light saturated
+  // orange still favors dark ink.) Unparseable fill -> onDark (today's white default). Shared
+  // by F13 (funnel slice labels) and F17 (solid semantic/accent badges).
+  function lumContrast(a, b) { var hi = Math.max(a, b), lo = Math.min(a, b); return (hi + 0.05) / (lo + 0.05); }
+  function inkOn(fill, onDark, onLight) {
+    var rgb = colorToRgb(fill);
+    if (!rgb) return onDark;
+    var lf = rgbLuminance(rgb);
+    var cd = lumContrast(lf, rgbLuminance(colorToRgb(onDark) || [255, 255, 255]));
+    var cl = lumContrast(lf, rgbLuminance(colorToRgb(onLight) || [24, 24, 27]));
+    return cl > cd ? onLight : onDark;
+  }
+
   // resolve the palette mode for a call: opts.mode override > window.PALETTE_MODE > default.
   // 'analogous' is the historical default (bit-for-bit today's output); unknown values fall
   // back to 'analogous' so a typo never produces a rainbow.
@@ -338,20 +388,24 @@
       return co;
     }
 
-    // 'analogous' (default) — UNCHANGED historical output.
-    var s = Math.max(0.45, hsl[1]), l0 = Math.min(0.62, Math.max(0.42, hsl[2]));
-    // bounded arc: index 0 sits ON the accent hue (the PRIMARY series stays the accent),
-    // and later series sweep FORWARD across a span that TIGHTENS for small n so a 2- or
-    // 3-series chart reads as one accent family, not a rainbow:
-    //   n<=2 -> ~12° total (index 1 within ±12° of the accent)
-    //   n===3 -> ~36° total (well under the old ~100°)
-    //   n>=4 -> 100° total (the prior wide, recognizable spread)
-    var SPAN = n <= 2 ? 12 : n === 3 ? 36 : 100;
+    // 'analogous' (default) — index 0 sits ON the accent hue (the PRIMARY series stays the
+    // accent). The whole set must read as ONE accent family, never a spectrum, so we keep the
+    // hue arc TIGHT and WARM (never sliding into lime/green) and make LIGHTNESS the primary
+    // separator instead of hue. At the Persimmon accent (~18°) even a 60° arc reached
+    // yellow-green; capping at ~36° keeps the far end at amber/gold (still the orange family).
+    //   n<=2 -> ~10°    n===3 -> ~22°    n>=4 -> ~36° total
+    var SPAN = n <= 2 ? 10 : n === 3 ? 22 : 36;
+    var s0 = Math.max(0.48, Math.min(0.72, hsl[1]));
+    var l0 = Math.min(0.52, Math.max(0.44, hsl[2]));
     var out = [];
     for (var i = 0; i < n; i++) {
       var f = i / (n - 1); // 0 (accent) .. 1 (far end)
       var h = ((baseH + SPAN * f) % 360 + 360) % 360;
-      var l = Math.min(0.66, Math.max(0.40, l0 + 0.10 * (f - 0.5))); // gentle L ramp, bounded
+      // gentle saturation taper so far peers settle toward the family rather than a pure hue.
+      var s = Math.max(0.42, s0 - 0.16 * f);
+      // LIGHTNESS does the separating: a controlled deep->light sweep (capped at .64 so white
+      // labels on the lightest segment still read). i=0 stays near the accent's own lightness.
+      var l = Math.max(0.40, Math.min(0.64, l0 - 0.04 + 0.22 * f));
       out.push('hsl(' + Math.round(h) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)');
     }
     return out;
@@ -720,6 +774,13 @@
     var animate = opts.animate !== false;
     // explicit opts.cols wins; else auto-pick by item count (4+ -> the canonical 1-2-4)
     var colsKey = opts.cols && COLS_MAP[opts.cols] ? opts.cols : autoCols((items || []).length);
+    // strip any grid-col classes a PRIOR render of this host applied, so a re-render with a
+    // different item count doesn't stack two conflicting grid-cols utility sets on the host.
+    var priorCols = Object.keys(COLS_MAP).reduce(function (acc, k) {
+      COLS_MAP[k].split(' ').forEach(function (c) { acc[c] = 1; });
+      return acc;
+    }, {});
+    host.className = host.className.split(/\s+/).filter(function (c) { return c && !priorCols[c]; }).join(' ');
     host.className = (host.className ? host.className + ' ' : '') + COLS_MAP[colsKey];
 
     CB.disposeIn(host); // re-run on the same target: drop spark instances from the prior render
@@ -763,7 +824,11 @@
         // form of the literal is the best available signal.
         var inferDec = function (v) {
           var s = String(v); var dot = s.indexOf('.');
-          return dot < 0 ? 0 : s.length - dot - 1;
+          if (dot < 0) return 0;
+          // CAP at 6: a binary float-error tail (0.1+0.2 -> '0.30000000000000004', 17 digits)
+          // must NOT become data-decimals="17" and animate a 17-digit fraction. 6 is plenty
+          // of authored precision; anything beyond is float noise, not intent.
+          return Math.min(6, s.length - dot - 1);
         };
         var dec = it.decimals != null ? it.decimals : (opts.decimals != null ? opts.decimals : inferDec(val));
         var cuAttrs = 'data-countup="' + val + '"';
@@ -988,9 +1053,12 @@
         // spine — 2px rail centered under the 28px badge (badge left:0 -> center x = 14px),
         // starting just below the badge so the disc reads as a node on the line
         '<span class="absolute left-[13px] top-32 bottom-0 w-2 rounded-full bg-line-weak"></span>' +
-        // badge — tone-tinted disc with the step icon inside, ring-punched out of the page
-        '<span class="absolute left-0 top-2 w-28 h-28 rounded-full ' + dot + ' ring-4 ring-bg shadow-sm flex items-center justify-center">' +
-        iconTag(icon, 'w-14 h-14 text-white') + '</span>' +
+        // badge — tone-tinted disc with the step icon inside, ring-punched out of the page.
+        // F17: pick the icon ink by the disc-fill luminance (white fails on a bright/amber tone)
+        // so the glyph always reads; the disc keeps its solid tone fill.
+        '<span class="absolute left-0 top-2 w-28 h-28 rounded-full ' + dot + ' ring-4 ring-bg shadow-sm flex items-center justify-center" style="color:' +
+        inkOn(toneName === 'neutral' ? cssColor('--c-secondary', '#52525B') : toneColor(toneName), '#fff', cssColor('--c-primary', '#18181B')) + '">' +
+        iconTag(icon, 'w-14 h-14') + '</span>' +
         '<p class="text-caption-12 ' + t.text + ' font-semibold nums tracking-wide mb-2">' + esc(it.t) + '</p>' +
         titleRow + sub + detailBlock +
         '</li>';
@@ -1566,12 +1634,17 @@
       // step-to-step % carries a 'vs prev' qualifier so it's not confused with the
       // OVERALL conversion shown in the subtitle below.
       var vsPrev = t('vsPrev');
+      var accentOn = cssColor('--accent-on', '#fff');
+      var darkInk = cssColor('--c-primary', '#18181B');
       var data = steps.map(function (s, i) {
         // label shows the step name + step-to-step conversion vs the PREVIOUS step
         var prev = i === 0 ? null : (steps[i - 1].value || 0);
         var pct = prev ? Math.round((s.value / prev) * 1000) / 10 : null;
         var name = s.label + (pct != null ? ' · ' + pct + '%' + vsPrev : '');
-        return { value: s.value, name: name, itemStyle: { color: colors[i] } };
+        // per-slice label ink by the FILL luminance: the ramp lightens toward the bottom, so
+        // white-on-(light slice) fails at 390px. Pick dark ink once the fill is light enough.
+        var ink = inkOn(colors[i], accentOn, darkInk);
+        return { value: s.value, name: name, itemStyle: { color: colors[i] }, label: { color: ink } };
       });
       var overall = top ? Math.round((steps[steps.length - 1].value / top) * 1000) / 10 : null;
       return {
@@ -3607,13 +3680,18 @@
       var toneName = STEP_TONE[status] || 'neutral';
       var dot = TONE_DOT[toneName] || TONE_DOT.neutral;
       // done -> check, current -> accent dot (filled), pending -> hollow.
-      var icon = status === 'done' ? iconTag('check', 'w-14 h-14 text-white')
-        : status === 'current' ? iconTag('circle-dot', 'w-14 h-14 text-white') : '';
+      var icon = status === 'done' ? iconTag('check', 'w-14 h-14')
+        : status === 'current' ? iconTag('circle-dot', 'w-14 h-14') : '';
       var ring = status === 'current' ? ' ring-4 ring-accent-weak' : '';
       // current is the EMPHASIS node -> accent fill (the project's one-accent thesis);
       // done -> the success tone dot; pending -> a hollow neutral chip.
       var badgeBg = status === 'pending' ? 'bg-disabled-bg border border-line-weak'
         : status === 'current' ? 'bg-accent' : dot;
+      // F17: pick the glyph ink by the badge-fill luminance (white fails on a bright accent/
+      // tone fill) so the check/dot always reads. Pending has no icon, so no ink needed.
+      var iconInk = status === 'done' ? toneColor(toneName)
+        : status === 'current' ? cssColor('--accent', '#FA4D02') : null;
+      var iconStyle = iconInk ? ' style="color:' + inkOn(iconInk, '#fff', cssColor('--c-primary', '#18181B')) + '"' : '';
       var aria = status === 'done' ? t('stDone') : status === 'current' ? t('stCurrent') : t('stPending');
       // connector: a 2px rail to the NEXT node (hidden on the last). Horizontal on
       // sm+, the marker stacks above on mobile so it reads as a vertical list.
@@ -3623,7 +3701,7 @@
       var detail = it.detail ? '<p class="text-caption-12 text-secondary mt-2">' + esc(it.detail) + '</p>' : '';
       return '<li class="relative flex sm:flex-col sm:items-center sm:text-center gap-12 sm:gap-8 flex-1 min-w-0">' +
         connector +
-        '<span class="relative z-10 w-28 h-28 rounded-full shrink-0 ' + badgeBg + ring + ' flex items-center justify-center shadow-sm">' +
+        '<span class="relative z-10 w-28 h-28 rounded-full shrink-0 ' + badgeBg + ring + ' flex items-center justify-center shadow-sm"' + iconStyle + '>' +
         icon + '<span class="sr-only">' + esc(aria) + '</span></span>' +
         '<div class="min-w-0"><p class="text-body-14 font-semibold ' + (status === 'pending' ? 'text-secondary' : '') + '">' + esc(it.label) + '</p>' + detail + '</div>' +
         '</li>';
@@ -3718,10 +3796,13 @@
       var max = opts.max != null ? opts.max : 100;
       var frac = max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
       var fmt = typeof opts.format === 'function' ? opts.format : function (x) { return CB.nf.format(x); };
-      // accent-tint chip: opacity scales with magnitude (faint -> full accent).
+      // accent-tint chip: opacity scales with magnitude (faint -> full accent). Emit a
+      // color-mix on var(--accent) (NOT a baked accentRgba) so the chip re-tints for free on a
+      // dark toggle — the Grid.js cell HTML is static once rendered and never re-themes via JS.
+      var pct = Math.round((0.10 + 0.5 * frac) * 100);
       return window.gridjs.html(
         '<span class="inline-flex items-center justify-end px-8 py-2 rounded-xxs nums tabular-nums text-caption-12 font-medium" ' +
-        'style="background:' + accentRgba(0.10 + 0.5 * frac) + ';">' + esc(fmt(v)) + '</span>'
+        'style="background:color-mix(in srgb, var(--accent) ' + pct + '%, transparent);">' + esc(fmt(v)) + '</span>'
       );
     };
   };
@@ -4156,7 +4237,9 @@
         // per-cell accent opacity off the magnitude (faint low -> full accent high) — the
         // SINGLE-HUE ramp the project mandates, applied as alpha so dark re-theme follows.
         var frac = isFinite(n) && maxVal > 0 ? Math.max(0, Math.min(1, n / maxVal)) : 0;
-        var bg = isFinite(n) ? 'background:' + accentRgba(0.08 + 0.62 * frac) + ';' : '';
+        // color-mix on var(--accent) (NOT a baked accentRgba) so the cell tint flips for free on
+        // a dark toggle — the matrix is static innerHTML and isn't re-rendered by rethemeCharts.
+        var bg = isFinite(n) ? 'background:color-mix(in srgb, var(--accent) ' + Math.round((0.08 + 0.62 * frac) * 100) + '%, transparent);' : '';
         // text flips to accent-on once the tint is dark enough to need contrast
         var txt = frac > 0.55 ? ' text-accent-on' : '';
         return '<td class="p-8 text-center text-caption-12 nums tabular-nums' + txt + '" style="' + bg + '">' + esc(fmt(v)) + '</td>';
@@ -4548,8 +4631,12 @@
     badge = document.createElement('div');
     badge.id = 'cbAuditBadge';
     var clean = findings.length === 0;
+    // F17 — pick the ink by the FILL luminance (a bright/amber positive token fails white-on AA);
+    // keep the solid tone fill, only swap the text color so the count always meets contrast.
+    var badgeFill = toneColor(clean ? 'positive' : 'critical');
+    badge.style.color = inkOn(badgeFill, '#fff', cssColor('--c-primary', '#18181B'));
     badge.className = 'fixed bottom-16 left-16 z-50 px-12 py-8 rounded-small shadow-md text-caption-12 font-semibold ' +
-      (clean ? 'bg-positive text-white' : 'bg-critical text-white');
+      (clean ? 'bg-positive' : 'bg-critical');
     badge.textContent = t('auditTitle') + ': ' + (clean ? '0' : findings.length);
     badge.title = findings.map(function (f) { return f.kind + ' — ' + f.msg; }).join('\n');
     document.body.appendChild(badge);
@@ -4729,9 +4816,28 @@
     }
     setVar('--border-w', L.borderW);            // e.g. '.5px' | '1px' | '1.5px'
     setVar('--border-style', L.borderStyle);    // 'solid' | 'dashed'
-    setVar('--font-heading', L.headingFont);    // a font-family string; author adds the <link>
-    setVar('--measure-prose', L.measureProse);  // e.g. '68ch'
-    setVar('--measure-page', L.measurePage);    // e.g. '1400px'
+
+    // headingFont — CANON: an OBJECT { family, url?, fallback? }. Tolerate a bare string for
+    // back-compat (older theme.json shipped just the family). When the object carries a url,
+    // inject the <link> here so a paste-applied look is self-contained (no separate author tag).
+    if (L.headingFont != null) {
+      var hf = L.headingFont;
+      if (typeof hf === 'string') {
+        setVar('--font-heading', hf);
+      } else if (typeof hf === 'object' && hf.family) {
+        setVar('--font-heading', hf.fallback ? hf.family + ',' + hf.fallback : hf.family);
+        if (hf.url && !document.querySelector('link[href="' + hf.url + '"]')) {
+          var lk = document.createElement('link');
+          lk.rel = 'stylesheet'; lk.href = hf.url;
+          document.head.appendChild(lk);
+        }
+      }
+    }
+    // measureProse / measurePage — CANON: UNIT-BEARING strings ('58ch','1200px'). Tolerate a
+    // bare NUMBER from an older theme.json by appending the natural unit (ch for prose, px page).
+    var unit = function (v, u) { return typeof v === 'number' ? v + u : v; };
+    setVar('--measure-prose', unit(L.measureProse, 'ch'));  // e.g. '68ch'
+    setVar('--measure-page', unit(L.measurePage, 'px'));    // e.g. '1400px'
 
     // dark tint: 'neutral' is today's EXACT look, so DON'T set the attr/var for it
     // (leave the CSS default). warm/cool/accent (or any color) write --dark-tint + the attr.
@@ -5098,8 +5204,14 @@
       var badge = deltaText != null
         ? CB.deltaBadge(String(deltaText), { dir: dir || undefined, tone: toneName })
         : '';
+      // F12 — a critical/warning row with STRING from/to has no numeric delta badge to carry
+      // its tone, so it read identical to a neutral row. Render a small tone-colored dot before
+      // the label whenever the row is toned, so the severity is visible without a numeric delta.
+      var toneDot = (toneName && toneName !== 'neutral' && TONE_DOT[toneName])
+        ? '<span class="inline-block w-8 h-8 rounded-full shrink-0 mr-6 align-middle ' + TONE_DOT[toneName] + '" aria-hidden="true"></span>'
+        : '';
       return '<div class="cb-whatchanged__row">' +
-        '<span class="cb-whatchanged__label text-secondary">' + esc(it.label == null ? '' : it.label) + '</span>' +
+        '<span class="cb-whatchanged__label text-secondary">' + toneDot + esc(it.label == null ? '' : it.label) + '</span>' +
         '<span class="cb-whatchanged__from text-disabled nums"><s>' + esc(it.from == null ? '' : it.from) + '</s></span>' +
         '<span class="cb-whatchanged__arrow text-disabled" aria-hidden="true">' + iconTag('arrow-right', 'w-12 h-12') + '</span>' +
         '<span class="cb-whatchanged__to text-primary nums">' + esc(it.to == null ? '' : it.to) + '</span>' +
@@ -5194,9 +5306,17 @@
       host.innerHTML = '<div class="cb-legend">' + rowsHtml + '</div>';
       CB.refreshIcons(host);
     }
+    // stash the LATEST render on the host so the one registered callback always calls the
+    // current closure (a re-run with new items rebinds this without re-registering).
+    host._cbLegendRender = render;
     render();
-    // re-read accent/categorical colors on a dark/light toggle.
-    CB.onThemeChange(function () { if (document.contains(host)) render(); });
+    // re-read accent/categorical colors on a dark/light toggle. Guard with a per-host flag
+    // (like CB.mermaid) so re-running CB.legend on the same host never stacks duplicate
+    // closures in themeCbs — register ONCE, then just rebind host._cbLegendRender above.
+    if (!host.dataset.cbLegendThemed) {
+      host.dataset.cbLegendThemed = '1';
+      CB.onThemeChange(function () { if (document.contains(host) && host._cbLegendRender) host._cbLegendRender(); });
+    }
 
     // interactive: wire each button to toggle the matching chart series.
     if (interactive && chartInst) {

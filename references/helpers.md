@@ -149,11 +149,19 @@ The runtime detects this shape (a `rows[0].cells` array), back-fills each option
 definition,         // a Mermaid source string (flowchart / sequence / state / ER / gantt)
 opts: { }           // reserved; themes from CSS vars and re-renders on dark for free
 ```
-The rendered SVG **scales to fit** its container (intrinsic px width is dropped; the
-viewBox preserves the aspect ratio), so a wide sequence diagram shrinks to width instead
-of clipping on desktop or vanishing on mobile — the host scrolls horizontally only as a
-fallback for a genuinely huge diagram. Keep participant counts and label lengths
-reasonable: a 12-actor sequence fits but renders tiny — split it or use a flowchart.
+**Sizing contract** (the intrinsic px width is dropped; the viewBox preserves the aspect
+ratio, so it never clips). The SVG is scaled to a **readable** size, not just "fit":
+- A **small** diagram (3-node flowchart, short sequence) is scaled **UP** to fill the
+  column, **capped at 760px** and **centered** (`margin:0 auto`) — so it reads at a
+  comfortable size instead of a tiny thumbnail, but a 3-node graph doesn't stretch
+  comically across a wide column.
+- A **naturally wide** diagram (intrinsic width > the cap) fills 100% and shrinks to the
+  column width; the host scrolls horizontally only as a last-resort fallback for a
+  genuinely huge one.
+ELK routing (see "now routes with the ELK layout engine" in `libraries.md`) keeps labels
+uncollided at any scale, so filling the width no longer means "huge colliding labels".
+Still keep participant counts and label lengths reasonable: a 12-actor sequence fits but
+renders tiny — split it or use a flowchart.
 
 ## `CB.pill(label, opts?) -> string` / `CB.callout(html, opts?) -> string`
 
@@ -499,7 +507,15 @@ opts: {
 }
 ```
 Escaped annotated-code / pseudocode block (numbered gutter + inline `note`s, tone-colored
-outcomes) — the runtime version of the `components.md` pseudocode component.
+outcomes) — the runtime version of the `components.md` pseudocode component. **Both `text`
+and `note` are escaped**, so do NOT embed HTML (`<b>`, `<span class="text-positive">`) in a
+line string — it renders as literal tags. The `components.md` recipe styles keywords/
+outcomes with raw `<b>`/`<span>` because it is *hand-authored markup*; with this helper,
+get the same effect from the **object line form**: `{ text:'return result', tone:'success' }`
+colors the whole line (tones: `info`/`success`/`warning`/`critical`/`accent`) and `note`
+adds the quiet trailing annotation. There is no per-token bolding via the helper — pass a
+plain `text` and lean on `tone` + `note`, or drop to the `components.md` hand-built `<pre>`
+when you need inline keyword bolding.
 
 ### `CB.code(target, config)` / `CB.codeTabs(target, panels, opts?)` — syntax-highlighted source
 
@@ -538,6 +554,22 @@ config: {
 ```
 A single-hue accent-alpha grid-heatmap for cohort / retention / confusion matrices.
 (`CB.heatmap` stays calendar-only; reach for `CB.matrix` for any non-calendar grid.)
+
+**The ramp is single-hue accent alpha keyed to magnitude — bigger = more accent, NOT
+"worse".** Each cell is `color-mix(in srgb, var(--accent) X%, transparent)` with the
+opacity from `value / max` (cells past ~55% of max flip their text to `--accent-on` ink
+for contrast). So it reads *high vs low*, not *good vs bad* — don't use the tint to imply
+a value is alarming. (A diverging or semantic-red ramp — red = bad, green = good for e.g.
+a churn or error matrix — is a **backlog item**, not available today; for now pair the
+matrix with a `findings`/`callout` if a cell needs a "this is bad" signal.)
+
+**Watch the constant-first-column footgun.** `max` defaults to the largest cell across the
+*whole* grid, so a column of large constants (a cohort-size or "total" column whose values
+dwarf the retention %s) pins `max` high and **compresses every other cell toward faint** —
+the interesting gradient vanishes. Fixes: drop the magnitude column out of `data` (render
+it as a plain leading `<th>`/row label instead of a heat cell), or set `max` explicitly to
+the range you want graded (e.g. `max: 100` for a percent grid) so the constant column
+doesn't hijack the scale.
 
 ### `CB.actionItems(target, items, opts?)` — action list w/ copy (F44)
 

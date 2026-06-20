@@ -545,6 +545,22 @@ function exportLook(l){
   for(const k of Object.keys(LOOK_DEFAULT)){
     if(String(n[k]) !== String(LOOK_DEFAULT[k])) out[k] = n[k];
   }
+  // CANON boundary: the studio holds compact internal shapes (headingFont=pair name,
+  // measures=numbers, darkTint='accent-tinted'); the EXPORTED look:{} must match the
+  // round-trip contract apply-theme.py validates and CB.applyLook reads.
+  if("headingFont" in out){
+    // -> { family, url?, fallback? } object (pull url/fallback from the picker state)
+    const pair = HEADING_PAIRS.find(p => p.name === out.headingFont) || HEADING_PAIRS[0];
+    const hf = { family: pair.family };
+    if(pair.url) hf.url = pair.url;
+    if(pair.fallback) hf.fallback = pair.fallback;
+    out.headingFont = hf;
+  }
+  // -> unit-bearing strings ('58ch' / '1200px'), never unit-less numbers
+  if("measureProse" in out) out.measureProse = String(out.measureProse) + "ch";
+  if("measurePage"  in out) out.measurePage  = String(out.measurePage)  + "px";
+  // -> canonical darkTint 'accent' (UI label stays 'Accent')
+  if(out.darkTint === "accent-tinted") out.darkTint = "accent";
   return Object.keys(out).length ? out : null;
 }
 
@@ -590,7 +606,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"notion", label:"Notion",
     font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#5645D4", accentStrong:"#4534B3", accentWeak:"#E6E0F5", accentOn:"#FFFFFF",
+    colors:{ accent:"#5645D4", accentStrong:"#4534B3", accentText:"#4534B3", accentWeak:"#E6E0F5", accentOn:"#FFFFFF",
       bg:"#FAFAF9", surface:"#FFFFFF", primary:"#1A1A1A", secondary:"#5D5B54", disabled:"#BBB8B1",
       placeholder:"#A4A097", line:"#E5E3DF", lineWeak:"#EDE9E4", disabledBg:"#F6F5F4",
       critical:"#E03131", cautionary:"#DD5B00", positive:"#1AAE39", informative:"#0075DE" },
@@ -625,7 +641,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"persimmon", label:"Persimmon",
     font:{ family:"Pretendard", url:"https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#FA4D02", accentStrong:"#D63E00", accentWeak:"#FFEDE6", accentOn:"#FFFFFF",
+    colors:{ accent:"#FA4D02", accentStrong:"#D63E00", accentText:"#CE3B00", accentWeak:"#FFEDE6", accentOn:"#FFFFFF",
       bg:"#FCFCFC", surface:"#FFFFFF", primary:"#222222", secondary:"#555555", disabled:"#B0B0B0",
       placeholder:"#C7C7C7", line:"#C7C7C7", lineWeak:"#E4E4E4", disabledBg:"#F0F0F0",
       critical:"#CE2C31", cautionary:"#FBB800", positive:"#3E9B4F", informative:"#0588F0" },
@@ -794,7 +810,19 @@ function renderContrast(){
   // accentText (when present) is the contrast-safe variant for accent-as-TEXT, so the
   // KPI-number badge evaluates it rather than the raw fill accent.
   const accentTextLight = c.accentText || c.accent;
-  const sites = dark
+  // SEMANTIC pills render WHITE text on the semantic FILL (see renderPreview: color:#fff
+   // on background:var(--c-<sem>)). Score each so a semantic color too light for white text
+   // is flagged. In dark mode the preview uses the nudged dark semantics (mirror of the
+   // applyAccentDark base / cookiebite.css html[data-theme="dark"] palette).
+  const DARK_SEM = { critical:"#F2555A", cautionary:"#F5C544", positive:"#4FBB60", informative:"#4DA3FF" };
+  const sem = dark ? DARK_SEM : { critical:c.critical, cautionary:c.cautionary, positive:c.positive, informative:c.informative };
+  const pillSites = [
+    { label: t("contrast_pill_critical"),    fg: "#FFFFFF", bg: sem.critical,    min: 4.5 },
+    { label: t("contrast_pill_cautionary"),  fg: "#FFFFFF", bg: sem.cautionary,  min: 4.5 },
+    { label: t("contrast_pill_positive"),    fg: "#FFFFFF", bg: sem.positive,    min: 4.5 },
+    { label: t("contrast_pill_informative"), fg: "#FFFFFF", bg: sem.informative, min: 4.5 },
+  ];
+  const sites = (dark
     ? [
         { label: t("contrast_accent_on_bg"), fg: (c.accentDark || c.accent),  bg: "#101013",   min: 3.0 }, // big KPI numbers (dark)
         { label: t("contrast_on_accent"),    fg: (c.accentOnDark || c.accentOn), bg: (c.accentDark || c.accent), min: 4.5 }, // pill text (dark)
@@ -802,7 +830,7 @@ function renderContrast(){
     : [
         { label: t("contrast_accent_on_bg"), fg: accentTextLight, bg: c.bg,    min: 3.0 },   // big KPI numbers
         { label: t("contrast_on_accent"),    fg: c.accentOn,      bg: c.accent, min: 4.5 }, // small pill text
-      ];
+      ]).concat(pillSites);
   row.innerHTML = sites.map(s=>{
     const ratio = contrastRatio(s.fg, s.bg);
     const pass = ratio >= s.min;
@@ -976,7 +1004,7 @@ function renderPreview(){
   const kpi = KPIS.map(k=>`
     <div class="min-w-0" style="background:var(--surface-fill,var(--c-surface)); border:var(--surface-border-w,1px) var(--border-style,solid) var(--c-line-weak); border-radius:calc(12px*var(--radius-scale,1)); box-shadow:var(--surface-shadow,none); padding:calc(14px*var(--density-scale,1))">
       <div class="text-[12px] whitespace-nowrap overflow-hidden text-ellipsis" style="color:var(--c-secondary)">${k.label}</div>
-      <div class="text-[22px] leading-tight font-bold mt-6 nums whitespace-nowrap" style="color:var(--accent)">${fmtMoney(k.value)}</div>
+      <div class="text-[22px] leading-tight font-bold mt-6 nums whitespace-nowrap" style="color:var(--accent-text, var(--accent))">${fmtMoney(k.value)}</div>
       <span class="inline-block mt-8 px-8 py-2 rounded text-[11px] font-semibold whitespace-nowrap"
             style="background:var(--c-${k.sem}); color:#fff">${k.delta}</span>
     </div>`).join("");
@@ -1060,9 +1088,8 @@ function buildCSS(){
   let headLink = "";
   let lookScript = "";
   if(look){
-    if("headingFont" in look){
-      const pair = HEADING_PAIRS.find(p => p.name === look.headingFont);
-      if(pair && pair.url) headLink = `<link rel="stylesheet" href="${pair.url}">\n`;
+    if("headingFont" in look && look.headingFont && look.headingFont.url){
+      headLink = `<link rel="stylesheet" href="${look.headingFont.url}">\n`;
     }
     lookScript = `\n<script>window.REPORT_LOOK=${JSON.stringify(look)};<\/script>`;
   }
@@ -1503,6 +1530,10 @@ const STRINGS = {
     rederive: "Re-derive",
     contrast_accent_on_bg: "Accent text on bg",
     contrast_on_accent: "On-accent text on fill",
+    contrast_pill_critical: "White on critical",
+    contrast_pill_cautionary: "White on cautionary",
+    contrast_pill_positive: "White on positive",
+    contrast_pill_informative: "White on informative",
     contrast_fail: "AA fail",
     accent_dark: "Dark mode accent",
     accent_dark_hint: "Your near-black accent vanishes on a dark surface, so these auto-derive for dark mode. Edit to override.",
@@ -1558,6 +1589,10 @@ const STRINGS = {
     rederive: "다시 계산",
     contrast_accent_on_bg: "배경 위 강조색 글자",
     contrast_on_accent: "강조색 위 on-accent 글자",
+    contrast_pill_critical: "위험색 위 흰 글자",
+    contrast_pill_cautionary: "주의색 위 흰 글자",
+    contrast_pill_positive: "긍정색 위 흰 글자",
+    contrast_pill_informative: "정보색 위 흰 글자",
     contrast_fail: "AA 미달",
     accent_dark: "다크 모드 강조색",
     accent_dark_hint: "거의 검은 강조색은 어두운 배경에서 안 보여서 다크 모드용으로 자동 계산돼요. 직접 바꾸면 덮어써요.",
