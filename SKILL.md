@@ -502,9 +502,12 @@ section by hand.
 The fast path is a small set of helpers on the global `COOKIEBITE` namespace
 (`kpis`/`findings`/`timeline`/`table`/`chart`/`mermaid`/`pill`/`callout`, plus
 `compare`/`tabs`/`copyButton`/`sectionToMarkdown`/`glossary`/`categoricalColors`). There
-is deliberately **no** `header()`/`page()`/`toc()` shell helper and **no** chart `{kind}`
-enum — those would recreate the closed-vocabulary failure mode; the header, footer,
-layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
+is deliberately **no** `header()`/`page()` layout-shell helper and **no** chart `{kind}`
+enum — those would recreate the closed-vocabulary failure mode; the header, footer, and
+layout shell stay hand-authored Tailwind. (`COOKIEBITE.toc` is the one exception, and a
+narrow one: it *enriches* the canonical hand-authored `#toc` element from your
+`section[id]` headings — it is **not** a page shell, and it NO-OPs over a `#toc` you
+already filled with links.)
 
 | Fast-path helper | Emits (data → markup) | Hand-built equivalent |
 | --- | --- | --- |
@@ -550,6 +553,12 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | `COOKIEBITE.search(opts?)` | **opt-in** sticky search bar filtering/dimming `[data-searchable]` regions with `<mark>` highlight | `helpers.md` (CB.search) |
 | `COOKIEBITE.densityToggle()` / `COOKIEBITE.permalinks(opts?)` | **opt-in** chrome: a compact-density toggle (`html[data-density]`, localStorage) / hover `#` section permalinks (copy section URL) | — |
 | `COOKIEBITE.print()` / `COOKIEBITE.audit()` | `print()` forces light + expands `<details>`/tab panels then `window.print()`; `audit()` is a dev-only DOM a11y/contrast audit (also `?audit=1`) | — |
+| `COOKIEBITE.treemap / sankey / gantt(target, config)` | **full-render** heavy charts (build card + ECharts + data-table; **don't** wrap in `CB.chart`): treemap (value→lightness hierarchy, flat-by-parent or nested), sankey (single-hue opacity-gradient flow, narrow→vertical), gantt (date-axis lanes + progress fill + today line). Each **warns if `ariaLabel` omitted** | `helpers.md` (Wave B heavy charts) + `libraries.md` "which chart when" |
+| `COOKIEBITE.shapes.{boxplot,densityArea,marimekko}(cfg)` + `shapes.fiveNum(values)` | **pure ECharts-`option` builders** (pass to `CB.chart`): boxplot (per-group five-number boxes; `fiveNum` exposed for the table rows), densityArea (KDE curve / `ridgeline` stack), marimekko (column-width = weight × stacked-100% segments; `narrow` → stacked-bar fallback) | `helpers.md` (distribution & composition builders) + `libraries.md` |
+| `COOKIEBITE.toc(target, opts?)` | builds the `.cb-toc` sidebar from `main section[id]` + h2/h3, renders into the canonical `#toc`, re-runs `initToc()`'s observer + mobile nav; numbered/nested/progress; **NO-OP over a hand-authored `#toc`** with links (`force:true` overrides) | `interactions.md` §9 + `components.md` (TOC enrichment) |
+| `COOKIEBITE.readingProgress(opts?)` / `COOKIEBITE.readTime(target, opts?)` | **opt-in** long-report chrome: a `var(--accent)` scroll bar (`.cb-readingbar`, **null under reduced-motion**) / a CJK-aware "N min read" eyebrow (`.cb-readtime`) | `helpers.md` + `interactions.md` §9 |
+| `COOKIEBITE.fn(noteHtml)` / `COOKIEBITE.endnotes(target, opts?)` | footnotes with **ids paired by construction** (`cbfn-ref-N`↔`cbfn-note-N`): `fn` returns a `.cb-fnref` `<sup>` + registers the note; `endnotes` renders them as a `'list'` (↩ back-links) or `'sidenote'` (margin float on wide) | `components.md` "Footnotes & citations" |
+| `COOKIEBITE.scrollReveal(scope?, opts?)` | ONE IntersectionObserver fading + lifting `[data-reveal]` (opacity+transform only — no layout shift) + firing CountUp in `[data-count-on-enter]`; **gated on reduced-motion** (shows all, counters → final); no-JS-safe guard added by JS only | `interactions.md` §7 + `components.md` (`[data-reveal]` contract) |
 
 `COOKIEBITE.chart` is the fast/escape **seam**: the wrapper is data, but the ECharts
 `option` is **always author-written** (merged over `baseChart`; plain objects deep-merge,

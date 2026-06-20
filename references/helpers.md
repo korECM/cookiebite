@@ -860,3 +860,247 @@ Called **once at init** before charts render. Sets `data-density`/`elevation`/`s
 this is the backward-compat guarantee. See `design-system.md` (the Look system) for every
 knob, its data-attr/CSS-var contract, and the theme.json `look:{}` block that emits
 `window.REPORT_LOOK` for this function to read.
+
+---
+
+## Wave B — heavy hierarchy/flow/schedule charts (`CB.treemap` / `CB.sankey` / `CB.gantt`)
+
+Three full-render helpers (they build the host card, the ECharts instance, register for
+dark, and inject the `dataTableToggle` themselves — you don't wrap them in `CB.chart`).
+Each **warns if `ariaLabel` is omitted** (it becomes the screen-reader label *and* the
+data-table caption — always set it). All single-hue accent-themed and dark-aware.
+
+### `CB.treemap(target, config)` — value-weighted hierarchy
+
+```text
+config: {
+  nodes?,            // FLAT [ { name, value?, parent? }, … ] — built into a tree by parent-NAME
+                     //   (a flat node carrying its own `children` is passed through as-is)
+  tree?,             // OR a NESTED { name, children:[ { name, value?, children? }, … ] }
+  max?,              // depth levels to render (default 3; narrow forces 1, drill via drilldown)
+  drilldown?,        // true -> nodeClick zooms + a breadcrumb (else static, no breadcrumb)
+  caption?,          // captionHtml? for trusted HTML
+  ariaLabel?,        // SR label + data-table caption (warns if omitted)
+  pathHeader?,       // data-table path column header (default localized 'Path')
+  valueHeader?,      // data-table value column header (default localized 'Value')
+  height?,           // px, default 360
+  emptyText?,
+}
+```
+Tiles are colored by a **value→lightness ramp** (`CB.ramp(7)`: largest value = darkest
+tile) so every tile is one hue, with 2px `--c-bg` gutters. Data-table emits `a › b › leaf`
+path + value rows (leaf nodes only). Use for a value-weighted hierarchy (budget by
+team→project, storage by bucket→folder). See `libraries.md` ("Treemap" + "which chart when").
+
+### `CB.sankey(target, config)` — flow between stages
+
+```text
+config: {
+  nodes,             // [ { name }, … ]
+  links,             // [ { source, target, value }, … ]  (source/target reference node names)
+  nodeAlign?,        // 'justify' (default) | 'left' | 'right'
+  orient?,           // override the auto orientation (narrow flips to 'vertical')
+  caption?,          // captionHtml? for trusted HTML
+  ariaLabel?,        // SR label + data-table caption (warns if omitted)
+  sourceHeader?, targetHeader?, valueHeader?,  // data-table column headers
+  height?,           // px, default 360
+  emptyText?,
+}
+```
+Slim `--accent` node bars; links are a **single-hue opacity gradient** (source-tint →
+target-tint) so heavier flows read denser, never a second color. Labels truncate-with-
+tooltip and sit outside-edge; on narrow it flips to vertical. Data-table = source → target
+→ value rows. Use for a flow (signup→activation→paid, traffic source→page→exit). For long
+sentence-like node names a Sankey is the wrong tool — use a step/flow list (`libraries.md`).
+
+### `CB.gantt(target, config)` — schedule / duration bars
+
+```text
+config: {
+  tasks,             // [ { label, start, end, lane?, progress?(0..1), tone? }, … ]
+                     //   start/end parse via `new Date()`; `lane` groups rows (first-seen order)
+  today?,            // a date for the marker line (default now)
+  caption?,          // captionHtml? for trusted HTML
+  ariaLabel?,        // SR label + data-table caption (warns if omitted)
+  rowHeight?,        // px per lane row (default 30)
+  height?,           // px floor (auto-grows to lanes × rowHeight + 80)
+  taskCol?,          // (locale) the default lane label when a task has no `lane`
+  emptyText?,
+}
+```
+Custom-series bars: a rounded `--accent` base with a darker `--accent-strong` inner
+**progress** portion, lane zebra bands, and a thin `--c-critical` **today** line labelled
+at top. On narrow the date axis scrolls **inside** the card (the canvas widens, the wrapper
+scrolls) so it never trips page horizontal-overflow. Data-table = task / start / end / %
+rows. Use for a project schedule / roadmap (vs `timeline`=point events, `steps`=ordered
+stages — see `libraries.md` "which chart when"). The `.cb-gantt__lane` / `.cb-gantt__today`
+class hooks (`components.md`) only exist if a build emits structural lane rows; this
+custom-series version uses canvas, so they're simply unused.
+
+---
+
+## Wave B — distribution & composition shape builders (`CB.shapes.*`)
+
+Pure ECharts-`option` builders (like the rest of `CB.shapes.*`): **pass the returned
+option to `CB.chart`** with your own `ariaLabel`/`table`. All read `CB.theme`/the live
+accent, so they follow the dark re-theme. For *which* shape fits *which* data see
+`libraries.md` ("which chart when": distribution → boxplot/densityArea/histogram,
+composition×weight → marimekko).
+
+### `CB.shapes.fiveNum(values) -> [min, q1, median, q3, max]`
+
+```text
+values: number[]    // -> the five-number summary (linear-interpolation quantiles, on a
+                    //   sorted NON-mutating copy)
+```
+Exposed so you can build the boxplot data-table rows that carry the per-group summary
+(see the boxplot table hint below). Standalone helper, not a chart.
+
+### `CB.shapes.boxplot(config) -> option` — per-group distribution boxes
+
+```text
+config: {
+  groups,            // [ { label, values:number[] }, … ]  (the runtime computes the summary)
+                     //   OR [ { label, five:[min,q1,med,q3,max], outliers?:number[] }, … ] (precomputed)
+  horizontal?,       // default: true when >4 groups OR any label >6 chars (Korean-safe);
+                     //   pass false/true to force vertical/horizontal
+  showOutliers?,     // true (default) -> 1.5·IQR-fence outliers as hollow --c-secondary dots
+}
+```
+Box fill `accentRgba(.12)`; box outline + median = `CB.theme.ACCENT` (ECharts shares one
+`itemStyle` across box/median/whisker, so the **median reads as the dominant accent
+stroke**). When `values` are given the runtime derives the five-number summary and clamps
+the whiskers to the non-outlier extent. **Table hint** (build from the per-group summary):
+```js
+table: { columns:[labelHdr,'min','q1','median','q3','max'],
+  rows: groups.map(g => { var f = (g.five || CB.shapes.fiveNum(g.values)); return [g.label].concat(f.map(CB.nf.format)); }) }
+```
+
+### `CB.shapes.densityArea(config) -> option` — KDE distribution / ridgeline
+
+```text
+config: {
+  values?,           // number[]  — a SINGLE distribution
+  groups?,           // OR [ { label, values:number[] }, … ] (+ ridgeline:true to stack)
+  bandwidth?,        // 'auto' (default = Silverman's rule of thumb) | a number
+  ridgeline?,        // true (groups only) -> a vertical stack of slightly-overlapping ridges
+  showMedian?,       // true (default, single only) -> a dashed --c-secondary median tick
+}
+```
+Single distribution: one `CB.theme.ACCENT`-stroke Gaussian-KDE curve over an
+`accentRgba(.12)` fill. With `groups` + `ridgeline:true`: each ridge is a `CB.ramp` tone,
+baseline-labelled with the group name. Pass your own raw `values` for the data-table; the
+aria already states the shape. The smooth-curve sibling of `CB.shapes.histogram`.
+
+### `CB.shapes.marimekko(config) -> option` — composition × column weight
+
+```text
+config: {
+  columns,           // [ { label, weight:number, segments:[ { name, value }, … ] }, … ]
+  legend?,           // false to hide the legend (default shown)
+  narrow?,           // true -> a plain stacked-100% bar FALLBACK (equal widths, ignores weight)
+                     //   carrying a `__mekkoFallback:true` marker so a narrow path can swap it
+}
+```
+Wide (Mekko): column **widths** encode each column's weight share, within-column segments
+stack 100% via `CB.ramp` (single hue), only the largest block per column gets an inline %
+label, `--c-bg` gutters. **Table:**
+```js
+table: { columns:['column','weight'].concat(segNames),
+  rows: columns.map(c => [c.label, c.weight].concat(/* each segment's value */)) }
+```
+Use when both a category's **size** and its **internal split** matter (revenue by region ×
+plan mix). Pair the `__mekkoFallback` marker with `narrow:true` so a narrow render swaps in
+the plain stacked bar. See `libraries.md` ("composition × weight → marimekko").
+
+> **Geo / choropleth is intentionally NOT shipped** — a map needs a bundled GeoJSON, which
+> blows the single-file weight budget. Out of scope for now; for region data reach for a
+> `CB.matrix` (rows×cols), a ranked `CB.leaderboard`, or a horizontal bar instead.
+
+---
+
+## Wave B — TOC, footnotes, reading chrome, scroll-reveal (editorial enrichment)
+
+Long-form enrichment for explainer / research / postmortem reports. All emit shared
+`.cb-*` contract classes (styled by `cookiebite.css`), re-theme automatically, and the
+motion ones are **gated on `CB.MOTION_OK`** (no-op or instant under `prefers-reduced-motion`).
+These are **opt-in** — call them from your init script. See `interactions.md` (§7, §9) and
+`components.md` (Footnotes) for placement.
+
+### `CB.toc(target, opts?) -> nav | null` — auto-built table of contents
+
+```text
+opts: {
+  numbered?,         // 1 / 1.1 tabular-nums prefixes (default true)
+  nested?,           // two-level: section h2 + its h3[id] become sub-entries (default true)
+  progress?,         // per-item accent-weak progress fill on the active section (default true)
+  heading?,          // sidebar heading (default localized 'Contents')
+  force?,            // true -> override even a hand-authored #toc that already has links
+}
+```
+Builds the `.cb-toc` sidebar from `main section[id]` + their `h2`/`h3`, renders into (or
+reuses) the canonical `#toc` element, and **re-runs `initToc()`** so the existing
+IntersectionObserver active-state + the below-`lg` mobile section nav wire up for free.
+**NO-OP when a hand-authored `#toc` already has links** (progressive enhancement) — pass
+`force:true` to override. The active state stays owned by `initToc()`'s observer; don't add
+a separate active class. Emits the `.cb-toc` markup (see `components.md` for the contract).
+
+### `CB.readingProgress(opts?) -> bar | null` — scroll-progress bar
+
+```text
+opts: {
+  height?,           // bar height in px (default 2)
+  target?,           // the scroll-extent element selector (default 'main')
+}
+```
+A `var(--accent)` bar (`.cb-readingbar`) pinned at the top, driven by `transform:scaleX`
+over the target's scroll extent, `aria-hidden`. **Returns null under reduced-motion**
+(gated on `CB.MOTION_OK` — a moving bar is exactly what they opted out of) and is
+**idempotent** (no-op if a `.cb-readingbar` already exists).
+
+### `CB.readTime(target, opts?) -> p` — reading-time eyebrow
+
+```text
+opts: {
+  wpm?,              // Latin words-per-minute (default 220)
+  cpm?,              // CJK chars-per-minute (default 500)
+  scope?,            // the element to measure (selector, default 'main')
+}
+```
+A `.cb-readtime` caption eyebrow with a lucide clock glyph. **CJK-aware via `CB.locale()`**:
+counts han/kana/hangul CHARS at `cpm` for `ko`/`ja`, words at `wpm` for Latin. Minimum 1
+minute; label via `t('minRead')`. Appends to `target`.
+
+### `CB.fn(noteHtml) -> string` / `CB.endnotes(target, opts?) -> el | null` — footnotes
+
+```text
+CB.fn(noteHtml)      // returns a <sup class="cb-fnref"><a> reference (id cbfn-ref-N) AND
+                     //   registers the note body. N auto-increments per call in document order.
+CB.endnotes(target, {
+  heading?,          // section heading (default localized 'Notes')
+  style?,            // 'list' (default) | 'sidenote'
+})                   // renders every registered note; returns null when none were registered
+```
+**ref↔note ids are paired by construction** (`cbfn-ref-N` ↔ `cbfn-note-N`) — no manual id
+pairing, so the jump never silently breaks. `style:'list'` = an ordered `.cb-endnotes` list
+with `↩` back-links; `style:'sidenote'` = `.cb-sidenote` blocks the CSS floats into the
+right margin on wide and collapses inline at narrow. The runtime version of the
+`components.md` "Footnotes & citations" pattern (which stays valid for hand-authoring).
+
+### `CB.scrollReveal(scope?, opts?) -> IntersectionObserver | null`
+
+```text
+scope?,              // Element | selector to scan (default document)
+opts: {
+  stagger?,          // ms between sibling reveals, capped at 8 steps (default 60)
+  y?,                // lift distance in px via --cb-reveal-y (default 8)
+}
+```
+ONE IntersectionObserver that fades + lifts `[data-reveal]` elements as they enter
+(toggles `data-reveal=out→in` so the CSS animates **opacity + transform only — no layout
+shift**) and fires CountUp inside `[data-count-on-enter]` the first time each is seen.
+**Gated on `CB.MOTION_OK`:** under reduced-motion (or no IO support) it sets everything to
+`in`, runs counters straight to final, and returns null. **CRITICAL no-JS contract:** the
+initial-hidden rule needs a guard class the JS adds *only* once reveal is running — never
+put it in static markup or no-JS renders would hide content (see `components.md` /
+`interactions.md` §7).

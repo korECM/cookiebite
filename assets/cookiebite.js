@@ -144,6 +144,8 @@
       insightAction: 'Action', insightWatch: 'Watch', insightNote: 'Note', keyTakeaways: 'Key takeaways',
       recommended: 'Recommended', total: 'Total', overall: 'Overall ', vsPrev: ' vs prev',
       stepCol: 'Step', valueCol: 'Value', dateCol: 'Date',
+      pathCol: 'Path', sourceCol: 'Source', targetCol: 'Target',
+      taskCol: 'Task', startCol: 'Start', endCol: 'End', today: 'Today',
       stDone: 'done', stCurrent: 'current', stPending: 'pending',
       sectionNav: 'Section navigation', onThisPage: 'On this page', onThisPageDots: 'On this page…',
       ofWord: ' of ',
@@ -155,6 +157,8 @@
       mermaidFail: 'Diagram failed to render — check the Mermaid definition.',
       coNote: 'NOTE', coTip: 'TIP', coWarning: 'WARNING', coDanger: 'DANGER', coExample: 'EXAMPLE',
       figAbbr: 'Fig.',
+      notesHeading: 'Notes', backToText: 'Back to text', minRead: ' min read', contents: 'Contents',
+      medianWord: 'median', otherWord: 'Other',
     },
     ko: {
       noData: '데이터 없음',
@@ -164,6 +168,8 @@
       insightAction: '조치', insightWatch: '주의', insightNote: '메모', keyTakeaways: '핵심 요약',
       recommended: '추천', total: '합계', overall: '전체 전환율 ', vsPrev: ' 직전 대비',
       stepCol: '단계', valueCol: '값', dateCol: '날짜',
+      pathCol: '경로', sourceCol: '출발', targetCol: '도착',
+      taskCol: '작업', startCol: '시작', endCol: '종료', today: '오늘',
       stDone: '완료', stCurrent: '진행 중', stPending: '예정',
       sectionNav: '섹션 이동', onThisPage: '이 페이지에서', onThisPageDots: '이 페이지에서…',
       ofWord: ' / ',
@@ -175,6 +181,8 @@
       mermaidFail: '다이어그램 렌더 실패 — Mermaid 정의를 확인하세요.',
       coNote: '참고', coTip: '팁', coWarning: '주의', coDanger: '위험', coExample: '예시',
       figAbbr: '그림',
+      notesHeading: '주석', backToText: '본문으로', minRead: '분 분량', contents: '목차',
+      medianWord: '중앙값', otherWord: '기타',
     },
     /* ja ships ONLY the cells that differ from en where trivial; missing keys fall
        back to en via the t() resolver, so a ja report degrades gracefully. */
@@ -183,6 +191,8 @@
       viewTable: '表で見る', viewChart: 'グラフで見る',
       all: 'すべて', total: '合計', recommended: '推奨',
       onThisPage: 'このページ内', onThisPageDots: 'このページ内…', sectionNav: 'セクション移動',
+      notesHeading: '注', backToText: '本文へ戻る', minRead: '分で読めます', contents: '目次',
+      medianWord: '中央値', otherWord: 'その他',
     },
   };
   // active locale prefix (ko/en/ja/…); REPORT_LOCALE.number drives it, unknown -> en
@@ -1749,6 +1759,463 @@
   };
 
   /* ==========================================================================
+     SHARED — narrowObserver(el, onChange): the same ResizeObserver narrow-cross
+     pattern CB.chart uses (F19), factored out for the heavy dedicated charts below
+     (treemap depth-cap, sankey orient flip, gantt scroll). Fires onChange(isNarrow)
+     ONLY on a threshold cross (never on every resize), no-ops at 0-width (hidden
+     tab), and returns the observer so disposeIn/pruneCharts can disconnect it via
+     the registry entry. Returns null when ResizeObserver is unavailable.
+     ========================================================================== */
+  function narrowObserver(el, onChange, threshold) {
+    if (typeof ResizeObserver !== 'function') return null;
+    var bp = threshold || 560, state = null; // null=unknown, then true/false
+    var ro = new ResizeObserver(function (entries) {
+      var w = entries[0] && entries[0].contentRect ? entries[0].contentRect.width : el.clientWidth;
+      if (!w) return; // 0-width (hidden tab) — don't judge
+      var isNarrow = w < bp;
+      if (isNarrow === state) return; // only re-apply on a threshold cross
+      state = isNarrow;
+      try { onChange(isNarrow); } catch (e) {}
+    });
+    try { ro.observe(el); } catch (e) {}
+    return ro;
+  }
+
+  /* ==========================================================================
+     C14 — COOKIEBITE.treemap(target, { nodes | tree, caption?, ariaLabel?, drilldown?, max? })
+     Themed ECharts treemap for part-of-whole / hierarchy (cost by team→service,
+     storage by bucket, traffic by source→page). STRICT single accent hue: every
+     tile's color is value→lightness via CB.ramp (biggest = darkest, smallest =
+     lightest) — never a rainbow. 2px --c-bg gutters between tiles; leaf labels
+     auto-hide when the tile is too small (ECharts upperLabel/label sizing) so they
+     never overprint; breadcrumb on drilldown; depth-capped to 1 level on narrow.
+       nodes: [{ name, value, parent? }] (flat, parent refs by name) OR
+       tree:  { name, value?, children:[…] } (nested) — pass either as `nodes`/`tree`.
+       drilldown:true enables zoom-in (nodeClick) + breadcrumb; default static.
+       max caps how many depth levels render (default 3; narrow forces 1).
+     data-table = path (a › b › leaf) + value rows. Registers for dark re-theme.
+     ========================================================================== */
+  var treemapSeq = 0;
+
+  // normalize flat [{name,value,parent}] OR nested {name,children} into ECharts
+  // treemap `data` (array of {name,value,children}). Flat: build by parent-name.
+  function treemapData(config) {
+    // accept a NESTED object via `tree`, OR the same nested object mistakenly passed as
+    // `nodes` (defensive: a non-array `nodes` must never throw .filter and blank the report).
+    var tree = config.tree || (config.nodes && !Array.isArray(config.nodes) ? config.nodes : null);
+    if (tree && tree.children) return tree.children.slice();
+    if (tree) return [tree];
+    var flat = (Array.isArray(config.nodes) ? config.nodes : []).filter(function (n) { return n && n.name; });
+    // a flat node with `children` is already nested — pass through untouched.
+    if (flat.length && flat[0].children) return flat;
+    var byName = {}, roots = [];
+    flat.forEach(function (n) { byName[n.name] = { name: n.name, value: n.value, children: [] }; });
+    flat.forEach(function (n) {
+      var node = byName[n.name];
+      if (n.parent != null && byName[n.parent]) byName[n.parent].children.push(node);
+      else roots.push(node);
+    });
+    // drop empty children arrays so leaves are clean leaves (value-colored)
+    (function strip(arr) {
+      arr.forEach(function (n) { if (n.children && n.children.length) strip(n.children); else delete n.children; });
+    })(roots);
+    return roots;
+  }
+
+  // flatten the tree into [path[], value] leaf rows for the data-table (deepest
+  // nodes only — the path column shows a › b › leaf so the hierarchy is legible).
+  function treemapRows(data) {
+    var out = [];
+    (function walk(arr, trail) {
+      arr.forEach(function (n) {
+        var path = trail.concat(n.name);
+        if (n.children && n.children.length) walk(n.children, path);
+        else if (n.value != null) out.push([path.join(' › '), CB.nf.format(n.value)]);
+      });
+    })(data, []);
+    return out;
+  }
+
+  CB.treemap = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.treemap needs echarts.'); return null; }
+    config = config || {};
+    var data = treemapData(config);
+    var aria = config.ariaLabel || 'treemap';
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.treemap: pass ariaLabel describing the hierarchy — it becomes the screen-reader label and the data-table caption.');
+
+    CB.disposeIn(host);
+
+    if (!data.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null; }
+
+    var height = config.height || 360;
+    var cid = 'cbTree' + (++treemapSeq);
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    host.innerHTML = caption +
+      '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
+      '<div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + height + 'px"></div>' +
+      '</div>';
+
+    var el = host.querySelector('#' + cid);
+    var inst = window.echarts.init(el);
+
+    // value→lightness ramp: collect every leaf+branch value, map the LARGEST to the
+    // darkest accent shade. We bucket values across the ramp so big tiles read heavy.
+    function colorMap() {
+      var vals = [];
+      (function collect(arr) {
+        arr.forEach(function (n) {
+          if (n.value != null) vals.push(n.value);
+          if (n.children) collect(n.children);
+        });
+      })(data);
+      var max = vals.reduce(function (m, v) { return Math.max(m, v); }, 0) || 1;
+      var steps = CB.ramp(7); // dark→light band; index 0 darkest
+      return function (v) {
+        // bigger value -> lower index -> darker shade (invert the 0..1 fraction)
+        var f = max > 0 ? (v || 0) / max : 0;
+        var idx = Math.round((1 - f) * (steps.length - 1));
+        return steps[Math.max(0, Math.min(steps.length - 1, idx))];
+      };
+    }
+
+    // recursively stamp itemStyle.color (value→lightness) so EVERY tile is one hue.
+    function paint(arr, pick) {
+      return arr.map(function (n) {
+        var node = { name: n.name, value: n.value };
+        if (n.value != null) node.itemStyle = { color: pick(n.value) };
+        if (n.children && n.children.length) node.children = paint(n.children, pick);
+        return node;
+      });
+    }
+
+    // depth cap: 1 on narrow (drilldown to explore), config.max (default 3) on wide.
+    var maxDepth = 3;
+    function option(narrow) {
+      var pick = colorMap();
+      var depth = narrow ? 1 : (config.max != null ? config.max : maxDepth);
+      var gutter = cssColor('--c-bg', '#FFFFFF');
+      return {
+        textStyle: { fontFamily: CB.theme.FONT },
+        tooltip: {
+          formatter: function (p) { return p.name + ': ' + CB.nf.format(p.value); },
+        },
+        series: [{
+          type: 'treemap',
+          roam: false,
+          // drilldown: nodeClick zooms; static treemaps disable it. breadcrumb only
+          // shows when drilldown is on (otherwise it's dead chrome).
+          nodeClick: config.drilldown ? 'zoomToNode' : false,
+          breadcrumb: config.drilldown
+            ? { show: true, height: 22, bottom: 0, itemStyle: { color: cssColor('--c-disabled-bg', '#F4F4F5'), borderColor: CB.theme.C_LINE, textStyle: { color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT } } }
+            : { show: false },
+          leafDepth: depth,
+          // 2px --c-bg gutters between tiles (gapWidth) + same-color borders so tiles
+          // read as cleanly separated cards, not a solid block.
+          itemStyle: { gapWidth: 2, borderColor: gutter, borderWidth: 0 },
+          // leaf labels auto-hide when the tile is too small (minHeight/minWidth via
+          // ECharts label `overflow` + ensuring a too-small tile drops its label).
+          label: {
+            show: true, color: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT,
+            overflow: 'truncate', ellipsis: '…',
+            formatter: function (p) { return p.name; },
+          },
+          upperLabel: { show: depth > 1, height: 20, color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT },
+          // per-level: parent levels get a faint gutter, leaves the value ramp. The
+          // levels array keeps the 2px gutter consistent at every depth.
+          levels: [
+            { itemStyle: { gapWidth: 2, borderColor: gutter, borderWidth: 2 } },
+            { itemStyle: { gapWidth: 2, borderColor: gutter, borderWidth: 2 } },
+            { itemStyle: { gapWidth: 1, borderColor: gutter, borderWidth: 1 } },
+          ],
+          data: paint(data, pick),
+        }],
+      };
+    }
+
+    var curNarrow = el.clientWidth && el.clientWidth < 560;
+    inst.setOption(option(curNarrow), true);
+    // narrow: re-cap depth to 1 (explore via drilldown) on a threshold cross
+    var ro = narrowObserver(el, function (isNarrow) {
+      curNarrow = isNarrow;
+      inst.setOption(option(isNarrow), true);
+      inst.resize();
+    });
+    // register for dark re-theme (re-reads ramp/tokens live, preserves narrow state);
+    // ro tracked on the entry so disposeIn/pruneCharts can disconnect it.
+    CB.registerChart(inst, function (chart) { chart.setOption(option(curNarrow), true); }, ro);
+
+    // data-table: path + value rows
+    CB.dataTableToggle(el, {
+      ariaLabel: aria,
+      columns: [config.pathHeader || t('pathCol', 'Path'), config.valueHeader || t('valueCol')],
+      rows: treemapRows(data),
+    });
+
+    CB.refreshIcons();
+    return inst;
+  };
+
+  /* ==========================================================================
+     C15 — COOKIEBITE.sankey(target, { nodes, links, caption?, ariaLabel?, nodeAlign?, orient? })
+     Themed ECharts sankey for flow (signup→activation→paid, traffic source→page→exit,
+     budget allocation). Single-hue: links use accentRgba with a left→right ramp
+     GRADIENT (source-tint → target-tint) so heavier flows read intense; nodes are slim
+     --accent bars. Labels auto-position outside-edge (left for sources, right for sinks)
+     and truncate-with-tooltip so they never overlap. On narrow, flips to vertical orient
+     (orient:'vertical') so the columns stack instead of crushing.
+       nodes: [{ name }]. links: [{ source, target, value }] (names reference nodes).
+       nodeAlign: 'justify'|'left'|'right' (default 'justify'). orient override.
+     data-table = source → target → value rows. Registers for dark re-theme.
+     ========================================================================== */
+  var sankeySeq = 0;
+
+  CB.sankey = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.sankey needs echarts.'); return null; }
+    config = config || {};
+    var nodes = (config.nodes || []).filter(function (n) { return n && n.name; });
+    var links = (config.links || []).filter(function (l) { return l && l.source != null && l.target != null && l.value != null; });
+    var aria = config.ariaLabel || 'flow diagram';
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.sankey: pass ariaLabel describing the flow — it becomes the screen-reader label and the data-table caption.');
+
+    CB.disposeIn(host);
+
+    if (!nodes.length || !links.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null; }
+
+    var height = config.height || 360;
+    var cid = 'cbSankey' + (++sankeySeq);
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    host.innerHTML = caption +
+      '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
+      '<div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + height + 'px"></div>' +
+      '</div>';
+
+    var el = host.querySelector('#' + cid);
+    var inst = window.echarts.init(el);
+
+    function option(narrow) {
+      var orient = config.orient || (narrow ? 'vertical' : 'horizontal');
+      var accent = CB.theme.ACCENT || '#E8552D';
+      // single-hue link gradient: a left→right (source-tint → target-tint) ramp on the
+      // accent so weight reads as intensity, not a different color. ECharts lineStyle
+      // 'gradient' tints by the two endpoint node colors — here both are the accent,
+      // so we shade via opacity (lighter source, denser target).
+      return {
+        textStyle: { fontFamily: CB.theme.FONT },
+        tooltip: {
+          trigger: 'item',
+          formatter: function (p) {
+            if (p.dataType === 'edge') return p.data.source + ' → ' + p.data.target + ': ' + CB.nf.format(p.data.value);
+            return p.name;
+          },
+        },
+        series: [{
+          type: 'sankey', orient: orient,
+          left: 8, right: 8, top: 12, bottom: 12,
+          nodeAlign: config.nodeAlign || 'justify',
+          nodeWidth: 12, nodeGap: 10,
+          // slim --accent node bars
+          itemStyle: { color: accent, borderColor: accent },
+          // labels outside-edge + truncated-with-tooltip so long Korean labels never
+          // overlap; vertical orient drops them to top/bottom.
+          label: {
+            color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT,
+            position: orient === 'vertical' ? 'top' : 'right',
+            overflow: 'truncate', width: orient === 'vertical' ? 64 : 110, ellipsis: '…',
+          },
+          // link gradient: source-tint → target-tint on ONE hue (opacity ramp).
+          lineStyle: {
+            color: 'gradient', opacity: 0.45,
+            curveness: 0.5,
+          },
+          emphasis: { focus: 'adjacency', lineStyle: { opacity: 0.7 } },
+          // tint each node so the gradient endpoints carry a source→target intensity
+          data: nodes.map(function (n, i) {
+            return { name: n.name, itemStyle: { color: accentRgba(0.55 + 0.45 * i01(i, nodes.length)) } };
+          }),
+          links: links.map(function (l) { return { source: l.source, target: l.target, value: l.value }; }),
+        }],
+      };
+    }
+
+    var curNarrow = el.clientWidth && el.clientWidth < 560;
+    inst.setOption(option(curNarrow), true);
+    var ro = narrowObserver(el, function (isNarrow) {
+      curNarrow = isNarrow;
+      inst.setOption(option(isNarrow), true);
+      inst.resize();
+    });
+    CB.registerChart(inst, function (chart) { chart.setOption(option(curNarrow), true); }, ro);
+
+    // data-table: source → target → value rows
+    CB.dataTableToggle(el, {
+      ariaLabel: aria,
+      columns: [config.sourceHeader || t('sourceCol', 'Source'), config.targetHeader || t('targetCol', 'Target'), config.valueHeader || t('valueCol')],
+      rows: links.map(function (l) { return [l.source, l.target, CB.nf.format(l.value)]; }),
+    });
+
+    CB.refreshIcons();
+    return inst;
+  };
+
+  /* ==========================================================================
+     C22 — COOKIEBITE.gantt(target, { tasks, today?, caption?, ariaLabel? })
+     A custom-series Gantt: horizontal task bars on a date/time axis grouped by lane.
+     Bars are --accent with a darker --accent-strong inner progress-fill portion and
+     rounded caps; a thin --c-critical 'today' line is labelled at top; lane bands
+     alternate --c-surface / --c-disabled-bg behind the rows. On narrow the date axis
+     stays scrollable INSIDE the container (the chart canvas widens, the wrapper scrolls)
+     so it never trips page horizontalOverflow.
+       tasks: [{ label, start, end, lane?, progress?(0..1), tone? }] (start/end parse
+       via Date). today: a date for the marker (default now). lane groups rows.
+     data-table = task / start / end / % rows. Registers for dark re-theme.
+     ========================================================================== */
+  var ganttSeq = 0;
+
+  CB.gantt = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.gantt needs echarts.'); return null; }
+    config = config || {};
+    var tasks = (config.tasks || []).filter(function (x) { return x && x.label && x.start != null && x.end != null; });
+    var aria = config.ariaLabel || 'project schedule';
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.gantt: pass ariaLabel describing the schedule — it becomes the screen-reader label and the data-table caption.');
+
+    CB.disposeIn(host);
+
+    if (!tasks.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null; }
+
+    // lanes in first-seen order; each task gets a y-category index = its lane.
+    var lanes = [];
+    tasks.forEach(function (x) { var ln = x.lane || ''; if (lanes.indexOf(ln) < 0) lanes.push(ln); });
+    var laneLabel = function (ln) { return ln || t('taskCol', 'Task'); };
+
+    var rowH = config.rowHeight || 30;
+    var chartH = Math.max(config.height || 0, lanes.length * rowH + 80);
+    var cid = 'cbGantt' + (++ganttSeq);
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    // date axis scrollable INSIDE the container on narrow: the inner div carries a
+    // min-width so the wrapper (overflow-x:auto) scrolls instead of the page. minPx is
+    // a per-task width budget so a long schedule widens rather than crushes.
+    var minPx = Math.max(480, tasks.length * 36);
+    host.innerHTML = caption +
+      '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
+      '<div style="overflow-x:auto">' +
+      '<div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + chartH + 'px;min-width:' + minPx + 'px"></div>' +
+      '</div></div>';
+
+    var el = host.querySelector('#' + cid);
+    var inst = window.echarts.init(el);
+    var toMs = function (v) { var d = new Date(v); return isFinite(d.getTime()) ? d.getTime() : null; };
+    var today = config.today != null ? toMs(config.today) : Date.now();
+
+    // custom renderItem: a rounded base bar (--accent) + an inner progress-fill
+    // portion (--accent-strong) clipped to the bar height. api.value(0)=laneIndex,
+    // (1)=startMs, (2)=endMs, (3)=progress.
+    function renderItem(params, api) {
+      var laneIndex = api.value(0);
+      var start = api.coord([api.value(1), laneIndex]);
+      var end = api.coord([api.value(2), laneIndex]);
+      var h = api.size([0, 1])[1] * 0.55;
+      var x = start[0], w = Math.max(2, end[0] - start[0]), y = start[1] - h / 2;
+      var prog = Math.max(0, Math.min(1, api.value(3) || 0));
+      var accent = CB.theme.ACCENT || '#E8552D';
+      var strong = CB.theme.ACCENT_STRONG || accent;
+      var children = [{
+        type: 'rect',
+        shape: { x: x, y: y, width: w, height: h, r: Math.min(6, h / 2) },
+        style: { fill: accent },
+      }];
+      if (prog > 0) {
+        children.push({
+          type: 'rect',
+          shape: { x: x, y: y, width: w * prog, height: h, r: Math.min(6, h / 2) },
+          style: { fill: strong },
+        });
+      }
+      return { type: 'group', children: children };
+    }
+
+    function option() {
+      var data = tasks.map(function (x) {
+        var li = lanes.indexOf(x.lane || '');
+        return { value: [li, toMs(x.start), toMs(x.end), x.progress || 0], name: x.label };
+      });
+      // lane bands: alternating --c-surface / --c-disabled-bg horizontal stripes drawn
+      // as a markArea behind the bars (one band per lane row).
+      var bandA = cssColor('--c-surface', '#FFFFFF'), bandB = cssColor('--c-disabled-bg', '#F4F4F5');
+      var bands = lanes.map(function (_, i) {
+        return [{ yAxis: i - 0.5, itemStyle: { color: i % 2 ? bandB : bandA } }, { yAxis: i + 0.5 }];
+      });
+      return {
+        textStyle: { fontFamily: CB.theme.FONT },
+        tooltip: {
+          formatter: function (p) {
+            var v = p.value;
+            var pct = Math.round((v[3] || 0) * 100);
+            return p.name + '<br/>' + new Date(v[1]).toLocaleDateString() + ' → ' + new Date(v[2]).toLocaleDateString() + (pct ? '<br/>' + pct + '%' : '');
+          },
+        },
+        grid: { left: 8, right: 16, top: 28, bottom: 16, containLabel: true },
+        xAxis: {
+          type: 'time',
+          axisLine: { lineStyle: { color: CB.theme.C_LINE } }, axisTick: { show: false },
+          axisLabel: { color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT, hideOverlap: true },
+          splitLine: { lineStyle: { color: CB.theme.C_LINE } },
+        },
+        yAxis: {
+          type: 'category', inverse: true,
+          data: lanes.map(laneLabel),
+          axisLine: { show: false }, axisTick: { show: false },
+          axisLabel: { color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT },
+          splitLine: { show: false },
+        },
+        series: [{
+          type: 'custom', renderItem: renderItem,
+          // encode keeps tooltip/axisPointer aligned to the x time range
+          encode: { x: [1, 2], y: 0 },
+          data: data,
+          // lane bands behind + a thin --c-critical 'today' line labelled at top
+          markArea: { silent: true, data: bands },
+          markLine: today != null ? {
+            silent: true, symbol: 'none',
+            lineStyle: { color: cssColor('--c-critical', '#D7373F'), width: 1, type: 'solid' },
+            label: { show: true, position: 'insideEndTop', color: cssColor('--c-critical', '#D7373F'), fontFamily: CB.theme.FONT, formatter: t('today', 'Today') },
+            data: [{ xAxis: today }],
+          } : undefined,
+        }],
+      };
+    }
+
+    inst.setOption(option(), true);
+    CB.registerChart(inst, function (chart) { chart.setOption(option(), true); });
+
+    // data-table: task / start / end / % rows
+    CB.dataTableToggle(el, {
+      ariaLabel: aria,
+      columns: [config.taskHeader || t('taskCol', 'Task'), config.startHeader || t('startCol', 'Start'), config.endHeader || t('endCol', 'End'), '%'],
+      rows: tasks.map(function (x) {
+        return [x.label, String(x.start), String(x.end), Math.round((x.progress || 0) * 100) + '%'];
+      }),
+    });
+
+    CB.refreshIcons();
+    return inst;
+  };
+
+  /* ==========================================================================
      FAST-PATH HELPER 8/11 — COOKIEBITE.dataTableToggle(chartTarget, { columns, rows, ariaLabel? })
      Gives a HAND-WRITTEN (escape-hatch) chart the same "표로 보기" data-table
      alternative that CB.chart builds automatically — satisfies the a11y rule
@@ -2617,6 +3084,342 @@
       // rank mode: invert so rank 1 (smallest position) sits at the TOP.
       yAxis: { type: 'value', show: false, inverse: isRank, scale: !isRank },
       series: lineSeries,
+    };
+  };
+
+  /* ---- shared distribution math (boxplot/densityArea) ----------------------
+     fiveNum(values) -> [min,q1,med,q3,max] via linear interpolation (same quantile
+     rule the histogram uses). outliersOf(values, q1, q3) -> values beyond the 1.5·IQR
+     fences. Both operate on a sorted COPY so the caller's array is never mutated. */
+  function sortedNums(values) {
+    return (values || []).filter(function (v) { return typeof v === 'number' && isFinite(v); }).slice().sort(function (a, b) { return a - b; });
+  }
+  function quantile(sorted, p) {
+    var n = sorted.length; if (!n) return 0;
+    var idx = (n - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+  }
+  function fiveNum(values) {
+    var s = sortedNums(values), n = s.length;
+    if (!n) return [0, 0, 0, 0, 0];
+    return [s[0], quantile(s, 0.25), quantile(s, 0.5), quantile(s, 0.75), s[n - 1]];
+  }
+
+  /* C25 — CB.shapes.boxplot({ groups, horizontal?, showOutliers? }) -> option
+     One box per group from the five-number summary. Box fill accentRgba(.12); the box
+     outline + median line are CB.theme.ACCENT (ECharts boxplot shares ONE itemStyle for
+     box/median/whisker, so the median reads as the dominant accent stroke and the whiskers
+     inherit the same hue at 1.5px). Outliers are small HOLLOW --c-secondary dots. Each
+     group is { label, values:number[] } (the five-number summary
+     is computed) OR { label, five:[min,q1,med,q3,max], outliers?:number[] } (precomputed).
+     Horizontal is the DEFAULT when >4 groups OR any label is long (Korean-label-safe);
+     pass horizontal:false to force vertical, horizontal:true to force horizontal.
+       groups: [{label, values}] | [{label, five, outliers?}]. showOutliers: true (default).
+     Table HINT: build rows from the five-number summary per group, e.g.
+       { columns:[labelHdr,'min','q1','median','q3','max'],
+         rows: groups.map(g => { var f = (g.five || CB.shapes.fiveNum(g.values)); return [g.label].concat(f.map(CB.nf.format)); }) }
+     (CB.shapes.fiveNum is exposed for exactly this.) */
+  CB.shapes.fiveNum = fiveNum;
+  CB.shapes.boxplot = function (cfg) {
+    cfg = cfg || {};
+    var groups = (cfg.groups || []).slice();
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var lineC = cssColor('--c-line', '#E4E4E7');
+    var secondary = CB.theme.C_SECONDARY || '#52525B';
+    // derive the five-number summary + outliers per group (precomputed `five` wins).
+    var boxes = [], cats = [], outPts = [];
+    groups.forEach(function (g, gi) {
+      cats.push(g.label);
+      var f, outs;
+      if (g.five && g.five.length === 5) {
+        f = g.five.slice();
+        outs = g.outliers || [];
+      } else {
+        var s = sortedNums(g.values);
+        f = fiveNum(s);
+        // 1.5·IQR fence outliers; clamp whiskers to the non-outlier extent.
+        var iqr = f[3] - f[1], loF = f[1] - 1.5 * iqr, hiF = f[3] + 1.5 * iqr;
+        outs = [];
+        var whiskLo = f[2], whiskHi = f[2];
+        s.forEach(function (v) {
+          if (v < loF || v > hiF) outs.push(v);
+          else { if (v < whiskLo) whiskLo = v; if (v > whiskHi) whiskHi = v; }
+        });
+        f[0] = whiskLo; f[4] = whiskHi;
+      }
+      boxes.push(f);
+      if (cfg.showOutliers !== false) outs.forEach(function (v) { outPts.push([gi, v]); });
+    });
+    // horizontal default: >4 groups OR a long label (Korean labels clip vertically).
+    var longLabel = cats.some(function (c) { return c != null && String(c).length > 6; });
+    var horizontal = cfg.horizontal != null ? !!cfg.horizontal : (groups.length > 4 || longLabel);
+    var catAxis = { type: 'category', data: cats, axisTick: { show: false }, axisLabel: { color: secondary, fontFamily: CB.theme.FONT } };
+    var valAxis = { type: 'value', scale: true, axisLabel: { color: secondary, fontFamily: CB.theme.FONT } };
+    // ECharts boxplot scatter outliers need [groupIndex, value]; flip the pair when horizontal.
+    var outData = outPts.map(function (p) { return horizontal ? [p[1], p[0]] : p; });
+    return {
+      grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          if (p.seriesType === 'boxplot') {
+            var d = p.data; // [idx, min, q1, med, q3, max]
+            return cats[d[0]] + '<br/>' +
+              'max ' + CB.nf.format(d[5]) + '<br/>q3 ' + CB.nf.format(d[4]) + '<br/>' +
+              t('medianWord', 'median') + ' ' + CB.nf.format(d[3]) + '<br/>q1 ' + CB.nf.format(d[2]) +
+              '<br/>min ' + CB.nf.format(d[1]);
+          }
+          var vi = horizontal ? p.value[0] : p.value[1];
+          return CB.nf.format(vi);
+        },
+      },
+      xAxis: horizontal ? valAxis : catAxis,
+      yAxis: horizontal ? catAxis : valAxis,
+      series: [{
+        type: 'boxplot',
+        itemStyle: { color: accentRgba(0.12), borderColor: accent, borderWidth: 1.5 },
+        // median line is drawn by ECharts using the box border color; force a solid accent
+        // median via emphasis-independent boxStyle — borderColor already = accent.
+        data: boxes.map(function (f, i) { return [i, f[0], f[1], f[2], f[3], f[4]]; }),
+      }].concat(outData.length ? [{
+        type: 'scatter', symbolSize: 6, symbol: 'circle',
+        itemStyle: { color: 'transparent', borderColor: secondary, borderWidth: 1 },
+        data: outData,
+      }] : []),
+    };
+  };
+
+  /* C26 — CB.shapes.densityArea({ values | groups, bandwidth?, ridgeline?, showMedian? }) -> option
+     Kernel-density estimate. SINGLE distribution (values:number[]): one accent-stroke curve
+     over an accentRgba(.12) fill, with a median tick. MULTIPLE groups (groups:[{label,values}])
+     + ridgeline:true: a vertical stack of slightly-overlapping ridges, each a CB.ramp tone,
+     baseline-labelled. Gaussian kernel; bandwidth 'auto' = Silverman's rule of thumb.
+       values: number[] (single) OR groups: [{label, values}] (+ ridgeline:true to stack).
+       bandwidth: 'auto' (default) | number. showMedian: true (default, single only).
+     Table: pass your own raw values; the aria already states the shape. */
+  function kde(sorted, bw, gridN) {
+    var n = sorted.length; if (!n) return { xs: [], ys: [] };
+    var min = sorted[0], max = sorted[n - 1], span = max - min || 1;
+    var lo = min - span * 0.05, hi = max + span * 0.05;
+    var xs = [], ys = [], i, g;
+    for (g = 0; g < gridN; g++) {
+      var x = lo + (hi - lo) * g / (gridN - 1), sum = 0;
+      for (i = 0; i < n; i++) {
+        var u = (x - sorted[i]) / bw;
+        sum += Math.exp(-0.5 * u * u);
+      }
+      xs.push(x); ys.push(sum / (n * bw * Math.sqrt(2 * Math.PI)));
+    }
+    return { xs: xs, ys: ys };
+  }
+  function silverman(sorted) {
+    var n = sorted.length; if (n < 2) return 1;
+    var mean = sorted.reduce(function (s, v) { return s + v; }, 0) / n;
+    var sd = Math.sqrt(sorted.reduce(function (s, v) { return s + (v - mean) * (v - mean); }, 0) / n);
+    var iqr = quantile(sorted, 0.75) - quantile(sorted, 0.25);
+    var sigma = Math.min(sd, iqr / 1.349) || sd || 1;
+    return 1.06 * sigma * Math.pow(n, -0.2) || 1;
+  }
+  CB.shapes.densityArea = function (cfg) {
+    cfg = cfg || {};
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var secondary = CB.theme.C_SECONDARY || '#52525B';
+    var gridN = 64;
+    var isRidge = cfg.ridgeline && cfg.groups && cfg.groups.length;
+    if (isRidge) {
+      // ridgeline: one ramp tone per group, stacked top→bottom with slight overlap.
+      var groups = cfg.groups.slice();
+      var tones = CB.ramp(groups.length);
+      var curves = groups.map(function (grp) {
+        var s = sortedNums(grp.values);
+        var bw = typeof cfg.bandwidth === 'number' ? cfg.bandwidth : silverman(s);
+        return { label: grp.label, k: kde(s, bw, gridN) };
+      });
+      // shared x-domain so the ridges line up; peak height per ridge normalized.
+      var allX = curves.reduce(function (a, c) { return a.concat(c.k.xs); }, []);
+      var xMin = Math.min.apply(null, allX), xMax = Math.max.apply(null, allX);
+      var peak = curves.reduce(function (m, c) { return Math.max(m, Math.max.apply(null, c.k.ys.concat([0]))); }, 0) || 1;
+      var lift = 0.7; // each ridge's baseline step; <1 makes them overlap.
+      var series = curves.map(function (c, gi) {
+        var base = (curves.length - 1 - gi) * lift; // first group on top
+        var color = tones[gi] || accent;
+        return {
+          type: 'line', name: c.label, smooth: true, symbol: 'none', z: gi + 1,
+          lineStyle: { color: color, width: 1.2 },
+          areaStyle: { color: color, opacity: 0.65, origin: base },
+          data: c.k.xs.map(function (x, i) { return [x, base + c.k.ys[i] / peak]; }),
+        };
+      });
+      return {
+        grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'line' }, formatter: function (ps) { return ps.length ? (CB.nf.format(+(+ps[0].axisValue).toFixed(2))) : ''; } },
+        xAxis: { type: 'value', min: xMin, max: xMax, scale: true, axisLabel: { color: secondary, fontFamily: CB.theme.FONT } },
+        yAxis: {
+          type: 'value', min: 0, max: (curves.length - 1) * lift + 1.1,
+          // baseline labels at each ridge origin (group names down the left margin).
+          axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false },
+          axisLabel: {
+            color: secondary, fontFamily: CB.theme.FONT,
+            formatter: function (v) {
+              var gi = curves.length - 1 - Math.round(v / lift);
+              return (Math.abs(v / lift - Math.round(v / lift)) < 0.01 && curves[gi]) ? curves[gi].label : '';
+            },
+          },
+        },
+        series: series,
+      };
+    }
+    // single distribution: one accent curve over a faint fill + median tick.
+    var s = sortedNums(cfg.values);
+    var bw = typeof cfg.bandwidth === 'number' ? cfg.bandwidth : silverman(s);
+    var k = kde(s, bw, gridN);
+    var med = quantile(s, 0.5);
+    var series = [{
+      type: 'line', smooth: true, symbol: 'none',
+      lineStyle: { color: accent, width: 2 },
+      areaStyle: { color: accentRgba(0.12) },
+      data: k.xs.map(function (x, i) { return [x, k.ys[i]]; }),
+    }];
+    if (cfg.showMedian !== false && s.length) {
+      series[0].markLine = {
+        symbol: 'none', silent: true,
+        lineStyle: { color: secondary, type: 'dashed', width: 1 },
+        label: { show: true, position: 'end', color: secondary, fontFamily: CB.theme.FONT, fontSize: 11, formatter: t('medianWord', 'median') },
+        data: [{ xAxis: med }],
+      };
+    }
+    return {
+      grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'line' }, formatter: function (ps) { return ps.length ? CB.nf.format(+(+ps[0].axisValue).toFixed(2)) : ''; } },
+      xAxis: { type: 'value', scale: true, axisLabel: { color: secondary, fontFamily: CB.theme.FONT } },
+      yAxis: { type: 'value', show: false },
+      series: series,
+    };
+  };
+
+  /* C30 — CB.shapes.marimekko({ columns, legend?, narrow? }) -> option
+     Marimekko / Mekko: stacked 100% columns whose WIDTHS encode each column's total weight.
+     Within-column segments are CB.ramp tones (single hue, ordered); only the LARGEST block
+     per column carries an inline % label; --c-bg gutters separate columns. On NARROW it
+     falls back to a plain stacked 100% bar (equal-width categories) — flagged via the
+     returned option's `__mekkoFallback` marker so CB.chart's narrow path can swap. Authors
+     usually just pass narrow:true to force the fallback in a tight column.
+       columns: [{label, weight, segments:[{name,value}]}]. legend: true (default).
+     Table: pass { columns:['column','weight'].concat(segNames),
+       rows: columns.map(c => [c.label, c.weight].concat(<segment values>)) }. */
+  CB.shapes.marimekko = function (cfg) {
+    cfg = cfg || {};
+    var cols = (cfg.columns || []).slice();
+    var secondary = CB.theme.C_SECONDARY || '#52525B';
+    var gutter = cssColor('--c-bg', '#FFFFFF');
+    // distinct segment names, in first-seen order, drive the ramp + legend.
+    var segNames = [];
+    cols.forEach(function (c) { (c.segments || []).forEach(function (s) { if (segNames.indexOf(s.name) < 0) segNames.push(s.name); }); });
+    var tones = CB.ramp(segNames.length);
+    var colorOf = {}; segNames.forEach(function (nm, i) { colorOf[nm] = tones[i] || tones[tones.length - 1]; });
+    var totalWeight = cols.reduce(function (s, c) { return s + (c.weight || 0); }, 0) || 1;
+
+    // NARROW fallback: plain stacked-100% bar (equal-width categories, ignore weight).
+    if (cfg.narrow) {
+      var fbSeries = segNames.map(function (nm) {
+        return {
+          type: 'bar', stack: 'pct', name: nm,
+          itemStyle: { color: colorOf[nm], borderColor: gutter, borderWidth: 1 },
+          data: cols.map(function (c) {
+            var tot = (c.segments || []).reduce(function (s, x) { return s + (x.value || 0); }, 0) || 1;
+            var seg = (c.segments || []).filter(function (x) { return x.name === nm; })[0];
+            return seg ? Math.round(seg.value / tot * 1000) / 10 : 0;
+          }),
+        };
+      });
+      var fb = {
+        __mekkoFallback: true,
+        grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
+        legend: cfg.legend === false ? { show: false } : { bottom: 0, textStyle: { color: secondary, fontFamily: CB.theme.FONT } },
+        tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+        xAxis: { type: 'category', data: cols.map(function (c) { return c.label; }), axisLabel: { color: secondary, fontFamily: CB.theme.FONT, interval: 0 } },
+        yAxis: { type: 'value', max: 100, axisLabel: { formatter: '{value}%', color: secondary, fontFamily: CB.theme.FONT } },
+        series: fbSeries,
+      };
+      return fb;
+    }
+
+    // wide Mekko: custom render. x runs 0..1 (cumulative weight fraction); within each
+    // column y stacks the segments 0..1 (share of the column total). The largest block
+    // per column gets the only % label so the canvas never reads busy.
+    var xCursor = 0, layout = [];
+    cols.forEach(function (c) {
+      var w = (c.weight || 0) / totalWeight;
+      var x0 = xCursor; xCursor += w;
+      var tot = (c.segments || []).reduce(function (s, x) { return s + (x.value || 0); }, 0) || 1;
+      var yCursor = 0, segs = [], maxShare = 0;
+      (c.segments || []).forEach(function (s) {
+        var share = (s.value || 0) / tot, y0 = yCursor; yCursor += share;
+        if (share > maxShare) maxShare = share;
+        segs.push({ name: s.name, x0: x0, x1: x0 + w, y0: y0, y1: y0 + share, share: share, label: c.label });
+      });
+      segs.forEach(function (sg) { sg.isMax = sg.share === maxShare; });
+      layout.push.apply(layout, segs);
+    });
+    return {
+      grid: { left: 8, right: 16, top: 24, bottom: cfg.legend === false ? 24 : 36, containLabel: true },
+      legend: cfg.legend === false ? { show: false } : {
+        bottom: 0, data: segNames,
+        textStyle: { color: secondary, fontFamily: CB.theme.FONT },
+        // legend swatches need colors; emit a hidden carrier per name so ECharts colors them.
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          var d = p.data; if (!d) return '';
+          return d.label + '<br/>' + d.name + ': ' + Math.round(d.share * 1000) / 10 + '%';
+        },
+      },
+      // axes hidden: the column label sits under each block; x is weight, y is share.
+      xAxis: { type: 'value', min: 0, max: 1, show: false },
+      yAxis: { type: 'value', min: 0, max: 1, show: false, inverse: true },
+      series: [{
+        type: 'custom',
+        renderItem: function (params, api) {
+          var d = layout[params.dataIndex];
+          var p0 = api.coord([d.x0, d.y0]);
+          var p1 = api.coord([d.x1, d.y1]);
+          var children = [{
+            type: 'rect',
+            shape: { x: Math.min(p0[0], p1[0]) + 1, y: Math.min(p0[1], p1[1]), width: Math.max(1, Math.abs(p1[0] - p0[0]) - 2), height: Math.abs(p1[1] - p0[1]) },
+            style: { fill: colorOf[d.name] },
+          }];
+          // only the largest block per column shows an inline % label.
+          if (d.isMax && Math.abs(p1[0] - p0[0]) > 28 && Math.abs(p1[1] - p0[1]) > 16) {
+            children.push({
+              type: 'text',
+              style: {
+                text: Math.round(d.share * 100) + '%',
+                x: (p0[0] + p1[0]) / 2, y: (p0[1] + p1[1]) / 2,
+                textAlign: 'center', textVerticalAlign: 'middle',
+                fill: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT, fontSize: 12,
+              },
+            });
+          }
+          return { type: 'group', children: children };
+        },
+        data: layout,
+      }, {
+        // x-axis column labels (centered under each weighted column).
+        type: 'custom',
+        renderItem: function (params, api) {
+          var c = cols[params.dataIndex]; if (!c) return null;
+          var acc = 0; for (var i = 0; i < params.dataIndex; i++) acc += (cols[i].weight || 0) / totalWeight;
+          var w = (c.weight || 0) / totalWeight;
+          var mid = api.coord([acc + w / 2, 1]);
+          return { type: 'text', style: { text: c.label, x: mid[0], y: mid[1] + 6, textAlign: 'center', textVerticalAlign: 'top', fill: secondary, fontFamily: CB.theme.FONT, fontSize: 12 } };
+        },
+        data: cols.map(function (c, i) { return i; }),
+        silent: true,
+      }].concat(cfg.legend === false ? [] : segNames.map(function (nm) {
+        // hidden carrier line series ONLY so the legend renders a colored swatch per name.
+        return { type: 'line', name: nm, data: [], itemStyle: { color: colorOf[nm] }, lineStyle: { color: colorOf[nm] } };
+      })),
     };
   };
 
@@ -4449,6 +5252,252 @@
       host.appendChild(f);
     }
   }
+
+  /* ==========================================================================
+     C20 — COOKIEBITE.toc(target, { numbered?, nested?, progress?, heading? })
+     Build the sidebar TOC from main section[id] + their h2/h3 and wire the SAME
+     IntersectionObserver active-state initToc() uses. Emits .cb-toc (styled by the
+     shared CSS). Section numbers (1, 1.1) render in tabular-nums when numbered; two-
+     level nesting when nested; a thin accent-weak per-section progress fill behind the
+     active item when progress. Active item = text-accent-strong + a 2px accent left-bar
+     (the .cb-toc__link.is-active class the CSS targets). Collapses with the existing
+     `hidden lg:block` rail at narrow. NO-OP when the author hand-authored #toc with
+     links already (so a bespoke TOC is never clobbered) unless force:true.
+       target: where to render (usually the sticky rail). numbered:true (default),
+       nested:true (default), progress:true (default), heading: a label (default t('contents')).
+     ========================================================================== */
+  CB.toc = function (target, opts) {
+    var host = resolveTarget(target);
+    if (!host) return null;
+    opts = opts || {};
+    // don't clobber a hand-authored TOC that already has links (progressive enhancement).
+    var existing = document.getElementById('toc');
+    if (!opts.force && existing && existing.querySelector('a')) return existing;
+    var numbered = opts.numbered !== false, nested = opts.nested !== false, progress = opts.progress !== false;
+    var sections = [].slice.call(document.querySelectorAll('main section[id]'));
+    if (!sections.length) return null;
+    CB.disposeIn(host);
+
+    var topN = 0, items = [];
+    sections.forEach(function (sec) {
+      var h2 = sec.querySelector('h2'); if (!h2) return;
+      topN++;
+      var num = numbered ? String(topN) : '';
+      items.push({ id: sec.id, text: (h2.textContent || '').trim(), num: num, sub: false });
+      if (nested) {
+        // h3s INSIDE this section that carry their own id become sub-entries.
+        var subN = 0;
+        [].slice.call(sec.querySelectorAll('h3')).forEach(function (h3) {
+          var sid = h3.id || (h3.closest('[id]') && h3.closest('[id]') !== sec ? h3.closest('[id]').id : null);
+          if (!sid || sid === sec.id) return;
+          subN++;
+          items.push({ id: sid, text: (h3.textContent || '').trim(), num: numbered ? topN + '.' + subN : '', sub: true });
+        });
+      }
+    });
+    if (!items.length) return null;
+
+    var heading = opts.heading != null ? opts.heading : t('contents', 'Contents');
+    var lis = items.map(function (it) {
+      var numHtml = it.num ? '<span class="cb-toc__num nums">' + esc(it.num) + '</span>' : '';
+      return '<li class="cb-toc__item' + (it.sub ? ' cb-toc__item--sub' : '') + '">' +
+        '<a class="cb-toc__link" href="#' + esc(it.id) + '">' + numHtml +
+        '<span class="cb-toc__text">' + esc(it.text) + '</span>' +
+        (progress ? '<span class="cb-toc__fill" aria-hidden="true"></span>' : '') +
+        '</a></li>';
+    }).join('');
+
+    // render into the canonical #toc element so initToc()'s observer & the existing mobile
+    // nav wire it. Reuse an empty hand-authored #toc when present (no duplicate id); else
+    // make `host` itself the #toc (or a child nav if host can't take the id cleanly).
+    var wrap;
+    if (existing) { wrap = existing; }
+    else if (host.id === 'toc' || !document.getElementById('toc')) { wrap = host; host.id = 'toc'; }
+    else { wrap = host; }
+    wrap.className = ((wrap === host ? (host.className + ' ') : '') + 'cb-toc' + (numbered ? ' cb-toc--numbered' : '') + (nested ? ' cb-toc--nested' : '') + (progress ? ' cb-toc--progress' : '')).trim();
+    if (!wrap.id) wrap.id = 'toc';
+    wrap.setAttribute('aria-label', t('sectionNav', 'Section navigation'));
+    wrap.innerHTML =
+      (heading ? '<p class="cb-toc__heading text-caption-12 text-secondary">' + esc(heading) + '</p>' : '') +
+      '<ul class="cb-toc__list">' + lis + '</ul>';
+    if (wrap !== host) { host.innerHTML = ''; host.appendChild(wrap); }
+
+    // wire the SAME active-state observer initToc uses (re-run it now that links exist).
+    initToc();
+    return wrap;
+  };
+
+  /* ==========================================================================
+     C21 — COOKIEBITE.readingProgress({ height?, target? }) and COOKIEBITE.readTime(...)
+     readingProgress: a 2px var(--accent) scroll-progress bar (.cb-readingbar) pinned at
+     the top, driven by transform:scaleX, gated on MOTION_OK (reduced-motion → no bar),
+     aria-hidden. readTime: a caption-12 eyebrow (.cb-readtime) with a clock glyph; CJK-
+     aware (counts CHARS for ko/ja per REPORT_LOCALE, WORDS for Latin).
+     ========================================================================== */
+  CB.readingProgress = function (opts) {
+    opts = opts || {};
+    if (!CB.MOTION_OK) return null; // reduced-motion: a moving bar is exactly what they opted out of
+    if (document.querySelector('.cb-readingbar')) return null;
+    var h = opts.height || 2;
+    var scopeSel = opts.target || 'main';
+    var bar = document.createElement('div');
+    bar.className = 'cb-readingbar';
+    bar.setAttribute('aria-hidden', 'true');
+    bar.style.height = h + 'px';
+    // transform-origin left so scaleX grows L→R; start collapsed.
+    bar.style.transform = 'scaleX(0)';
+    document.body.appendChild(bar);
+    var raf = 0;
+    function update() {
+      raf = 0;
+      var scope = document.querySelector(scopeSel) || document.documentElement;
+      var rect = scope.getBoundingClientRect();
+      var total = rect.height - window.innerHeight;
+      var scrolled = -rect.top;
+      var p = total > 0 ? Math.min(1, Math.max(0, scrolled / total)) : 0;
+      bar.style.transform = 'scaleX(' + p + ')';
+    }
+    function onScroll() { if (!raf) raf = requestAnimationFrame(update); }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    update();
+    return bar;
+  };
+  CB.readTime = function (target, opts) {
+    var host = resolveTarget(target);
+    if (!host) return null;
+    opts = opts || {};
+    var wpm = opts.wpm || 220;
+    var scope = document.querySelector(opts.scope || 'main') || document.body;
+    var text = (scope.textContent || '').trim();
+    var prefix = CB.locale();
+    var minutes;
+    if (prefix === 'ko' || prefix === 'ja') {
+      // CJK: count han/kana/hangul CHARS; ~500 chars/min is a common reading-speed proxy.
+      var cjk = (text.match(/[　-ヿ㐀-鿿가-힯]/g) || []).length;
+      var cpm = opts.cpm || 500;
+      minutes = Math.max(1, Math.round(cjk / cpm));
+    } else {
+      var words = text.split(/\s+/).filter(Boolean).length;
+      minutes = Math.max(1, Math.round(words / wpm));
+    }
+    var el = document.createElement('p');
+    el.className = 'cb-readtime text-caption-12 text-secondary';
+    el.innerHTML = iconTag('clock', 'w-12 h-12') +
+      '<span>' + esc(minutes + t('minRead', ' min read')) + '</span>';
+    host.appendChild(el);
+    CB.refreshIcons(el);
+    return el;
+  };
+
+  /* ==========================================================================
+     C27 — COOKIEBITE.fn(noteHtml) -> string  and  COOKIEBITE.endnotes(target, opts)
+     fn() returns a <sup class="cb-fnref"><a> reference AND registers the note; ref↔note
+     ids are matched by CONSTRUCTION (cbfn-ref-N ↔ cbfn-note-N) so the author never pairs
+     ids manually. endnotes() renders every registered note: style:'list' (default) prints
+     an ordered .cb-endnotes list with back-links; style:'sidenote' wraps each in a
+     .cb-sidenote that the CSS floats into the margin on wide and collapses to inline at
+     narrow. Emits .cb-fnref / .cb-endnotes / .cb-sidenote.
+     ========================================================================== */
+  var fnNotes = []; // { html } in registration order; index+1 is the visible number.
+  CB.fn = function (noteHtml) {
+    var n = fnNotes.push({ html: noteHtml == null ? '' : String(noteHtml) }); // 1-based
+    var refId = 'cbfn-ref-' + n, noteId = 'cbfn-note-' + n;
+    return '<sup class="cb-fnref" id="' + refId + '">' +
+      '<a href="#' + noteId + '" aria-describedby="' + noteId + '">' + n + '</a></sup>';
+  };
+  CB.endnotes = function (target, opts) {
+    var host = resolveTarget(target);
+    if (!host || !fnNotes.length) return null;
+    opts = opts || {};
+    var style = opts.style === 'sidenote' ? 'sidenote' : 'list';
+    var heading = opts.heading != null ? opts.heading : t('notesHeading', 'Notes');
+    var back = t('backToText', 'Back to text');
+    if (style === 'sidenote') {
+      // sidenote: each note floats into the margin on wide (CSS), inline at narrow.
+      var snHtml = fnNotes.map(function (note, i) {
+        var n = i + 1;
+        return '<aside class="cb-sidenote" id="cbfn-note-' + n + '">' +
+          '<sup class="cb-sidenote__num">' + n + '</sup> ' + note.html + '</aside>';
+      }).join('');
+      var snWrap = document.createElement('div');
+      snWrap.className = 'cb-endnotes cb-endnotes--sidenote';
+      snWrap.innerHTML = snHtml;
+      host.appendChild(snWrap);
+      CB.refreshIcons(snWrap);
+      return snWrap;
+    }
+    var lis = fnNotes.map(function (note, i) {
+      var n = i + 1;
+      return '<li class="cb-endnotes__item" id="cbfn-note-' + n + '">' +
+        '<span class="cb-endnotes__body">' + note.html + '</span> ' +
+        '<a class="cb-endnotes__back" href="#cbfn-ref-' + n + '" aria-label="' + esc(back) + '">↩</a></li>';
+    }).join('');
+    var nav = document.createElement('section');
+    nav.className = 'cb-endnotes cb-endnotes--list';
+    nav.innerHTML =
+      (heading ? '<h2 class="cb-endnotes__heading text-title-20 font-semibold">' + esc(heading) + '</h2>' : '') +
+      '<ol class="cb-endnotes__list nums">' + lis + '</ol>';
+    host.appendChild(nav);
+    return nav;
+  };
+
+  /* ==========================================================================
+     C29 — COOKIEBITE.scrollReveal(scope?, { stagger?, y? })
+     ONE IntersectionObserver fading + lifting [data-reveal] elements as they enter
+     (opacity + transform ONLY — no layout shift), a 60ms sibling stagger, and triggers
+     CountUp inside [data-count-on-enter] the first time each is seen. Gated on MOTION_OK:
+     reduced-motion → start visible & numbers final (no animation). First paint is content-
+     visible (the CSS keeps [data-reveal] readable until JS upgrades it — progressive
+     enhancement). Returns the observer (or null when there's nothing to reveal).
+     ========================================================================== */
+  CB.scrollReveal = function (scope, opts) {
+    opts = opts || {};
+    var root = (typeof scope === 'string' ? document.querySelector(scope) : scope) || document;
+    var els = [].slice.call(root.querySelectorAll('[data-reveal]'));
+    var counters = [].slice.call(root.querySelectorAll('[data-count-on-enter]'));
+    if (!els.length && !counters.length) return null;
+    var stagger = opts.stagger != null ? opts.stagger : 60;
+    var lift = opts.y != null ? opts.y : 8;
+
+    // reduced-motion (or no IO support): show everything, run counters to final, done.
+    function finalizeCounter(el) {
+      if (el.__cbCounted) return; el.__cbCounted = true;
+      if (window.countUp && window.countUp.CountUp) {
+        var end = parseFloat(el.getAttribute('data-count-on-enter'));
+        if (isFinite(end)) {
+          var dec = parseInt(el.getAttribute('data-decimals') || '0', 10) || 0;
+          var c = new window.countUp.CountUp(el, end, { duration: CB.MOTION_OK ? 1.4 : 0, decimalPlaces: dec, separator: ',' });
+          if (!c.error) c.start(); else el.textContent = CB.nf.format(end);
+        }
+      }
+    }
+    if (!CB.MOTION_OK || typeof IntersectionObserver !== 'function') {
+      els.forEach(function (el) { el.setAttribute('data-reveal', 'in'); });
+      counters.forEach(finalizeCounter);
+      return null;
+    }
+
+    // stage: hide via the data-state the CSS animates; stagger siblings sharing a parent.
+    els.forEach(function (el) { if (el.getAttribute('data-reveal') !== 'in') el.setAttribute('data-reveal', 'out'); el.style.setProperty('--cb-reveal-y', lift + 'px'); });
+    var seenOrder = 0;
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var el = e.target;
+        var delay = (seenOrder++ % 8) * stagger; // cap the stagger so a big batch doesn't crawl
+        el.style.transitionDelay = delay + 'ms';
+        el.setAttribute('data-reveal', 'in');
+        if (el.hasAttribute('data-count-on-enter')) finalizeCounter(el);
+        el.querySelectorAll && el.querySelectorAll('[data-count-on-enter]').forEach(finalizeCounter);
+        obs.unobserve(el);
+      });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+    els.forEach(function (el) { obs.observe(el); });
+    // standalone counters (not themselves [data-reveal]) get their own observation.
+    counters.forEach(function (el) { if (!el.hasAttribute('data-reveal')) obs.observe(el); });
+    return obs;
+  };
 
   /* ==========================================================================
      ONE auto-init on DOMContentLoaded. Safe: echarts/alpine(defer)/lucide/tippy

@@ -503,3 +503,130 @@ html[data-theme="dark"][data-dark-tint]{
   --c-bg:color-mix(in srgb, var(--dark-tint) 6%, #101013);
   --c-surface:color-mix(in srgb, var(--dark-tint) 6%, #1a1a1f);
 }
+
+/* ============================================================================
+   (12) WAVE B — editorial / wayfinding / motion primitives. The JS (CB.*) emits
+   the markup + classes below; ALL styling lives here. Every rule is token-based
+   (dark-aware via var(--c-*) / var(--accent*)), 390px-safe (no fixed widths that
+   overflow a phone; measures reserve, never force), print-safe (chrome/motion
+   dropped on paper), and reduced-motion-correct (animation gated; content is
+   NEVER permanently hidden if JS or motion is absent).
+   ========================================================================== */
+
+/* --- .cb-toc — numbered / nested / per-section progress wayfinding ----------
+   ENRICHMENT ONLY. The existing initToc() IntersectionObserver still owns the
+   active state: it toggles the Tailwind classes text-accent-strong / bg-accent-weak
+   / font-semibold / text-secondary on each `#toc a`. Nothing here overrides those —
+   we only ADD a section-number column, nested h3 indent, an accent-weak progress
+   fill behind the active row, and a 2px accent left-bar that keys off the SAME
+   .bg-accent-weak the observer already sets. So #toc keeps working untouched whether
+   or not the report opts into the .cb-toc enrichment markup. */
+.cb-toc, .cb-toc__list{ list-style:none; margin:0; padding:0; }
+.cb-toc__heading{ margin:0 0 8px; padding-left:10px; }
+/* the row is the observer's <a class="cb-toc__link"> containing an optional .cb-toc__num,
+   the .cb-toc__text, and a positioned .cb-toc__fill. FLEX (not grid) so a row with OR
+   without a number lays out cleanly — a fixed grid column count made the extra span wrap
+   the number onto its own line. */
+.cb-toc__link{ position:relative; display:flex; align-items:baseline; column-gap:8px; padding:4px 8px 4px 10px; border-radius:6px; text-decoration:none; }
+/* the section-number cell: rigid tabular column so 1 / 10 / 1.1 line up; right-aligned. */
+.cb-toc__num{ flex:0 0 auto; min-width:2ch; text-align:right; font-variant-numeric:tabular-nums; font-feature-settings:"tnum"; color:var(--c-secondary); }
+.cb-toc__text{ flex:1 1 auto; min-width:0; }
+/* the fill span is out of flex flow — the active ::after paints the actual progress wash. */
+.cb-toc__fill{ position:absolute; inset:0; z-index:-1; pointer-events:none; }
+/* nested h3 entries read as a quieter, indented tier. */
+.cb-toc__item--sub .cb-toc__link{ padding-left:22px; font-size:14px; line-height:20px; }
+/* a thin accent-weak per-section progress fill BEHIND the active row. The JS writes
+   --cb-toc-progress (0–1) on the active link; the ::after paints a left-anchored wash
+   scaled by that ratio. Only the active row (.bg-accent-weak, set by the observer) shows it. */
+.cb-toc__link.bg-accent-weak{ background:transparent !important; border-left:2px solid var(--accent-strong); padding-left:8px; }
+.cb-toc__link.bg-accent-weak::after{
+  content:""; position:absolute; inset:0; z-index:-1; border-radius:6px;
+  background:var(--accent-weak);
+  transform-origin:left center; transform:scaleX(var(--cb-toc-progress, 1));
+}
+@media (prefers-reduced-motion: no-preference){
+  .cb-toc a.bg-accent-weak::after{ transition:transform .25s ease; }
+}
+@media print{ .cb-toc a.bg-accent-weak::after{ display:none; } .cb-toc a.bg-accent-weak{ border-left:0; } }
+
+/* --- .cb-fnref / .cb-endnotes — footnote reference + endnote list -----------
+   .cb-fnref is the inline superscript marker (accent-strong, tabular). .cb-endnotes is
+   the collected ordered list at the foot of a section/report: caption-12, secondary, a
+   top hairline, each item carrying a ↩ return link back to its reference. */
+.cb-fnref{ font-size:.72em; line-height:0; vertical-align:super; font-weight:700; font-variant-numeric:tabular-nums; color:var(--accent-strong); text-decoration:none; padding:0 .12em; }
+.cb-fnref:hover{ text-decoration:underline; }
+.cb-endnotes{ margin:24px 0 0; padding:14px 0 0 1.4em; border-top:1px solid var(--c-line-weak); font-size:12px; line-height:1.55; color:var(--c-secondary); }
+.cb-endnotes li{ margin-block:.4em; padding-left:.2em; }
+.cb-endnotes li::marker{ font-variant-numeric:tabular-nums; color:var(--c-secondary); }
+.cb-endnotes li:target{ background:var(--accent-weak); border-radius:4px; } /* highlight when jumped to */
+.cb-endnotes a{ color:var(--c-secondary); }
+.cb-endnotes .cb-endnotes__back{ margin-left:.4em; color:var(--accent-strong); text-decoration:none; font-weight:700; }
+.cb-endnotes .cb-endnotes__back:hover{ text-decoration:underline; }
+
+/* --- .cb-sidenote — margin note on wide, inline on narrow ---------------------
+   On a WIDE viewport the note floats into a reserved right margin (a positioned aside
+   that pulls into the gutter the prose measure leaves free). Below the measure cap /
+   at 390px it DEGRADES to an inline block under the paragraph — never clipped, never
+   off-screen. Default (mobile-first) is the safe inline form; the float is opt-in via
+   the wide media query so a no-JS / narrow render always reads cleanly. */
+.cb-sidenote{
+  display:block; margin:8px 0 12px; padding:8px 12px;
+  border-left:2px solid var(--accent-weak);
+  font-size:12px; line-height:1.5; color:var(--c-secondary);
+}
+.cb-sidenote__ref{ font-size:.72em; vertical-align:super; line-height:0; font-weight:700; color:var(--accent-strong); }
+/* WIDE: reserve a right gutter and float the note into it. 64ch measure + ~22ch margin
+   only kicks in past ~1100px so a tablet/phone never tries to float into a gutter that
+   isn't there. The host paragraph/prose must allow the overflow (it does — .cb-prose
+   has no clip). */
+@media (min-width:1100px){
+  .cb-prose .cb-sidenote, .cb-sidenote--margin{
+    position:relative; float:right; clear:right;
+    width:20ch; margin-right:-23ch; margin-top:0; margin-bottom:16px;
+    border-left:0; border-top:2px solid var(--accent-weak); padding:6px 0 0;
+  }
+}
+
+/* --- [data-reveal] — scroll-reveal target ------------------------------------
+   SAFETY CONTRACT: content must NEVER stay hidden if JS doesn't run or motion is off.
+   So the initial-hidden state is gated on BOTH (a) prefers-reduced-motion:no-preference
+   AND (b) a .cb-reveal-ready ancestor guard that ONLY the JS adds once it has wired the
+   observer. With no JS the guard is absent → targets render fully visible. With reduced
+   motion the whole block is skipped → fully visible. The JS adds .cb-revealed to each
+   target as it scrolls in; that returns it to the visible end-state with a soft ease. */
+@media (prefers-reduced-motion: no-preference){
+  .cb-reveal-ready [data-reveal]{ opacity:0; transform:translateY(8px); transition:opacity .5s ease, transform .5s ease; will-change:opacity, transform; }
+  .cb-reveal-ready [data-reveal].cb-revealed{ opacity:1; transform:none; }
+}
+/* belt-and-suspenders: on paper everything is visible regardless of the guard. */
+@media print{ [data-reveal]{ opacity:1 !important; transform:none !important; } }
+
+/* --- .cb-readingbar — fixed top scroll-progress bar --------------------------
+   A 3px accent bar pinned to the top edge; the JS scales it on scroll via
+   transform:scaleX(--cb-read-progress) from a left origin (cheap, compositor-only).
+   aria-hidden in markup (decorative); above content; dropped on paper. */
+.cb-readingbar{
+  position:fixed; top:0; left:0; right:0; height:var(--cb-readingbar-h, 3px);
+  transform-origin:left center; transform:scaleX(var(--cb-read-progress, 0));
+  background:var(--accent); z-index:60; pointer-events:none;
+}
+@media (prefers-reduced-motion: no-preference){ .cb-readingbar{ transition:transform .08s linear; } }
+@media print{ .cb-readingbar{ display:none !important; } }
+
+/* --- .cb-readtime — read-time eyebrow ----------------------------------------
+   An inline caption-12 secondary eyebrow ("5 min read"); the JS prepends a clock glyph
+   (lucide <svg> child) with a small gap. Sized to the cap height so it sits on the text. */
+.cb-readtime{ display:inline-flex; align-items:center; gap:.4em; font-size:12px; line-height:16px; color:var(--c-secondary); font-variant-numeric:tabular-nums; }
+.cb-readtime svg{ width:1em; height:1em; flex:0 0 auto; opacity:.85; }
+
+/* --- .cb-gantt — lane bands + today-line label helpers -----------------------
+   Coordinates with the Wave B chart helper: IF the JS emits structural lane rows it can
+   reuse these band/label classes; if it instead renders the gantt as an ECharts/inline
+   figure these simply go unused (no markup → no cost). Token-based zebra bands keep long
+   schedules readable; the today-line label is an accent pill anchored to the marker. */
+.cb-gantt{ position:relative; }
+.cb-gantt__lane{ position:relative; min-height:28px; }
+.cb-gantt__lane:nth-child(odd){ background:color-mix(in srgb, var(--c-line-weak) 35%, transparent); }
+.cb-gantt__today{ position:absolute; top:0; bottom:0; width:2px; background:var(--accent-strong); z-index:2; }
+.cb-gantt__today-label{ position:absolute; top:0; transform:translateX(-50%); white-space:nowrap; font-size:11px; line-height:16px; font-weight:700; color:var(--accent-on); background:var(--accent-strong); border-radius:4px; padding:0 6px; }
+@media print{ .cb-gantt__lane:nth-child(odd){ background:transparent; } }

@@ -78,20 +78,30 @@ shape — and remember each owes a data-table (the suggested `table` shape is in
 
 | Question | Builder | Notes |
 |----------|---------|-------|
-| What's the **spread / shape** of a sample? | `CB.shapes.histogram({ values })` | auto-bins (Freedman-Diaconis); `showMean` line. The one **distribution** shape. |
+| What's the **spread / shape** of a sample? | `CB.shapes.histogram({ values })` | auto-bins (Freedman-Diaconis); `showMean` line. The binned **distribution** shape (boxplot/densityArea below are the quartile/smooth siblings). |
 | How did each item **change** (before→after)? | `CB.shapes.dumbbell({ rows })` | per-row FROM→TO capsule; `sortBy:'delta'`. Many items. |
 | How did the **ranking** change across two points? | `CB.shapes.slope({ items })` | two-axis slope/bump; `highlight[]` solid, rest muted; `mode:'rank'`. Few series. |
 | A **ranking** where a full bar is too heavy? | `CB.shapes.lollipop({ rows })` | stem + dot; `baseline` -> a deviation chart. |
 | Where does each item sit **in its range**? | `CB.shapes.rangeDot({ rows })` | min–max capsule + value dot; optional p25–p75 `band`. |
 | How is each category **composed**? | `CB.shapes.stackedBar({ categories, series })` | horizontal stack; `mode:'percent'` to normalize; `peer:true` -> categorical palette, else a `ramp`. |
+| What's each group's **distribution** (quartiles + outliers)? | `CB.shapes.boxplot({ groups })` | per-group five-number boxes; `horizontal` auto-true for >4 groups / long labels. The compact distribution-across-groups shape. |
+| The **shape** of a distribution (smooth, or several overlaid)? | `CB.shapes.densityArea({ values \| groups })` | one KDE curve, or `ridgeline:true` to stack groups. The smooth sibling of `histogram`. |
+| Composition where each column's **weight** also matters? | `CB.shapes.marimekko({ columns })` | column WIDTHS encode weight, segments stack 100%. Use over `stackedBar` when size × split both matter. |
 
-These two are **standalone helpers** (not `CB.shapes.*` builders — they render themselves,
-no `CB.chart` wrap), but belong in the same "which shape" decision:
+These are **standalone (full-render) helpers** — they build the card + chart + data-table
+themselves, so do **not** wrap them in `CB.chart`:
 
 | Question | Helper | Notes |
 |----------|--------|-------|
 | A value per **day** over weeks/months? | `CB.heatmap({ data })` | the **calendar**-only density heatmap (streaks, seasonality). |
 | A **rows×cols** grid that isn't a calendar? | `CB.matrix({ rows, cols, data })` | cohort / retention / confusion / relationship grid — single-hue accent-alpha. The grid sibling of `heatmap`. |
+| A value-weighted **hierarchy** (budget by team→project)? | `CB.treemap({ nodes \| tree })` | value→lightness ramp tiles; `max` depth, `drilldown`. Flat-by-parent OR nested input. |
+| **Flow** between stages (signup→activation→paid)? | `CB.sankey({ nodes, links })` | single-hue opacity-gradient links; flips vertical on narrow. Long sentence labels → use a step list instead. |
+| A **schedule / duration** across lanes? | `CB.gantt({ tasks })` | date-axis bars + progress fill + today line; lanes group rows. vs `timeline`=point events, `steps`=ordered stages. |
+
+> **No geo / choropleth helper ships** — a map needs a bundled GeoJSON that breaks the
+> single-file weight budget (out of scope for now). For region data reach for `CB.matrix`,
+> a ranked `CB.leaderboard`, or a horizontal bar.
 
 **Annotation, not a new chart:** to add a **threshold / target line** to *any* chart, don't
 build a new shape — call `CB.threshold(option, { value, tone, axis })` (a pure transformer

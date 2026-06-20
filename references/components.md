@@ -431,6 +431,23 @@ jump with no error. The ref uses **`text-accent-strong`** (accent-as-text). For 
 "Sources" block use a `Callout` (tone `info`) with a list of links instead of numbered
 footnotes.
 
+**Runtime fast path — `CB.fn` + `CB.endnotes` (ids paired by construction).** Instead of
+hand-pairing ids, call `CB.fn(noteHtml)` inline (it returns the `.cb-fnref` `<sup>` *and*
+registers the note), then `CB.endnotes(target, { style })` once at the bottom. The
+`cbfn-ref-N` ↔ `cbfn-note-N` pairing is automatic so the jump can't silently break.
+`style:'list'` (default) emits an ordered `.cb-endnotes` list with `↩` back-links;
+`style:'sidenote'` emits `.cb-sidenote` blocks that float into the right margin on wide
+(≥1100px, inside a non-clipping host like `.cb-prose`) and collapse inline at narrow. The
+contract classes:
+```html
+<sup class="cb-fnref" id="cbfn-ref-1"><a href="#cbfn-note-1">1</a></sup>          <!-- ref -->
+<ol class="cb-endnotes__list nums"><li class="cb-endnotes__item" id="cbfn-note-1">
+  note text <a class="cb-endnotes__back" href="#cbfn-ref-1">↩</a></li></ol>        <!-- list -->
+<aside class="cb-sidenote" id="cbfn-note-1"><sup class="cb-sidenote__num">1</sup> note</aside>  <!-- sidenote -->
+```
+The default sidenote form is the safe inline one; the margin float only engages at wide
+inside a non-overflow-clipping host. See `helpers.md` (CB.fn / CB.endnotes).
+
 ## Annotated chart markers (markLine / markArea / markPoint)
 
 Reference lines are what turn a chart from "here's data" into "here's the point" — an
@@ -510,6 +527,24 @@ info/neutral), so you pick the *variant* by meaning and the color follows. `stat
 > longform body text stays readable instead of running the full page width. `CB.lead(…,
 > {measure:false})` opts a paragraph out (full-bleed `.cb-bleed`) when you *want* it wide.
 > The measure is a Look knob (`--measure-prose`) — see `design-system.md`.
+
+## Editorial enrichment chrome (TOC, reading bar, read-time, scroll-reveal)
+
+The wayfinding/pacing layer for a **long** report. All are **opt-in runtime calls**
+(`helpers.md`) that emit shared `.cb-*` contract classes; the motion ones are gated on
+`prefers-reduced-motion`. You rarely hand-author these, but the contract matters when you
+mix helper output with hand markup.
+
+| Class hook | Emitted by | Contract |
+|------------|-----------|----------|
+| `.cb-toc` (+ `.cb-toc__item`/`__link`/`__num`/`__text`/`__fill`) | `CB.toc(target, opts)` | enriches the **canonical `#toc`**; `data-cb-sec` carries the tabular section number, `--cb-toc-progress` (0–1, written by JS on the active `<a>`) scales the per-section fill. The active state stays owned by `initToc()`'s observer — **don't** add a separate active class. NO-OP over a hand-authored `#toc` with links unless `force:true`. |
+| `.cb-readingbar` | `CB.readingProgress(opts)` | `<div class="cb-readingbar" aria-hidden="true">` pinned top; JS writes `--cb-read-progress` (0–1) on scroll (`transform:scaleX`). Mark it decorative (`aria-hidden`). Returns null under reduced-motion. |
+| `.cb-readtime` | `CB.readTime(target, opts)` | `<span class="cb-readtime"><svg>clock</svg> 5 min read</span>`; the lucide clock `<svg>` is auto-sized to 1em. CJK-aware count. |
+| `.cb-fnref` / `.cb-endnotes` / `.cb-sidenote` | `CB.fn` / `CB.endnotes` | see "Footnotes & citations" above — ids paired by construction. |
+| `[data-reveal]` (+ JS-only guard class) | `CB.scrollReveal(scope, opts)` | JS toggles `data-reveal=out→in` and animates **opacity + transform only** (no layout shift); lift via `--cb-reveal-y` (default 8px). **CRITICAL:** the initial-hidden CSS rule depends on a guard class the JS adds *only* once reveal is running — never put that guard in static markup, or a no-JS render hides content. Under reduced-motion everything is set to `in` and counters jump to final. |
+
+These are the runtime counterparts of `interactions.md` §9 (sticky section nav) and §7
+(scroll reveal); both hand-built patterns there stay valid.
 
 ## A second skeleton: explainer / postmortem (NOT a dashboard)
 

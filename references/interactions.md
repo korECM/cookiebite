@@ -277,6 +277,16 @@ auto-loaded by the template; AOS is NOT — add its css/js tags (`libraries.md`)
 <script>new CountUp('hero', 2418).start(); AOS.init({once:true, duration:600});</script>
 ```
 
+**Runtime fast path — `CB.scrollReveal(scope?, { stagger?, y? })` (no AOS dep).** Mark the
+elements you want to lift in with `data-reveal` (and `data-count-on-enter="2418"` on a
+number to fire CountUp the first time it's seen), then call `CB.scrollReveal()` once. ONE
+IntersectionObserver fades + lifts them (**opacity + transform only — no layout shift**),
+staggers siblings (`stagger` ms, capped at 8 steps), and is **gated on `CB.MOTION_OK`**:
+under reduced-motion / no-IO it shows everything and runs counters straight to final.
+**Don't** add the initial-hidden guard class in static markup — the JS adds it only once
+reveal is running, so a no-JS render still shows the content (the `[data-reveal]` contract
+is in `components.md`). Reach for this over AOS unless you already need AOS elsewhere.
+
 ## 8. Scenario / what-if slider (Alpine)
 When the report has a model (projection, break-even, refund rate impact), a range
 slider that recomputes a number/chart live makes the report genuinely useful.
@@ -311,6 +321,17 @@ report) becomes top-to-bottom scroll with no jump-to and no progress. Give narro
   runs automatically) builds a compact below-`lg` "On this page" dropdown from your
   `<ul id="toc">` links and keeps it synced to the active section. There's no function to
   call; just author the desktop TOC and the mobile nav appears on narrow viewports.
+
+**Runtime fast path — build the whole TOC from headings (`CB.toc`).** Instead of
+hand-listing `<a>` links, call `CB.toc(target, { numbered?, nested?, progress?, heading? })`:
+it scans `main section[id]` + their `h2`/`h3[id]`, renders the `.cb-toc` sidebar into the
+canonical `#toc` element, and **re-runs `initToc()`** so the active-state observer *and* the
+mobile dropdown above wire up for free. It is **progressive-enhancement-safe** — a NO-OP
+over a hand-authored `#toc` that already has links (pass `force:true` to override). Two
+companion long-report chrome calls: **`CB.readingProgress({ height?, target? })`** pins a
+`var(--accent)` scroll bar at the top (returns null under reduced-motion), and
+**`CB.readTime(target, { wpm?, cpm?, scope? })`** appends a CJK-aware "N min read" eyebrow.
+All opt-in; see `helpers.md` and the `components.md` contract classes.
 
 ## 10. Chart data-table toggle (accessibility + exact values)
 A canvas/SVG chart is invisible to screen readers and hides exact figures. Offer a
