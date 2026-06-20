@@ -30,41 +30,44 @@ or re-feed a chart. Great for "by PSP", "by status", "by period".
 Re-theme a chart on filter change by calling `chart.setOption({...})` inside an
 `x-effect` or a `@click` handler.
 
-**Worked example — a filter-chip row driving a captured `CB.chart` (F10).** The
-prescribed dashboard interaction is: a chip row picks a segment, and a chart re-feeds
-to match. **Capture the instance `CB.chart` returns and push updates through its
-`__cbUpdate`** — don't bare-`setOption`, and don't reach for a `window` global when the
-chip row and the chart host sit in the *same* scope/script. (Use the `window` bridge in
-§2 only across the SECTIONS↔REPORT-SCRIPT slot boundary.) `__cbUpdate` re-applies your
-option *over the live `baseChart` theme*, so the reader's selection survives a dark
-re-theme — a bare `setOption` would drop the merge and the filter on the next toggle.
+**Worked example — a filter-chip row driving a captured `CB.chart` via
+`CB.connectFilter` (F10).** The prescribed dashboard interaction is: a chip row picks a
+segment, and a chart re-feeds to match. The runtime fast path is **`CB.connectFilter`** —
+it wires a row of native `button[data-value]` chips to your `onChange`, managing
+`aria-pressed` + the `is-active` accent class and default-selecting the first chip, so you
+don't hand-roll the chip state. **Inside `onChange`, close over the captured `CB.chart`
+instance and push updates through its `__cbUpdate`** — don't bare-`setOption`, and **don't
+reach for a `window` global**: `connectFilter` removes the need for the
+`window.__fooUpdate` bridge that the older pattern (and §2 below) used. `__cbUpdate`
+re-applies your option *over the live `baseChart` theme*, so the reader's selection
+survives a dark re-theme — a bare `setOption` would drop the merge and the filter on the
+next toggle.
 
 ```html
-<section id="revenue" x-data="{ region:'all' }">
-  <!-- wrap-or-scroll chip row (the §1 RULE) -->
-  <div class="flex flex-wrap gap-8 mb-16">
-    <template x-for="r in ['all','apac','emea','amer']" :key="r">
-      <button @click="region=r; window.dispatchEvent(new CustomEvent('revfilter',{detail:r}))"
-        :class="region===r ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
-        class="px-12 py-6 rounded-small text-body-14" x-text="r.toUpperCase()"></button>
-    </template>
+<section id="revenue">
+  <!-- native button[data-value] chips; wrap-or-scroll row (the §1 RULE) -->
+  <div id="revFilter" class="flex flex-wrap gap-8 mb-16">
+    <button data-value="all"  class="px-12 py-6 rounded-small text-body-14">ALL</button>
+    <button data-value="apac" class="px-12 py-6 rounded-small text-body-14">APAC</button>
+    <button data-value="emea" class="px-12 py-6 rounded-small text-body-14">EMEA</button>
+    <button data-value="amer" class="px-12 py-6 rounded-small text-body-14">AMER</button>
   </div>
   <div id="revChart" style="height:320px"></div>
 </section>
 ```
 ```js
-// REPORT-SCRIPT: capture the returned instance — this is the handle, not a global chart var
+// REPORT-SCRIPT: capture the instance — this is the handle, no window global needed
 var rev = CB.chart('#revChart', { ariaLabel:'Revenue by region', option:{ /* … */ } });
 var BY_REGION = { all: allData, apac: apacData, emea: emeaData, amer: amerData };
-window.addEventListener('revfilter', function (e) {
-  rev.__cbUpdate({ series: [{ data: BY_REGION[e.detail] }] });  // merges over baseChart; dark-safe
-});
+CB.connectFilter('#revFilter', function (value /*, btn */) {
+  rev.__cbUpdate({ series: [{ data: BY_REGION[value] }] });  // merges over baseChart; dark-safe
+});  // first chip ('all') is selected + fired on wire-up; pass { fire:false } to skip it
 ```
-When the chip row and the `CB.chart` call genuinely live in one Alpine `x-data` scope,
-you can skip the event and call `rev.__cbUpdate(...)` directly from the handler; the event
-above just decouples the SECTIONS markup from the REPORT-SCRIPT instance without a named
-`window.__fooUpdate` global. Either way the load-bearing rule is the same: **hold the
-instance `CB.chart` returns and update through `__cbUpdate`.**
+`connectFilter` closes the chip row and the chart over the **same scope**, so there's no
+event bus and no named `window.__fooUpdate` global. The load-bearing rule is unchanged:
+**hold the instance `CB.chart` returns and update through `__cbUpdate`.** Reach for the
+§2 `window` bridge only when the control markup and the chart instance are split across the
+SECTIONS↔REPORT-SCRIPT slot boundary and can't see each other's scope.
 
 > **RULE: a chip / segment / facet row MUST wrap or scroll — never a bare `flex` row.**
 > Real reports filter by PSP / status / region / channel — 5–10 chips. A bare `flex gap-8`

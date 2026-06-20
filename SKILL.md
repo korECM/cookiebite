@@ -539,6 +539,7 @@ already filled with links.)
 | `COOKIEBITE.categoricalColors(n)` | array of `n` on-theme colors from `--accent` for **peer** series (regions/vendors/plans — distinct but on-theme); a bounded hue arc ±~50° around the accent with consistent S/L, and **small-n palettes stay near the accent** (a 2–3 series set reads as the brand family, not a rainbow); re-reads the live accent so it follows dark re-theme. Pair: `categoricalColors` = peer, `ramp` = ordered | — |
 | `COOKIEBITE.funnel(target, { steps, caption?, ariaLabel? })` | themed ECharts funnel; auto step-to-step + overall conversion % labels; single-hue accent ramp; registers for dark | `interactions.md` §10 (hand-built funnel) |
 | `COOKIEBITE.gauge(target, { value, max?, label?, unit?, target?, tone?, size?, thickness?, sub?, showMax? })` | pure CSS conic-gradient progress ring (no chart lib), center value label, optional target tick; `showMax:true` appends a faint `/max` so the reader sees the denominator; themes via `var(--accent)`, dark-aware with no registration | `components.md` (CSS ring recipe) |
+| `COOKIEBITE.gaugeGrid(target, items, opts?)` | responsive grid of `gauge` rings — one ring per metric vs its **own** target/max (an SLA / quota board); reuses `gauge()` so every cell is dark-aware with no JS re-theme; `opts.cols` else auto by item count; per-cell + overall empty-states. Reach for it instead of emitting N separate `gauge` calls | `helpers.md` (CB.gaugeGrid) |
 | `COOKIEBITE.heatmap(target, { data, caption?, ariaLabel?, max?, range?, from?, to? })` | ECharts calendar heatmap (one value per `YYYY-MM-DD`), single-hue accent ramp; auto-spans only the months the data covers, or pass `range`/`from`+`to` to fix the span; registers for dark | `libraries.md` (calendar heatmap) |
 | `COOKIEBITE.takeaway(pointsOrHtml, opts?)` | returns a **string**: a prominent TL;DR / key-takeaway box (accent-weak surface, accent-strong title); accepts a bullet-string array or raw HTML; `opts.title` | `components.md` "TL;DR box" |
 | `COOKIEBITE.deltaBadge(text, { dir, tone })` | returns a **string**: the standalone stat-delta badge (up/down arrow + tone color) that `kpis` uses internally | `components.md` delta badge |
@@ -566,6 +567,7 @@ already filled with links.)
 | `COOKIEBITE.legend(target, items, opts?)` | standalone legend (square/line/dot swatch, optional value column); `interactive:true` + `chart` toggles series on a registered ECharts chart | `helpers.md` (CB.legend) |
 | `COOKIEBITE.search(opts?)` | **opt-in** sticky search bar filtering/dimming `[data-searchable]` regions with `<mark>` highlight | `helpers.md` (CB.search) |
 | `COOKIEBITE.densityToggle()` / `COOKIEBITE.permalinks(opts?)` | **opt-in** chrome: a compact-density toggle (`html[data-density]`, localStorage) / hover `#` section permalinks (copy section URL) | — |
+| `COOKIEBITE.copyReport(opts?)` | **opt-in** chrome: injects a quiet round button by the theme toggle that serializes the **whole report** to markdown (`sectionToMarkdown` over each `main section[id]`, or `opts.selector`) and copies it with a flash — the one-call "export the entire report" affordance. No-ops when `window.REPORT_NO_COPY` is set or the button already exists | `helpers.md` (CB.copyReport) |
 | `COOKIEBITE.print()` / `COOKIEBITE.audit()` | `print()` forces light + expands `<details>`/tab panels then `window.print()`; `audit()` is a dev-only DOM a11y/contrast audit (also `?audit=1`) | — |
 | `COOKIEBITE.applyLook(look?)` | projects the **Look** knobs (density/radius/elevation/surface/border/palette-mode/heading-font/measure/page-bg/header/semantic-preset/dark-tint) onto `html data-*` + `:root` vars; auto-runs at init from `window.REPORT_LOOK` (call manually only to re-apply after changing it) — orthogonal to color, every knob defaults to today's look | `design-system.md` "The Look system" + `helpers.md` (CB.applyLook) |
 | `COOKIEBITE.treemap / sankey / gantt(target, config)` | **full-render** heavy charts (build card + ECharts + data-table; **don't** wrap in `CB.chart`): treemap (value→lightness hierarchy, flat-by-parent or nested), sankey (single-hue opacity-gradient flow, narrow→vertical), gantt (date-axis lanes + progress fill + today line). Each **warns if `ariaLabel` omitted** | `helpers.md` (Wave B heavy charts) + `libraries.md` "which chart when" |
@@ -578,6 +580,16 @@ already filled with links.)
 `COOKIEBITE.chart` is the fast/escape **seam**: the wrapper is data, but the ECharts
 `option` is **always author-written** (merged over `baseChart`; plain objects deep-merge,
 arrays like `series`/`dataZoom` replace wholesale) — never a `{kind}` shortcut.
+
+**Wiring a filter-chip row to a chart — use `COOKIEBITE.connectFilter`, not a `window`
+global.** For the dashboard interaction "a chip row picks a segment, a chart re-feeds",
+`CB.connectFilter(buttonsSelector, onChange, opts?)` wires a row of native
+`button[data-value]` chips to your `onChange(value, btn)` — it manages `aria-pressed` + the
+`is-active` accent class, default-selects the first chip (or `opts.initial`), and is
+keyboard-accessible. **Close over the captured `CB.chart` instance and call
+`inst.__cbUpdate(option)` inside `onChange`** (so the filter survives a dark re-theme) —
+this replaces the older `window.__fooUpdate` bridge from interactions.md §2. See the worked
+example in `interactions.md §1`.
 
 **What stays escape-hatch (full freedom, never forced declarative):** every chart's
 `option` object, the MRR-waterfall / Sankey / candlestick tricks, bespoke

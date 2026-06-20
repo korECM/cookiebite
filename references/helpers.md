@@ -263,6 +263,35 @@ config: {
 Pure `conic-gradient` ring; themes via `var(--accent)` so it's dark-aware with **no**
 registration. Reach for it over a chart for a single 0–100 progress/SLO number.
 
+### `CB.gaugeGrid(target, items, opts?)` — grid of gauge rings (SLA/quota board)
+
+```text
+item: {                // each cell is one CB.gauge ring
+  label,               // caption under the ring
+  value,               // current value
+  max?,                // default 100
+  target?,             // optional target value -> tick on the ring
+  tone?,               // override the fill tone (default: accent)
+  unit?,               // small unit after the value ('%','ms')
+  sub?,                // small secondary line INSIDE the ring, under the value
+  showMax?,            // true -> faint '/max' affordance after the value
+  size?, thickness?,   // per-ring diameter / stroke override
+  ariaLabel?,          // per-ring role="img" label (default auto-built)
+}
+opts: {
+  cols?,               // override the auto column count (auto by item count via COLS_MAP)
+  emptyText?,          // overall empty-state text when `items` is empty
+}
+```
+A responsive grid of `CB.gauge` rings — **one ring per metric, each against its own
+`target`/`max`**. The SLA / quota / health-board helper: reach for it instead of
+hand-emitting N separate `CB.gauge` calls in a flex row. It **reuses `gauge()` per cell**,
+so every ring is a pure `conic-gradient` that re-themes (incl. dark) with **no
+registration**. `cols` auto-picks by item count (the KPI-grid cadence) unless `opts.cols`
+is given; emits `.cb-gaugegrid` / `.cb-gaugegrid-cell` (1/2/3/4 cols at <640/640/1024/1280px,
+stacks to 1 on narrow, prints at a fixed 3-col cadence). Per-cell **and** overall
+empty-states. Contrast with `CB.gauge` (one ring) and `CB.kpis` (number cards, not rings).
+
 ### `CB.heatmap(target, config)` — calendar heatmap
 
 ```text
@@ -367,6 +396,43 @@ selector,           // a section element / CSS selector
 Best-effort serializer: a section's headings, paragraphs, lists, and tables → a markdown
 string. Pair with `CB.copyButton` to export a static section verbatim. See
 `interactions.md` §13.
+
+### `CB.connectFilter(buttonsSelector, onChange, opts?) -> { select(value) }`
+
+```text
+buttonsSelector,    // selector matching a row of native button[data-value] chips
+onChange,           // (value, btn) => void  — fired on selection; the `data-value` + the <button>
+opts: {
+  initial?,         // data-value to select first (default: the first chip)
+  fire?,            // false -> skip the initial onChange (don't fire on wire-up)
+}
+```
+Wires a chip row of `button[data-value]` elements to `onChange`: it manages each chip's
+`aria-pressed` + an `is-active` accent class, default-selects the first chip (or
+`opts.initial`), and is keyboard-accessible. Returns `{ select(value) }` to drive the
+selection programmatically. **This is the F10 dashboard-filter pattern without a `window`
+global:** author **closes over the captured `CB.chart` instance(s)** and calls
+`inst.__cbUpdate(option)` inside `onChange` (so the reader's filter survives a dark
+re-theme), instead of the `window.__fooUpdate` bridge. `opts.fire:false` skips the
+on-wire-up call (e.g. when the chart isn't built yet). The markup is native buttons, not
+Alpine — pair it with a wrap-or-scroll chip row (the interactions.md §1 RULE). See
+`interactions.md §1` for the worked example.
+
+### `CB.copyReport(opts?) -> HTMLButtonElement | undefined`
+
+```text
+opts: {
+  label?,            // button aria-label / flash label
+  selector?,         // what to serialize (default: each `main section[id]`; body fallback)
+}
+```
+**Opt-in chrome (author must call it).** Injects a quiet 40px round button (`.cb-copyreport`,
+matching `#cbPrintButton`/`#themeToggle`) near the theme toggle that serializes the **whole
+report to markdown** — `CB.sectionToMarkdown` over each `main section[id]` (or `opts.selector`)
+— and copies it via `CB.copy` with a success flash (`.is-copied` + swapped icon/label, so the
+confirmed state is never color-alone). The one-call "export the entire report" affordance, vs
+`CB.copyButton` + `sectionToMarkdown` for a **single** section. Returns the button, or
+**`undefined`** when `window.REPORT_NO_COPY` is truthy or a `.cb-copyreport` already exists.
 
 ### `CB.glossary(map, scope?)` — merge terms + run the linker
 
@@ -535,15 +601,21 @@ column in a ko-KR report: `CB.cellMoney({ currency:'USD', symbol:'$', decimals:0
 ```text
 CB.t(key, fallback?) -> string   // lookup order: REPORT_LOCALE.strings override
                                  //   > active-locale cell > en cell > fallback > key
-CB.locale() -> 'ko' | 'en' | 'ja' | …  // active 2-letter prefix from REPORT_LOCALE.number
+CB.locale() -> 'ko' | 'en' | 'ja' | 'es' | 'de' | 'fr' | 'zh' | …
+                                 // active 2-letter prefix from REPORT_LOCALE.number
                                  //   (unknown -> 'en')
-CB.i18n                          // the built-in ko/en/ja string table (object keyed by
-                                 //   locale prefix); extend it or inspect keys
+CB.i18n                          // the built-in string table (object keyed by locale
+                                 //   prefix); extend it or inspect keys
 ```
 Authors extend strings via `window.REPORT_LOCALE.strings = { key: 'override' }` or by
-adding a locale cell to `CB.i18n`. The Japanese myriad bands (`万/億`) in `moneyShort` are
-opt-in via `window.REPORT_LOCALE.bigUnits = 'ja'` (or `{ man, eok }`; `true` keeps the
-Korean `만/억` byte-identical).
+adding a locale cell to `CB.i18n`. **`CB.i18n` now ships ko/en/ja plus es/de/fr/zh** — a
+report whose `REPORT_LOCALE.number` is `es-ES`/`de-DE`/`fr-FR`/`zh-CN` gets localized UI
+chrome (view-as-table / min-read / callout kickers / TOC heading) without an author override;
+the lookup still falls back to the `en` cell then the key, so an unlisted locale degrades to
+English. The East-Asian myriad bands in `moneyShort` are opt-in via
+`window.REPORT_LOCALE.bigUnits`: `'ja'` for Japanese `万/億`, **`'zh'` for Chinese `万/亿`**
+(note the simplified `亿`), or `{ man, eok }` for custom unit words; `true` keeps the Korean
+`만/억` byte-identical.
 
 ### `CB.diff(target, config)` — escaped diff view (F44)
 

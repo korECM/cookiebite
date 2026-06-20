@@ -657,3 +657,62 @@ html[data-theme="dark"][data-dark-tint]{
 .cb-gantt__today{ position:absolute; top:0; bottom:0; width:2px; background:var(--accent-strong); z-index:2; }
 .cb-gantt__today-label{ position:absolute; top:0; transform:translateX(-50%); white-space:nowrap; font-size:11px; line-height:16px; font-weight:700; color:var(--accent-on); background:var(--accent-strong); border-radius:4px; padding:0 6px; }
 @media print{ .cb-gantt__lane:nth-child(odd){ background:transparent; } }
+
+/* ============================================================================
+   (13) GAUGE GRID + COPY-REPORT — a responsive wrapper for CB.gauge rings, and a
+   quiet chrome button matching the #cbPrintButton / #themeToggle control cluster.
+   Token-based (var(--c-*)/var(--accent*)), dark-aware, 390px-safe (stacks to 1 col),
+   never-color-alone (the button carries an icon + aria/title text from JS), and
+   print-safe (the button is dropped on paper, like the rest of the chrome).
+   ========================================================================== */
+
+/* --- .cb-gaugegrid — responsive grid of CB.gauge rings + labels ---------------
+   Mirrors the KPI grid cadence (1 col on a phone, 2 at sm≥640, 3 at lg≥1024, 4 at
+   xl≥1280) but lives as a single CSS class so a report can wrap raw gauge hosts
+   without restating Tailwind breakpoints. auto-fit keeps a partial last row tidy;
+   each cell centers its ring + caption. Stacks to 1 col on narrow with no overflow
+   (minmax floor is a percentage, never a fixed px that could exceed a 390px frame). */
+.cb-gaugegrid{
+  display:grid;
+  grid-template-columns:1fr;          /* mobile-first: a single centered column */
+  gap:20px 16px;
+  align-items:start;
+  justify-items:center;
+}
+/* each cell stacks its ring above the label and centers the group */
+.cb-gaugegrid > *{ display:flex; flex-direction:column; align-items:center; text-align:center; min-width:0; }
+@media (min-width:640px){ .cb-gaugegrid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+@media (min-width:1024px){ .cb-gaugegrid{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }
+@media (min-width:1280px){ .cb-gaugegrid{ grid-template-columns:repeat(4, minmax(0, 1fr)); } }
+/* on paper: keep a fixed legible cadence and never slice a ring across a page break */
+@media print{
+  .cb-gaugegrid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+  .cb-gaugegrid > *{ break-inside:avoid; }
+}
+
+/* --- .cb-copyreport — a quiet copy-link chrome button -------------------------
+   Same size/position family as #cbPrintButton / #themeToggle: a 40px round button
+   on the surface token with a hairline border + sm shadow, quiet secondary icon
+   that warms to primary on hover/focus. It belongs in the fixed top-right control
+   cluster; the FIXED-POSITION offset (top/right) is supplied by the JS that injects
+   it (Tailwind fixed top-16 right-* z-50), so this recipe stays position-agnostic and
+   composes with whatever slot the cluster assigns. Hidden on paper. */
+.cb-copyreport{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:40px; height:40px;
+  border-radius:9999px;
+  background:var(--c-surface);
+  border:1px solid var(--c-line-weak);
+  box-shadow:var(--shadow-sm,0 2px 8px rgba(0,0,0,.15));
+  color:var(--c-secondary);
+  cursor:pointer;
+  transition:color .15s ease, border-color .15s ease, background-color .15s ease;
+}
+.cb-copyreport svg, .cb-copyreport i{ width:20px; height:20px; flex:0 0 auto; }
+.cb-copyreport:hover{ color:var(--c-primary); border-color:var(--c-line); }
+.cb-copyreport:focus-visible{ color:var(--c-primary); }
+/* brief confirmed state after a successful copy (JS toggles .is-copied); the accent
+   tint + an accompanying label/icon swap in JS keep it from being color-alone. */
+.cb-copyreport.is-copied{ color:var(--c-positive); border-color:color-mix(in srgb, var(--c-positive) 45%, var(--c-line-weak)); }
+@media (prefers-reduced-motion: reduce){ .cb-copyreport{ transition:none; } }
+@media print{ .cb-copyreport{ display:none !important; } }

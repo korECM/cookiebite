@@ -60,7 +60,7 @@
           '8': '8px', '9': '9px', '10': '10px', '11': '11px', '12': '12px', '14': '14px',
           '16': '16px', '18': '18px', '20': '20px', '24': '24px', '28': '28px', '32': '32px',
           '36': '36px', '40': '40px', '44': '44px', '48': '48px', '52': '52px', '56': '56px',
-          '60': '60px', '64': '64px', '72': '72px', '80': '80px', '96': '96px',
+          '60': '60px', '64': '64px', '72': '72px', '80': '80px', '96': '96px', '112': '112px',
         },
         fontSize: {
           'caption-12': ['12px', '16px'], 'body-14': ['14px', '20px'], 'body-16': ['16px', '24px'],
@@ -105,10 +105,11 @@
     var a = Math.abs(n);
     var band = function (div, unit) { return sign + (Math.round(a / div * 10) / 10).toFixed(1).replace(/\.0$/, '') + unit; };
     if (L.bigUnits) {
-      // F42: the 만/억 (myriad) banding is shared by ko AND ja — only the glyphs
-      // differ (ko 만/억, ja 万/億). bigUnits:'ja' (or a {man,eok} object) swaps the
-      // labels; bigUnits:true keeps the historical Korean glyphs byte-for-byte.
+      // F42: the 만/억 (myriad) banding is shared by ko, ja AND zh — only the glyphs
+      // differ (ko 만/억, ja 万/億, zh 万/亿). bigUnits:'ja'|'zh' (or a {man,eok} object)
+      // swaps the labels; bigUnits:true keeps the historical Korean glyphs byte-for-byte.
       var U = L.bigUnits === 'ja' ? { man: '万', eok: '億' }
+        : L.bigUnits === 'zh' ? { man: '万', eok: '亿' }
         : (L.bigUnits && typeof L.bigUnits === 'object') ? { man: L.bigUnits.man || '만', eok: L.bigUnits.eok || '억' }
         : { man: '만', eok: '억' };
       if (Math.round(a / 1e4) >= 1e4) return band(1e8, U.eok); // 만-band would round to >=10000만 -> roll to 억
@@ -193,6 +194,106 @@
       onThisPage: 'このページ内', onThisPageDots: 'このページ内…', sectionNav: 'セクション移動',
       notesHeading: '注', backToText: '本文へ戻る', minRead: '分で読めます', contents: '目次',
       medianWord: '中央値', otherWord: 'その他',
+    },
+    /* es/de/fr/zh: full key set translated; any omitted key falls back to en via t().
+       These activate ONLY when REPORT_LOCALE.number resolves to the matching prefix, so
+       ko/en/ja output stays byte-identical for existing reports. 'copied' keeps the
+       universal 'Copied ✓' glyph form to match the shared flash. */
+    es: {
+      noData: 'Sin datos',
+      viewTable: 'Ver como tabla', viewChart: 'Ver como gráfico',
+      savePng: 'Guardar PNG', exportCsv: 'Exportar CSV',
+      sevCritical: 'Crítico', sevHigh: 'Alto', sevMedium: 'Medio', sevLow: 'Bajo', all: 'Todo',
+      insightAction: 'Acción', insightWatch: 'Atención', insightNote: 'Nota', keyTakeaways: 'Conclusiones clave',
+      recommended: 'Recomendado', total: 'Total', overall: 'General ', vsPrev: ' vs ant.',
+      stepCol: 'Paso', valueCol: 'Valor', dateCol: 'Fecha',
+      pathCol: 'Ruta', sourceCol: 'Origen', targetCol: 'Destino',
+      taskCol: 'Tarea', startCol: 'Inicio', endCol: 'Fin', today: 'Hoy',
+      stDone: 'hecho', stCurrent: 'en curso', stPending: 'pendiente',
+      sectionNav: 'Navegación de secciones', onThisPage: 'En esta página', onThisPageDots: 'En esta página…',
+      ofWord: ' de ',
+      themeToggle: 'Cambiar claro/oscuro', print: 'Imprimir / Guardar como PDF',
+      search: 'Buscar en el informe', noMatches: 'Sin coincidencias',
+      copied: 'Copied ✓', copyLink: 'Copiar enlace a esta sección',
+      density: 'Cambiar densidad', auditTitle: 'Auditoría',
+      details: 'Detalles', copyMarkdown: 'Copiar como Markdown',
+      mermaidFail: 'No se pudo renderizar el diagrama — revisa la definición de Mermaid.',
+      coNote: 'NOTA', coTip: 'CONSEJO', coWarning: 'AVISO', coDanger: 'PELIGRO', coExample: 'EJEMPLO',
+      figAbbr: 'Fig.',
+      notesHeading: 'Notas', backToText: 'Volver al texto', minRead: ' min de lectura', contents: 'Contenido',
+      medianWord: 'mediana', otherWord: 'Otros',
+    },
+    de: {
+      noData: 'Keine Daten',
+      viewTable: 'Als Tabelle anzeigen', viewChart: 'Als Diagramm anzeigen',
+      savePng: 'PNG speichern', exportCsv: 'CSV exportieren',
+      sevCritical: 'Kritisch', sevHigh: 'Hoch', sevMedium: 'Mittel', sevLow: 'Niedrig', all: 'Alle',
+      insightAction: 'Aktion', insightWatch: 'Beobachten', insightNote: 'Notiz', keyTakeaways: 'Kernaussagen',
+      recommended: 'Empfohlen', total: 'Gesamt', overall: 'Insgesamt ', vsPrev: ' vs. vorher',
+      stepCol: 'Schritt', valueCol: 'Wert', dateCol: 'Datum',
+      pathCol: 'Pfad', sourceCol: 'Quelle', targetCol: 'Ziel',
+      taskCol: 'Aufgabe', startCol: 'Start', endCol: 'Ende', today: 'Heute',
+      stDone: 'fertig', stCurrent: 'laufend', stPending: 'ausstehend',
+      sectionNav: 'Abschnittsnavigation', onThisPage: 'Auf dieser Seite', onThisPageDots: 'Auf dieser Seite…',
+      ofWord: ' von ',
+      themeToggle: 'Hell/Dunkel umschalten', print: 'Drucken / Als PDF speichern',
+      search: 'Bericht durchsuchen', noMatches: 'Keine Treffer',
+      copied: 'Copied ✓', copyLink: 'Link zu diesem Abschnitt kopieren',
+      density: 'Dichte umschalten', auditTitle: 'Prüfung',
+      details: 'Details', copyMarkdown: 'Als Markdown kopieren',
+      mermaidFail: 'Diagramm konnte nicht gerendert werden — Mermaid-Definition prüfen.',
+      coNote: 'HINWEIS', coTip: 'TIPP', coWarning: 'WARNUNG', coDanger: 'GEFAHR', coExample: 'BEISPIEL',
+      figAbbr: 'Abb.',
+      notesHeading: 'Anmerkungen', backToText: 'Zurück zum Text', minRead: ' Min. Lesezeit', contents: 'Inhalt',
+      medianWord: 'Median', otherWord: 'Sonstige',
+    },
+    fr: {
+      noData: 'Aucune donnée',
+      viewTable: 'Voir en tableau', viewChart: 'Voir en graphique',
+      savePng: 'Enregistrer le PNG', exportCsv: 'Exporter en CSV',
+      sevCritical: 'Critique', sevHigh: 'Élevé', sevMedium: 'Moyen', sevLow: 'Faible', all: 'Tout',
+      insightAction: 'Action', insightWatch: 'À surveiller', insightNote: 'Note', keyTakeaways: 'Points clés',
+      recommended: 'Recommandé', total: 'Total', overall: 'Global ', vsPrev: ' vs préc.',
+      stepCol: 'Étape', valueCol: 'Valeur', dateCol: 'Date',
+      pathCol: 'Chemin', sourceCol: 'Source', targetCol: 'Cible',
+      taskCol: 'Tâche', startCol: 'Début', endCol: 'Fin', today: "Aujourd'hui",
+      stDone: 'terminé', stCurrent: 'en cours', stPending: 'à venir',
+      sectionNav: 'Navigation des sections', onThisPage: 'Sur cette page', onThisPageDots: 'Sur cette page…',
+      ofWord: ' sur ',
+      themeToggle: 'Basculer clair/sombre', print: 'Imprimer / Enregistrer en PDF',
+      search: 'Rechercher dans le rapport', noMatches: 'Aucun résultat',
+      copied: 'Copied ✓', copyLink: 'Copier le lien vers cette section',
+      density: 'Basculer la densité', auditTitle: 'Audit',
+      details: 'Détails', copyMarkdown: 'Copier en Markdown',
+      mermaidFail: 'Échec du rendu du diagramme — vérifiez la définition Mermaid.',
+      coNote: 'NOTE', coTip: 'ASTUCE', coWarning: 'AVERTISSEMENT', coDanger: 'DANGER', coExample: 'EXEMPLE',
+      figAbbr: 'Fig.',
+      notesHeading: 'Notes', backToText: 'Retour au texte', minRead: ' min de lecture', contents: 'Sommaire',
+      medianWord: 'médiane', otherWord: 'Autre',
+    },
+    zh: {
+      noData: '无数据',
+      viewTable: '以表格查看', viewChart: '以图表查看',
+      savePng: '保存 PNG', exportCsv: '导出 CSV',
+      sevCritical: '严重', sevHigh: '高', sevMedium: '中', sevLow: '低', all: '全部',
+      insightAction: '行动', insightWatch: '关注', insightNote: '备注', keyTakeaways: '关键要点',
+      recommended: '推荐', total: '合计', overall: '总体 ', vsPrev: ' 较上期',
+      stepCol: '步骤', valueCol: '值', dateCol: '日期',
+      pathCol: '路径', sourceCol: '来源', targetCol: '目标',
+      taskCol: '任务', startCol: '开始', endCol: '结束', today: '今天',
+      stDone: '完成', stCurrent: '进行中', stPending: '待办',
+      sectionNav: '章节导航', onThisPage: '本页内容', onThisPageDots: '本页内容…',
+      ofWord: ' / ',
+      themeToggle: '切换浅色/深色', print: '打印 / 另存为 PDF',
+      search: '搜索报告', noMatches: '无匹配项',
+      copied: 'Copied ✓', copyLink: '复制此章节链接',
+      density: '切换密度', auditTitle: '审查',
+      details: '详情', copyMarkdown: '复制为 Markdown',
+      mermaidFail: '图表渲染失败 — 请检查 Mermaid 定义。',
+      coNote: '注意', coTip: '提示', coWarning: '警告', coDanger: '危险', coExample: '示例',
+      figAbbr: '图',
+      notesHeading: '注释', backToText: '返回正文', minRead: ' 分钟阅读', contents: '目录',
+      medianWord: '中位数', otherWord: '其他',
     },
   };
   // active locale prefix (ko/en/ja/…); REPORT_LOCALE.number drives it, unknown -> en
@@ -999,6 +1100,12 @@
       ? '<div x-data="{ sev:\'all\' }">' + inner + '</div>'
       : inner;
 
+    // without Alpine the x-show/x-for filter never runs — but every finding <li>
+    // renders WITHOUT x-cloak, so the full list stays readable (only the severity
+    // chips are inert). Warn (once, only when chips were emitted) so the author can
+    // load Alpine for live filtering — same pattern as cardGrid/chart.
+    if (withFilter && !window.Alpine) console.warn('[cookiebite] COOKIEBITE.findings: Alpine.js is absent — severity filter chips are inert (the full findings list still renders). Load Alpine for live filtering.');
+
     CB.refreshIcons();
   };
 
@@ -1565,7 +1672,11 @@
     // next dark re-theme preserves it. Use this instead of raw setOption for updates
     // that should survive a theme toggle (e.g. reader filters/zoom on the data).
     inst.__cbUpdate = function (opt, notMerge) {
-      lastOption = opt || {};
+      // MERGE the (often PARTIAL) update over the stored full option — so a caller can pass
+      // just { series:[…] } (the CB.connectFilter / filter-chip pattern) and the axes / grid /
+      // dataZoom persist, and the next dark re-theme still has the COMPLETE option. (Arrays
+      // like series/dataZoom replace wholesale inside deepMerge, so swapping series data works.)
+      lastOption = deepMerge(lastOption, opt || {});
       inst.setOption(deepMerge(CB.baseChart, lastOption), notMerge !== false);
       return inst;
     };
@@ -1749,15 +1860,14 @@
      ========================================================================== */
   var GAUGE_FILL = { neutral: 'var(--accent)', info: 'var(--c-informative)', success: 'var(--c-positive)', warning: 'var(--c-cautionary)', critical: 'var(--c-critical)' };
 
-  CB.gauge = function (target, config) {
-    var host = resolveTarget(target);
-    if (!host) return;
-    config = config || {};
+  /* gaugeRing(config) -> the '<div class="flex flex-col items-center">…</div>' ring HTML
+     (or '' when value/max is empty/invalid). Extracted from CB.gauge so CB.gaugeGrid can
+     drop the SAME conic-gradient ring into each cell — pure CSS vars, so every cell is
+     dark-aware with no JS re-theme. Output is byte-identical to the prior inline CB.gauge. */
+  function gaugeRing(config) {
     var max = config.max != null ? config.max : 100;
     var raw = config.value;
-
-    // empty/invalid: a quiet "no data" line instead of an empty ring
-    if (raw == null || !isFinite(Number(raw)) || !(max > 0)) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+    if (raw == null || !isFinite(Number(raw)) || !(max > 0)) return '';
 
     var value = Number(raw);
     var frac = Math.max(0, Math.min(1, value / max)); // clamp into 0..1
@@ -1797,8 +1907,7 @@
     // role=img + aria-label so the ring is announced as a single value, not silent decoration
     var aria = config.ariaLabel || ((config.label ? config.label + ': ' : '') + CB.nf.format(value) + unit + (config.target != null ? ' (target ' + CB.nf.format(Number(config.target)) + unit + ')' : ''));
 
-    host.innerHTML =
-      '<div class="flex flex-col items-center">' +
+    return '<div class="flex flex-col items-center">' +
       '<div role="img" aria-label="' + esc(aria) + '" class="relative" style="width:' + size + 'px;height:' + size + 'px;">' +
       // track + conic fill
       '<div class="absolute inset-0 rounded-full" style="background:conic-gradient(' + fill + ' ' + deg + 'deg, var(--c-disabled-bg) ' + deg + 'deg);"></div>' +
@@ -1807,7 +1916,59 @@
       tick + center +
       '</div>' + labelHtml +
       '</div>';
+  }
 
+  CB.gauge = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var max = config.max != null ? config.max : 100;
+    var raw = config.value;
+
+    // empty/invalid: a quiet "no data" line instead of an empty ring
+    if (raw == null || !isFinite(Number(raw)) || !(max > 0)) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    host.innerHTML = gaugeRing(config);
+
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     COOKIEBITE.gaugeGrid(target, items, opts?) — a responsive grid of conic-gradient
+     gauge rings, one per metric, each vs ITS OWN target/max (SLA board, quota row).
+     Reuses gaugeRing() per cell, so every ring is pure CSS vars -> dark-aware with no
+     JS re-theme. cols auto-picks by item count like CB.kpis (4+ -> 1-2-4); opts.cols
+     overrides. Each item: { label, value, max?, target?, tone?, unit? }. Empty -> a
+     quiet "no data" line. Emits .cb-gaugegrid for the css agent to style.
+       items: [{ label, value, max?, target?, tone?, unit? }]   opts: { cols? }
+     ========================================================================== */
+  CB.gaugeGrid = function (target, items, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    opts = opts || {};
+    items = items || [];
+
+    CB.disposeIn(host); // re-run on the same target: drop nothing chart-y, but stay consistent
+
+    if (!items.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
+    // explicit opts.cols wins; else auto-pick by item count (same map as CB.kpis)
+    var colsKey = opts.cols && COLS_MAP[opts.cols] ? opts.cols : autoCols(items.length);
+
+    var cells = items.map(function (it) {
+      it = it || {};
+      // per-cell: render the SHARED ring; an empty/invalid value degrades to a quiet line
+      var ring = gaugeRing({
+        value: it.value, max: it.max, target: it.target, tone: it.tone,
+        unit: it.unit, label: it.label, sub: it.sub, showMax: it.showMax,
+        size: it.size, thickness: it.thickness, ariaLabel: it.ariaLabel,
+      });
+      var inner = ring || ('<div class="text-center text-body-14 text-secondary py-24">' +
+        esc(it.label ? it.label + ': ' : '') + esc(t('noData')) + '</div>');
+      return '<div class="cb-gaugegrid-cell">' + inner + '</div>';
+    }).join('');
+
+    host.innerHTML = '<div class="cb-gaugegrid ' + COLS_MAP[colsKey] + '">' + cells + '</div>';
     CB.refreshIcons();
   };
 
@@ -2689,7 +2850,7 @@
     });
     return {
       grid: { left: 8, right: 16, top: 12, bottom: 8, containLabel: true },
-      tooltip: { trigger: 'item', formatter: function (p) { return (label ? label + ': ' : '') + CB.nf.format(value) + ' / ' + CB.nf.format(target); } },
+      tooltip: { trigger: 'item', formatter: function () { return (label ? label + ': ' : '') + CB.nf.format(value) + ' / ' + CB.nf.format(target); } },
       xAxis: { type: 'value', max: max },
       yAxis: { type: 'category', data: [label] },
       series: [].concat(
@@ -3301,7 +3462,6 @@
     cfg = cfg || {};
     var groups = (cfg.groups || []).slice();
     var accent = CB.theme.ACCENT || '#E8552D';
-    var lineC = cssColor('--c-line', '#E4E4E7');
     var secondary = CB.theme.C_SECONDARY || '#52525B';
     // derive the five-number summary + outliers per group (precomputed `five` wins).
     var boxes = [], cats = [], outPts = [];
@@ -4059,6 +4219,57 @@
     return btn;
   };
 
+  /* ==========================================================================
+     COOKIEBITE.connectFilter(buttonsSelector, onChange, opts?) — wire a chip row of
+     filter buttons (real <button>s carrying a data-value inside buttonsSelector) to
+     onChange(value, btn). Manages active state (aria-pressed + an accent 'is-active'
+     class), default-selects the first chip (or opts.initial), and fires onChange on
+     click. This removes the window-global footgun: the author captures their CB.chart
+     instance(s) in a CLOSURE and calls inst.__cbUpdate(...) inside onChange — no globals.
+     Keyboard-accessible because the chips are native buttons. Returns { select(value) }.
+       opts: { initial?, fire? } — fire:false suppresses the initial onChange call.
+     ========================================================================== */
+  CB.connectFilter = function (buttonsSelector, onChange, opts) {
+    var root = resolveTarget(buttonsSelector);
+    if (!root) return { select: function () {} };
+    opts = opts || {};
+    // the chip set: every [data-value] button inside the row (or the row's own buttons)
+    var btns = [].slice.call(root.querySelectorAll('button[data-value]'));
+    if (!btns.length && root.tagName === 'BUTTON' && root.hasAttribute('data-value')) btns = [root];
+    if (!btns.length) return { select: function () {} };
+
+    function valueOf(b) { return b.getAttribute('data-value'); }
+    function setActive(btn) {
+      btns.forEach(function (b) {
+        var on = b === btn;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.classList.toggle('is-active', on);
+      });
+    }
+    function activate(btn, fire) {
+      if (!btn) return;
+      setActive(btn);
+      if (fire !== false && typeof onChange === 'function') onChange(valueOf(btn), btn);
+    }
+    btns.forEach(function (b) {
+      if (b.type !== 'submit') b.type = 'button'; // never let a chip submit a form
+      b.addEventListener('click', function () { activate(b, true); });
+    });
+
+    // default selection: opts.initial matches a data-value, else the first chip
+    var initial = btns[0];
+    if (opts.initial != null) {
+      for (var i = 0; i < btns.length; i++) { if (valueOf(btns[i]) === String(opts.initial)) { initial = btns[i]; break; } }
+    }
+    activate(initial, opts.fire !== false);
+
+    return {
+      select: function (value) {
+        for (var i = 0; i < btns.length; i++) { if (valueOf(btns[i]) === String(value)) { activate(btns[i], true); return; } }
+      },
+    };
+  };
+
   CB.sectionToMarkdown = function (selector) {
     var root = resolveTarget(selector);
     if (!root) return '';
@@ -4566,8 +4777,7 @@
   // state — we DELETE the attr for it rather than writing it, keeping a no-toggle report
   // byte-identical. Persisted to localStorage('report-density').
   var DENSITY_CYCLE = ['compact', 'comfortable', 'spacious'];
-  CB.densityToggle = function (opts) {
-    opts = opts || {};
+  CB.densityToggle = function () {
     if (document.getElementById('cbDensityToggle')) return document.getElementById('cbDensityToggle');
     var saved = null;
     try { saved = localStorage.getItem('report-density'); } catch (e) {}
@@ -4680,6 +4890,51 @@
     CB.refreshIcons(btn);
     return btn;
   }
+
+  /* ==========================================================================
+     COOKIEBITE.copyReport(opts?) — inject a quiet chrome button (near the theme toggle,
+     .cb-copyreport) that serializes the WHOLE report to markdown via CB.sectionToMarkdown
+     over each main section[id] (or opts.selector) and copies it via CB.copy with the
+     'Copied ✓' flash. Opt-in; skipped when window.REPORT_NO_COPY is truthy. Sits to the
+     LEFT of the Print button (theme right-16, print right-64 -> copy clears at right-112).
+       opts: { label?, selector? }
+     ========================================================================== */
+  CB.copyReport = function (opts) {
+    if (window.REPORT_NO_COPY) return;
+    if (document.getElementById('cbCopyReport')) return document.getElementById('cbCopyReport');
+    opts = opts || {};
+    var label = opts.label != null ? opts.label : t('copyMarkdown');
+
+    // serialize each main section[id] (or opts.selector) and join into one markdown doc
+    function toMarkdown() {
+      var sel = opts.selector || 'main section[id]';
+      var sections = [].slice.call(document.querySelectorAll(sel));
+      // fall back to the whole document body when no section[id] exists (flat reports)
+      if (!sections.length) return CB.sectionToMarkdown('body');
+      return sections.map(function (s) { return CB.sectionToMarkdown(s); })
+        .filter(Boolean).join('\n\n').replace(/\n{3,}/g, '\n\n').trim();
+    }
+
+    var btn = document.createElement('button');
+    btn.id = 'cbCopyReport';
+    btn.type = 'button';
+    btn.className = 'cb-copyreport fixed top-16 right-112 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition print:hidden';
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+    btn.innerHTML = '<i data-lucide="clipboard-copy" class="w-20 h-20"></i>';
+    document.body.appendChild(btn);
+    // flash on the icon button: CB.copy swaps textContent, but this button's content is an
+    // icon — so flash the title/aria + a brief check glyph instead of clobbering the icon.
+    var iconHtml = btn.innerHTML;
+    btn.addEventListener('click', function () {
+      CB.copy(toMarkdown());
+      btn.innerHTML = '<i data-lucide="check" class="w-20 h-20"></i>';
+      CB.refreshIcons(btn);
+      setTimeout(function () { btn.innerHTML = iconHtml; CB.refreshIcons(btn); }, 1200);
+    });
+    CB.refreshIcons(btn);
+    return btn;
+  };
 
   /* ==========================================================================
      F43 — COOKIEBITE.audit() — opt-in dev-only DOM audit. Off by default; run via
