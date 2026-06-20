@@ -192,33 +192,26 @@ prebuilt Tailwind CSS, which is out of scope.
    `countup` tags **only** for a pure-prose explainer with no KPIs and no charts.
 5. **Plan the interactions** before building. Read `references/interactions.md` and
    pick the ones that fit the data (see "Interactivity" below for the minimum bar).
-6. **Build the page**: `cp assets/template.html <report>.html`, then **`Read` the copy**
-   (it's a new file — `Edit` fails with "File has not been read yet" otherwise; reading the
-   template original doesn't count) and make **surgical `Edit`s into the named
-   `<!-- COOKIEBITE:* -->` slot markers** (`HEAD-THEME`,
-   `HEAD-LIBS`, `TITLE`, `TOC`, `HEADER`, `SECTIONS`, `FOOTER`, `REPORT-SCRIPT`) —
-   don't rewrite the whole file. The slimmed template references the hosted runtime;
-   the invariant boilerplate (Tailwind config, number helpers, `baseChart`, dark
-   toggle, TOC observer, card hydration) is **no longer in the template** — it lives
-   in `cookiebite.js` and costs 0 tokens. Author the repetitive sections with the
-   fast-path helpers (`COOKIEBITE.kpis`/`findings`/`timeline`/`table`/`chart`/`pill`/
-   `callout`); drop to raw HTML + exposed primitives (`baseChart`, `css()`,
-   `accentRgba()`, `registerChart()`, the CSS-var tokens) for anything bespoke. The
-   two paths share the same tokens and helpers — mix them freely. See "Runtime fast
-   path vs hand-building".
-   - **Localize `<html lang>`** (template.html:19, outside any slot so it's easy to
-     miss): set it to the report's language (`en` for an English report, etc.).
-     `apply-theme.py` rewrites it from the preset locale, but a hand-edited report
-     must set it by hand.
-   - **The shipped template is a payments / weekly-metrics DEMO.** For a
-     non-dashboard or non-Korean report, replace the `COOKIEBITE:SECTIONS` and
-     `COOKIEBITE:REPORT-SCRIPT` slots **wholesale** — don't bend the demo content. And
-     when you remove a section, **delete its matching script block too**: the report
-     script calls `CB.chart`/`CB.table`/etc. against each section's host id, and those
-     throw on a missing host if the section is gone but its `CB.*` call remains. For a
-     non-dashboard starting point that *isn't* the payments demo, see the second worked
-     example (an explainer/postmortem skeleton: TL;DR box + mermaid diagram + findings)
-     in **`references/components.md`** so a narrative report doesn't get bent into
+6. **Build the page** — the `cp` → `Read` the copy → surgical-`Edit` the slots mechanics
+   are in Quickstart (step 2); the slot markers are `HEAD-THEME`, `HEAD-LIBS`, `TITLE`,
+   `TOC`, `HEADER`, `SECTIONS`, `FOOTER`, `REPORT-SCRIPT`. The deltas worth knowing here:
+   - The invariant boilerplate (Tailwind config, number helpers, `baseChart`, dark toggle,
+     TOC observer, card hydration) is **no longer in the template** — it lives in
+     `cookiebite.js` and costs 0 tokens. Author repetitive sections with the fast-path
+     helpers; drop to raw HTML + exposed primitives (`baseChart`, `css()`, `accentRgba()`,
+     `registerChart()`, the CSS-var tokens) for bespoke parts. The two paths share tokens
+     and helpers — mix them freely. See "Runtime fast path vs hand-building".
+   - **Localize `<html lang>`** (template.html:23, the `<!-- /COOKIEBITE:LANG -->` line —
+     outside the named slots so it's easy to miss): set it to the report's language (`en`
+     for an English report, etc.). `apply-theme.py` rewrites it from the preset locale, but
+     a hand-edited report must set it by hand.
+   - When you replace the demo `SECTIONS`/`REPORT-SCRIPT` wholesale (Quickstart step 4),
+     **delete each removed section's matching script block too**: the report script calls
+     `CB.chart`/`CB.table`/etc. against the section's host id, and those **throw on a
+     missing host** if the section is gone but its `CB.*` call remains. For a non-dashboard
+     starting point that *isn't* the payments demo, see the second worked example (an
+     explainer/postmortem skeleton: TL;DR box + mermaid diagram + findings) in
+     **`references/components.md`** so a narrative report doesn't get bent into
      KPI-cards-plus-trend-chart.
 7. **Theme every chart** with the accent + neutral grid (from CSS vars) — never the
    library's default rainbow palette. Use the template's `baseChart` theme object.
@@ -365,7 +358,13 @@ to these tokens, so you can use classes like `bg-surface`, `text-primary`,
 The token contract (CSS vars on `:root`, set in the template's THEME block):
 
 - Font: `--font-family` (+ a font stylesheet `<link>`)
-- Accent: `--accent`, `--accent-strong`, `--accent-weak`, `--accent-on`
+- Accent: `--accent`, `--accent-strong`, `--accent-weak`, `--accent-on`, and the optional
+  `--accent-text` — a darker, WCAG-safe variant of the brand accent for accent-**as-text**
+  use-sites (KPI numbers, outline-button labels) on the light bg. The brand accent stays
+  the **fill**; `--accent-text` is only the text/ink variant. It comes from a preset's
+  optional `colors.accentText` field (theme-studio emits it in `buildCSS()` and scores it
+  in the light-mode contrast badge; shipped on `supabase` = `#157F56`). Omit it and accent
+  text falls back to `--accent`.
 - Neutrals: `--c-bg`, `--c-surface`, `--c-primary`, `--c-secondary`, `--c-disabled`,
   `--c-placeholder`, `--c-line`, `--c-line-weak`, `--c-disabled-bg`
 - Semantic: `--c-critical`, `--c-cautionary`, `--c-positive`, `--c-informative`
@@ -398,9 +397,13 @@ the OS preference and any saved choice on load. The toggle still lets the reader
 accent is near-black (e.g. an ink/black brand) vanishes on the dark surface. Give such a
 preset an optional JSON field `accentDark` (a hex string): `apply-theme.py` /
 theme-studio then emit, **after** the `:root{…}` block, the line
-`html[data-theme="dark"]{ --accent: <accentDark>; --accent-strong: <accentDark>; }`, so
-that hex becomes the accent **only in dark mode**. Presets without `accentDark` emit
-nothing extra (unchanged behavior).
+`html[data-theme="dark"]{ --accent:<accentDark>; --accent-strong:<accentDark>;
+--accent-on:<accentOnDark>; }`, so that hex becomes the accent **only in dark mode**. The
+`--accent-on` (accent-as-text/ink) **must flip too** — accent-filled text sits on
+`--accent`, so if the dark accent is light, the ink has to go dark or the text turns
+invisible against it. `accentOnDark` is the optional companion field for that ink; it
+defaults to a dark ink (`#111111`) when `accentDark` is present. Presets without
+`accentDark` emit nothing extra (unchanged behavior).
 
 **Choosing/changing the theme:**
 
@@ -462,7 +465,7 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 
 | Fast-path helper | Emits (data → markup) | Hand-built equivalent |
 | --- | --- | --- |
-| `COOKIEBITE.kpis(target, items, opts?)` | responsive KPI card grid (label + countup number + delta badge + sparkline); `opts.cols` (`'1-2-4'`/`'1-2-3'`/`'1-3'`) sets the breakpoint columns, else auto-picked by item count | `components.md` KPI / "Stat cards" + template KPI section |
+| `COOKIEBITE.kpis(target, items, opts?)` | responsive KPI card grid (label + countup number + delta badge + sparkline); `opts.cols` (`'1-2-4'`/`'1-2-3'`/`'1-3'`/`'1-2'`/`'1'`) sets the breakpoint columns, else auto-picked by item count | `components.md` KPI / "Stat cards" + template KPI section |
 | `COOKIEBITE.findings(target, items, opts?)` | ranked severity findings list + Alpine filter chips | `components.md` "Severity-coded findings list" |
 | `COOKIEBITE.timeline(target, items, opts?)` | Alpine `x-for` vertical timeline (icon-in-badge marker + spine + expandable detail) | incident-timeline pattern (`interactions.md`) |
 | `COOKIEBITE.table(target, config)` | Grid.js table, footguns fixed (pager >15, search >10, right-aligned numerics, accent theme) | `interactions.md` §4 |
@@ -473,16 +476,28 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | `COOKIEBITE.tabs(target, panels, opts?)` / `COOKIEBITE.reveal(...)` | vanilla (no-Alpine) tab shell; lazily calls `render(panelEl)` on first show then `requestAnimationFrame`s so charts created inside `resize()` — the fix for the "empty chart box in a hidden tab" footgun | `interactions.md` §6 |
 | `COOKIEBITE.copyButton(target, label, builderFn, opts?)` | injects a themed copy `<button>` that calls `CB.copy(builderFn(), btn)` (inherits the fallback + 'Copied ✓' flash) | `interactions.md` §13 |
 | `COOKIEBITE.sectionToMarkdown(selector)` | best-effort serializer: a section's headings/paragraphs/lists/tables → a markdown string. Pairs with `copyButton` | `interactions.md` §13 |
-| `COOKIEBITE.glossary(map, scope?)` | merges `map` into `window.GLOSSARY` and runs the glossary linker + tippy within `scope` (default `document`); works from inside a `DOMContentLoaded` handler, idempotent | `interactions.md` §11 |
-| `COOKIEBITE.categoricalColors(n)` | array of `n` on-theme colors from `--accent` (bounded hue arc ±~50° around accent, consistent S/L) for 3+ peer-series charts; re-reads the live accent so it follows dark re-theme | — |
+| `COOKIEBITE.glossary(map, scope?)` | merges `map` into `window.GLOSSARY` and runs the glossary linker + tippy within `scope` (default `document`); works from inside a `DOMContentLoaded` handler, idempotent. **Needs the Tippy CDN tags** (`.gloss` styling ships in cookiebite.css, but the tooltip lib does not) | `interactions.md` §11 |
+| `COOKIEBITE.categoricalColors(n)` | array of `n` on-theme colors from `--accent` for **peer** series (regions/vendors/plans — distinct but on-theme); a bounded hue arc ±~50° around the accent with consistent S/L, and **small-n palettes stay near the accent** (a 2–3 series set reads as the brand family, not a rainbow); re-reads the live accent so it follows dark re-theme. Pair: `categoricalColors` = peer, `ramp` = ordered | — |
 | `COOKIEBITE.funnel(target, { steps, caption?, ariaLabel? })` | themed ECharts funnel; auto step-to-step + overall conversion % labels; single-hue accent ramp; registers for dark | `interactions.md` §10 (hand-built funnel) |
-| `COOKIEBITE.gauge(target, { value, max?, label?, unit?, target?, tone? })` | pure CSS conic-gradient progress ring (no chart lib), center value label, optional target tick; themes via `var(--accent)`, dark-aware with no registration | `components.md` (CSS ring recipe) |
-| `COOKIEBITE.heatmap(target, { data, caption?, ariaLabel?, max? })` | ECharts calendar heatmap (one value per `YYYY-MM-DD`), single-hue accent ramp; registers for dark | `libraries.md` (calendar heatmap) |
+| `COOKIEBITE.gauge(target, { value, max?, label?, unit?, target?, tone?, size?, thickness?, sub?, showMax? })` | pure CSS conic-gradient progress ring (no chart lib), center value label, optional target tick; `showMax:true` appends a faint `/max` so the reader sees the denominator; themes via `var(--accent)`, dark-aware with no registration | `components.md` (CSS ring recipe) |
+| `COOKIEBITE.heatmap(target, { data, caption?, ariaLabel?, max?, range?, from?, to? })` | ECharts calendar heatmap (one value per `YYYY-MM-DD`), single-hue accent ramp; auto-spans only the months the data covers, or pass `range`/`from`+`to` to fix the span; registers for dark | `libraries.md` (calendar heatmap) |
 | `COOKIEBITE.takeaway(pointsOrHtml, opts?)` | returns a **string**: a prominent TL;DR / key-takeaway box (accent-weak surface, accent-strong title); accepts a bullet-string array or raw HTML; `opts.title` | `components.md` "TL;DR box" |
 | `COOKIEBITE.deltaBadge(text, { dir, tone })` | returns a **string**: the standalone stat-delta badge (up/down arrow + tone color) that `kpis` uses internally | `components.md` delta badge |
 | `COOKIEBITE.cardGrid(target, { items, caption? })` | responsive faceted card grid; builds a **wrap-or-scroll** filter chip row from the union of item `tags` (never a bare flex row) | `components.md` card grid + `interactions.md` filter chips |
 | `COOKIEBITE.ramp(n)` | array of `n` on-theme colors from **one** accent hue (varying L/S, bounded) for sequential / stacked data | — |
 | `COOKIEBITE.exportPNG(chartSelector, filename?)` | downloads a **registered** chart as PNG via echarts `getDataURL`; `CB.chart`'s `{ exportable: true }` injects a PNG button next to the view-toggle | — |
+| `COOKIEBITE.shapes.{waterfall,bullet,sparkline,scatter,radar}(cfg)` | **pure ECharts-`option` builders** — pass the returned option to `CB.chart` (which themes + registers it). waterfall (transparent-base ± deltas), bullet (KPI-vs-target), sparkline (axis-less cell line), scatter/bubble (size → area), radar (multi-series, `categoricalColors`) | `libraries.md` (chart-type gotchas) |
+| `COOKIEBITE.bigNumber(target, { value, label?, delta?, spark?, … })` | one oversized hero number (CountUp; a non-numeric string renders verbatim); reuses `deltaBadge` + spark; built-in empty-state | `components.md` "Stat / KPI card" |
+| `COOKIEBITE.steps(target, items[{label, status, detail?}], opts?)` | connected progress stepper (horizontal on sm+, vertical below); `done`→success check, `current`→accent ring, `pending`→hollow; `sr-only` status label per node | `helpers.md` (CB.steps) |
+| `COOKIEBITE.leaderboard(target, items[{label, value, deltaRank?, tone?}], opts?)` | numbered rows with value-proportional accent bars, right-aligned `tabular-nums` value, optional rank-change arrow; built-in empty-state | — |
+| `COOKIEBITE.cellBar / cellHeat / cellSpark(opts?)` | **Grid.js column-`formatter` factories** — attach as a column's `formatter` in `CB.table`: an inline accent bar / accent-tint heat chip / `data-spark` sparkline (cell = `number[]`) | `helpers.md` (Grid.js formatters) |
+| `COOKIEBITE.diff(target, { lines, filename?, … })` | escaped diff view with `+`/`−` gutter + dual old/new line numbers | `components.md` "Diff view" |
+| `COOKIEBITE.pseudocode(target, codeOrLines, opts?)` | escaped annotated-code / pseudocode block with numbered gutter + inline notes | `components.md` "Pseudocode" |
+| `COOKIEBITE.matrix(target, { rows, cols, data, … })` | generic rows×cols×value grid-heatmap (cohort/retention/confusion), single-hue accent ramp; `heatmap` stays calendar-only | `helpers.md` (CB.matrix) |
+| `COOKIEBITE.actionItems(target, items[{title, owner?, due?, priority?, body?}], opts?)` | priority-pill action list + owner/due meta + collapsible `<details>` body + optional copy-as-markdown | `components.md` "Checklist / todo" |
+| `COOKIEBITE.search(opts?)` | **opt-in** sticky search bar filtering/dimming `[data-searchable]` regions with `<mark>` highlight | `helpers.md` (CB.search) |
+| `COOKIEBITE.densityToggle()` / `COOKIEBITE.permalinks(opts?)` | **opt-in** chrome: a compact-density toggle (`html[data-density]`, localStorage) / hover `#` section permalinks (copy section URL) | — |
+| `COOKIEBITE.print()` / `COOKIEBITE.audit()` | `print()` forces light + expands `<details>`/tab panels then `window.print()`; `audit()` is a dev-only DOM a11y/contrast audit (also `?audit=1`) | — |
 
 `COOKIEBITE.chart` is the fast/escape **seam**: the wrapper is data, but the ECharts
 `option` is **always author-written** (merged over `baseChart`; plain objects deep-merge,
@@ -494,22 +509,26 @@ arrays like `series`/`dataZoom` replace wholesale) — never a `{kind}` shortcut
 pseudocode blocks, all Alpine filter/tab/accordion/scenario-slider interactions, and the
 config-form / prompt-editor / copy-as-diff editing UIs. Reach the **exposed primitives**
 to stay on-theme: the CSS-var tokens (`var(--accent)`, `var(--c-*)`), `COOKIEBITE.css()`,
-`COOKIEBITE.readThemeVars()`, `COOKIEBITE.baseChart` + `COOKIEBITE.theme`,
-`COOKIEBITE.accentRgba()`, `nf`/`money`/`moneyShort`, `hydrate()`/`refreshIcons()`,
-`copy()`/`download()`, `dataTableToggle()` (data-table alt for a hand-written chart), `MOTION_OK`.
+`COOKIEBITE.readThemeVars()`, `COOKIEBITE.baseChart` + `COOKIEBITE.theme` (the accent is
+`COOKIEBITE.theme.ACCENT`), `COOKIEBITE.accentRgba()`, `nf`/`money`/`moneyShort`,
+`hydrate()`/`refreshIcons()`, `copy()`/`download()`, `dataTableToggle()` (data-table alt
+for a hand-written chart), `MOTION_OK`. (**Legacy aliases**, kept for older hand-rolled
+reports — for new reports use the right-hand name: `won`/`wonShort` → `money`/`moneyShort`;
+the bare globals `window.ACCENT`/`window.baseChart` → `COOKIEBITE.theme.ACCENT` /
+`COOKIEBITE.baseChart`.)
 
-**Dark-aware hand charts must register.** Any canvas/Mermaid/CSS-var-reading-JS that
-should follow the dark toggle MUST call `COOKIEBITE.registerChart(chart, renderFn)` (or
-`onThemeChange(cb)`, or listen for `'cookiebite:theme'`) — unregistered hand charts won't
-flip. Pure CSS/SVG using `var(--*)` re-themes automatically (see "Theming → Dark mode").
+**Dark-aware hand charts must register** — `CB.chart` does it for you; a hand-written
+canvas/Mermaid chart must call `COOKIEBITE.registerChart(chart, renderFn)` or it won't
+flip on the dark toggle. The full contract (the three registration paths, and why pure
+CSS/SVG needs none) lives in **"Theming → Dark mode"** above — don't restate it per chart.
 
 **Fast-path gotchas (read before using the helpers — these bite silently):**
 - `findings` reuses `tone` as the **severity label**: `critical` renders "Critical", `warning` "High", `info` "Medium", `neutral` "Low". This is the one place `tone` changes the *text*, not just the color (everywhere else — pill, callout, table — it only sets color). `success` has no severity meaning here, so it falls back to "Note". Pass `label` on the item to override the chip text.
 - `kpis` delta/spark are **optional**: a KPI is just `{ label, value }`. **Omit** the `delta` key for no badge at all; pass `delta: null` to render the `—` "no baseline" sentinel. When no KPI has a baseline, omit it on all of them (a row of `—` reads as stray underscores). Likewise omit `spark` for a flat number — don't fabricate a baseline series for a status report that has none. (The template example ships fully loaded to *demo* delta+spark; that's a demo, not a floor.)
-- `kpis` column count **auto-picks by item count** (e.g. 4 items → 4-up, 3 → 3-up); override with `opts.cols`: `'1-2-4'` (1 / sm:2 / xl:4), `'1-2-3'` (1 / sm:2 / xl:3), or `'1-3'` (1 / xl:3). Pass it when the auto pick fights your layout (e.g. force `'1-2-3'` for 4 items you want as 2×2-then-3).
-- `table` auto-hides the search box on small tables (`rows ≤ 10`) and the pager on `rows ≤ 15`; pass `search: true/false` to force it. Don't hand a 5-row table a search field. Pass `csv: true` (or `CB.csvButton`) to inject a "CSV" download of the table rows.
+- `kpis` column count **auto-picks by item count** (e.g. 4 items → 4-up, 3 → 3-up); override with `opts.cols`: `'1-2-4'` (1 / sm:2 / xl:4), `'1-2-3'` (1 / sm:2 / xl:3), `'1-3'` (1 / xl:3), `'1-2'` (1 / sm:2), or `'1'` (always one column). Pass it when the auto pick fights your layout (e.g. force `'1-2-3'` for 4 items you want as 2×2-then-3).
+- `table` auto-hides the search box on small tables (`rows ≤ 10`) and the pager on `rows ≤ 15`; pass `search: true/false` to force it. Don't hand a 5-row table a search field. Pass `csv: true` to inject a "CSV" download of the table rows (there is no standalone `CB.csvButton`).
 - A **hand-written** (escape-hatch) chart still owes a data-table alternative + `aria-label` (the a11y rule). `CB.chart` adds them automatically; for a bespoke chart, call `COOKIEBITE.dataTableToggle(chartSelector, { columns, rows, ariaLabel })` to inject the table toggle + table.
-- **Glossary: the raw `window.GLOSSARY` path must be a PARSE-TIME assignment.** The runtime reads `window.GLOSSARY` once during its own init; setting it later inside the report's `DOMContentLoaded` handler no-ops (the linker already ran). For glossary terms, either assign `window.GLOSSARY = {…}` at parse time (a top-level `<script>` before the runtime, the obvious "raw" path), **or** call `COOKIEBITE.glossary(map, scope?)` — which works from inside the `DOMContentLoaded` handler (the obvious place), merges into `window.GLOSSARY`, and re-runs the linker + tippy. `CB.glossary` is idempotent, so calling it again only links new terms.
+- **Glossary: the raw `window.GLOSSARY` path must be a PARSE-TIME assignment.** The runtime reads `window.GLOSSARY` once during its own init; setting it later inside the report's `DOMContentLoaded` handler no-ops (the linker already ran). For glossary terms, either assign `window.GLOSSARY = {…}` at parse time (a top-level `<script>` before the runtime, the obvious "raw" path), **or** call `COOKIEBITE.glossary(map, scope?)` — which works from inside the `DOMContentLoaded` handler (the obvious place), merges into `window.GLOSSARY`, and re-runs the linker + tippy. `CB.glossary` is idempotent, so calling it again only links new terms. Either path needs the **Tippy CDN tags** in HEAD-LIBS — the `.gloss` underline styling ships in `cookiebite.css`, but the tooltip library doesn't.
 - **Chart/table toggle labels are locale-driven, and overridable.** The show-table / show-chart button text defaults from the locale: when `window.REPORT_LOCALE && /^ko/i.test(REPORT_LOCALE.number)` it's Korean `'표로 보기'` (show-table) / `'차트로 보기'` (show-chart); otherwise English `'View as table'` / `'View as chart'`. Override per-chart with the optional `tableLabel` / `chartLabel` config keys, accepted on **both** `CB.chart(config)` and `CB.dataTableToggle(opts)`; an author-supplied label always wins over the locale default.
 
 - **Table of contents (sidebar)**: include a TOC by default on any report with 3+

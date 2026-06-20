@@ -52,6 +52,12 @@ iris, indigo, blue, sky, cyan, teal, green, grass, yellow, orange, brown, bronze
 > small white-on-accent text (badges, pills, tiny labels) use `--accent-strong` as the
 > fill rather than `--accent`; it's the darker shade and reads. Large text / icon glyphs
 > and non-text accent fills (chart series, borders) are fine on `--accent`.
+>
+> The mirror case is the accent used **as text** on the light bg (KPI numbers, outline-
+> button labels): a warm accent can fail AA there too. The optional preset field
+> `colors.accentText` → `--accent-text` provides a darker, WCAG-safe ink variant for those
+> sites while the brand accent stays the fill (see "Applying a theme" below). Omit it and
+> accent text falls back to `--accent`.
 
 ## Typography
 
@@ -179,6 +185,11 @@ or to know where the skill is installed. Map the JSON to the THEME block:
 
 - `font.url` → the font `<link href>`; `font.family` + `font.fallback` → `--font-family`
 - `colors.accent/accentStrong/accentWeak/accentOn` → `--accent` / `--accent-strong` / `--accent-weak` / `--accent-on`
+- `colors.accentText` (optional) → `--accent-text`: a darker, WCAG-safe variant of the
+  brand accent for accent-**as-text** use-sites (KPI numbers, outline-button labels) on the
+  light bg. The brand accent stays the **fill**; this is only the text/ink variant. Theme-
+  studio emits it in `buildCSS()` and scores it in the light-mode contrast badge (shipped on
+  `supabase` = `#157F56`). Omit it and accent text falls back to `--accent`.
 - `colors.accentDark` (optional) → a dark-mode override emitted **after** the `:root`
   block: `html[data-theme="dark"]{ --accent:<accentDark>; --accent-strong:<accentDark>;
   --accent-on:<accentOnDark> }`. Only present for near-black accents that would vanish on

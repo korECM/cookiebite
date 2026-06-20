@@ -82,12 +82,22 @@
     // round to the band's 1-decimal precision BEFORE selecting the band, so a value
     // just under a boundary (999,999 -> '1.0M', 99,999,999 -> '1.0억') rolls up into
     // the next band instead of reading '1000K' / '10000만'.
+    // non-finite (Infinity/-Infinity/NaN) has no short form — fall back to nf.format so
+    // it never renders 'InfinityB' / 'Infinity억'.
+    if (!isFinite(n)) return nf.format(n);
     var sign = n < 0 ? '-' : '';
     var a = Math.abs(n);
     var band = function (div, unit) { return sign + (Math.round(a / div * 10) / 10).toFixed(1).replace(/\.0$/, '') + unit; };
     if (L.bigUnits) {
-      if (Math.round(a / 1e4) >= 1e4) return band(1e8, '억'); // 만-band would round to >=10000만 -> roll to 억
-      return a >= 1e8 ? band(1e8, '억') : a >= 1e4 ? sign + Math.round(a / 1e4) + '만' : nf.format(n);
+      // F42: the 만/억 (myriad) banding is shared by ko AND ja — only the glyphs
+      // differ (ko 만/억, ja 万/億). bigUnits:'ja' (or a {man,eok} object) swaps the
+      // labels; bigUnits:true keeps the historical Korean glyphs byte-for-byte.
+      var U = L.bigUnits === 'ja' ? { man: '万', eok: '億' }
+        : (L.bigUnits && typeof L.bigUnits === 'object') ? { man: L.bigUnits.man || '만', eok: L.bigUnits.eok || '억' }
+        : { man: '만', eok: '억' };
+      if (Math.round(a / 1e4) >= 1e4) return band(1e8, U.eok); // 만-band would round to >=10000만 -> roll to 억
+      // 만 keeps the same 1-decimal band treatment as every other unit (15000 -> '1.5만', not '2만')
+      return a >= 1e8 ? band(1e8, U.eok) : a >= 1e4 ? band(1e4, U.man) : nf.format(n);
     }
     if (Math.round(a / 1e6 * 10) / 10 >= 1000) return band(1e9, 'B'); // M-band would round to >=1000M -> roll to B
     if (Math.round(a / 1e3 * 10) / 10 >= 1000) return band(1e6, 'M'); // K-band would round to >=1000K -> roll to M
@@ -100,6 +110,79 @@
      as aliases of money/moneyShort so old docs/snippets keep working. */
   CB.won = money;
   CB.wonShort = moneyShort;
+
+  /* ---- F42 i18n string table (replaces the scattered /^ko/i string forks) ----
+     Keyed by a 2-letter locale prefix; ko/en ship built-in (their strings are
+     BYTE-IDENTICAL to the prior inline forks, so existing ko/en reports are
+     unchanged). window.REPORT_LOCALE.strings is a per-report override map merged
+     on top. CB.locale() resolves the active prefix from REPORT_LOCALE.number
+     (e.g. 'ko-KR' -> 'ko'); unknown locales fall back to 'en'. CB.t(key, fallback)
+     looks the key up; a missing key returns the fallback (or the key itself), so a
+     half-translated override never blanks a label. */
+  var I18N = {
+    en: {
+      noData: 'No data',
+      viewTable: 'View as table', viewChart: 'View as chart',
+      savePng: 'Save PNG', exportCsv: 'Export CSV',
+      sevCritical: 'Critical', sevHigh: 'High', sevMedium: 'Medium', sevLow: 'Low', all: 'All',
+      insightAction: 'Action', insightWatch: 'Watch', insightNote: 'Note', keyTakeaways: 'Key takeaways',
+      recommended: 'Recommended', total: 'Total', overall: 'Overall ', vsPrev: ' vs prev',
+      stepCol: 'Step', valueCol: 'Value', dateCol: 'Date',
+      stDone: 'done', stCurrent: 'current', stPending: 'pending',
+      sectionNav: 'Section navigation', onThisPage: 'On this page', onThisPageDots: 'On this page…',
+      ofWord: ' of ',
+      themeToggle: 'Toggle light/dark', print: 'Print / Save as PDF',
+      search: 'Search report', noMatches: 'No matches',
+      copied: 'Copied ✓', copyLink: 'Copy link to this section',
+      density: 'Toggle density', auditTitle: 'Audit',
+      details: 'Details', copyMarkdown: 'Copy as Markdown',
+      mermaidFail: 'Diagram failed to render — check the Mermaid definition.',
+    },
+    ko: {
+      noData: '데이터 없음',
+      viewTable: '표로 보기', viewChart: '차트로 보기',
+      savePng: 'PNG 저장', exportCsv: 'CSV 내보내기',
+      sevCritical: '심각', sevHigh: '높음', sevMedium: '보통', sevLow: '낮음', all: '전체',
+      insightAction: '조치', insightWatch: '주의', insightNote: '메모', keyTakeaways: '핵심 요약',
+      recommended: '추천', total: '합계', overall: '전체 전환율 ', vsPrev: ' 직전 대비',
+      stepCol: '단계', valueCol: '값', dateCol: '날짜',
+      stDone: '완료', stCurrent: '진행 중', stPending: '예정',
+      sectionNav: '섹션 이동', onThisPage: '이 페이지에서', onThisPageDots: '이 페이지에서…',
+      ofWord: ' / ',
+      themeToggle: '라이트/다크 전환', print: '인쇄 / PDF 저장',
+      search: '리포트 검색', noMatches: '일치 항목 없음',
+      copied: 'Copied ✓', copyLink: '이 섹션 링크 복사',
+      density: '밀도 전환', auditTitle: '점검',
+      details: '상세', copyMarkdown: 'Markdown 복사',
+      mermaidFail: '다이어그램 렌더 실패 — Mermaid 정의를 확인하세요.',
+    },
+    /* ja ships ONLY the cells that differ from en where trivial; missing keys fall
+       back to en via the t() resolver, so a ja report degrades gracefully. */
+    ja: {
+      noData: 'データなし',
+      viewTable: '表で見る', viewChart: 'グラフで見る',
+      all: 'すべて', total: '合計', recommended: '推奨',
+      onThisPage: 'このページ内', onThisPageDots: 'このページ内…', sectionNav: 'セクション移動',
+    },
+  };
+  // active locale prefix (ko/en/ja/…); REPORT_LOCALE.number drives it, unknown -> en
+  function localePrefix() {
+    var n = (window.REPORT_LOCALE && window.REPORT_LOCALE.number) || 'en';
+    var p = String(n).slice(0, 2).toLowerCase();
+    return I18N[p] ? p : 'en';
+  }
+  CB.locale = localePrefix;
+  CB.i18n = I18N; // exposed so an author can add a locale or inspect the table
+  // t(key, fallback): override map > active-locale cell > en cell > fallback > key.
+  function t(key, fallback) {
+    var ov = (window.REPORT_LOCALE && window.REPORT_LOCALE.strings) || null;
+    if (ov && ov[key] != null) return ov[key];
+    var p = localePrefix();
+    if (I18N[p] && I18N[p][key] != null) return I18N[p][key];
+    if (I18N.en[key] != null) return I18N.en[key];
+    return fallback != null ? fallback : key;
+  }
+  CB.t = t;
 
   /* ---- shared ECharts theme (accent + neutral grid + report font) ----
      Canvas charts don't follow CSS vars, so we read tokens into JS and re-read
@@ -169,15 +252,18 @@
     }
     if (n <= 1) return [CB.theme.ACCENT || raw];
     var hsl = rgbToHsl(r, g, b), baseH = hsl[0], s = Math.max(0.45, hsl[1]), l0 = Math.min(0.62, Math.max(0.42, hsl[2]));
-    // bounded arc: sweep hue across a ±50° span centered on the accent, and ramp
-    // lightness across the same span, so the series read as one accent family
-    // (NOT a rainbow). For n=1 the single entry sits exactly on the accent hue.
-    var ARC = 50; // total half-spread in degrees
+    // bounded arc: index 0 sits ON the accent hue (the PRIMARY series stays the accent),
+    // and later series sweep FORWARD across a span that TIGHTENS for small n so a 2- or
+    // 3-series chart reads as one accent family, not a rainbow:
+    //   n<=2 -> ~12° total (index 1 within ±12° of the accent)
+    //   n===3 -> ~36° total (well under the old ~100°)
+    //   n>=4 -> 100° total (the prior wide, recognizable spread)
+    var SPAN = n <= 2 ? 12 : n === 3 ? 36 : 100;
     var out = [];
     for (var i = 0; i < n; i++) {
-      var f = n === 1 ? 0 : (i / (n - 1)) - 0.5; // -0.5 .. +0.5 across the arc
-      var h = ((baseH + ARC * 2 * f) % 360 + 360) % 360;
-      var l = Math.min(0.66, Math.max(0.40, l0 + 0.10 * f)); // gentle L ramp, bounded
+      var f = i / (n - 1); // 0 (accent) .. 1 (far end)
+      var h = ((baseH + SPAN * f) % 360 + 360) % 360;
+      var l = Math.min(0.66, Math.max(0.40, l0 + 0.10 * (f - 0.5))); // gentle L ramp, bounded
       out.push('hsl(' + Math.round(h) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)');
     }
     return out;
@@ -317,8 +403,17 @@
     });
   }
 
-  /* ---- icons ---- */
-  CB.refreshIcons = function () { if (window.lucide) window.lucide.createIcons(); };
+  /* ---- icons ----
+     Optional `scope` element scopes the redraw to one subtree (lucide.createIcons
+     accepts { root }) so a helper re-rendering one section doesn't re-scan the whole
+     document. Falls back to the global no-arg call when scope is omitted or unsupported. */
+  CB.refreshIcons = function (scope) {
+    if (!window.lucide) return;
+    if (scope && scope.nodeType === 1) {
+      try { window.lucide.createIcons({ root: scope }); return; } catch (e) { /* fall through to global */ }
+    }
+    window.lucide.createIcons();
+  };
 
   /* ==========================================================================
      tone primitive (components.md). The micro-helper every other component
@@ -346,8 +441,7 @@
      centered "no data" line so a legitimately-empty section reads as "nothing to show"
      instead of a broken-looking blank box. Locale-aware; overridable via opts.emptyText. */
   function emptyState(msg) {
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var text = msg != null ? msg : (ko ? '데이터 없음' : 'No data');
+    var text = msg != null ? msg : t('noData');
     return '<div class="col-span-full text-center text-body-14 text-secondary py-24">' + esc(text) + '</div>';
   }
 
@@ -405,18 +499,21 @@
      title overrides the locale default ('Key takeaways' / '핵심 요약'). */
   CB.takeaway = function (pointsOrHtml, opts) {
     opts = opts || {};
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var title = opts.title != null ? opts.title : (ko ? '핵심 요약' : 'Key takeaways');
+    var title = opts.title != null ? opts.title : t('keyTakeaways', 'Key takeaways');
     var body;
     if (Array.isArray(pointsOrHtml)) {
       // tone-dotted bullets: a colored disc (reusing the tone dot vocabulary) + escaped text
       body = '<ul class="space-y-8">' + pointsOrHtml.map(function (p) {
-        var txt = (p && typeof p === 'object') ? p.text : p;
         var dotTone = (p && typeof p === 'object' && p.tone) ? p.tone : 'neutral';
         var dot = TONE_DOT[dotTone] || 'bg-accent';
+        // { html } is TRUSTED author HTML (renders verbatim so inline bold/links/<a>
+        // survive); { text } (or a plain string) is ESCAPED. html wins when both present.
+        var inner = (p && typeof p === 'object' && p.html != null)
+          ? p.html
+          : esc((p && typeof p === 'object') ? p.text : p);
         return '<li class="flex gap-8 text-body-14">' +
           '<span class="mt-6 w-8 h-8 rounded-full shrink-0 ' + dot + '"></span>' +
-          '<span>' + esc(txt) + '</span></li>';
+          '<span>' + inner + '</span></li>';
       }).join('') + '</ul>';
     } else {
       // raw HTML escape hatch (trusted), for authors who need links/bold inline
@@ -589,8 +686,12 @@
         deltaHtml = '';
       }
 
+      // data-spark JSON sits in a SINGLE-quoted attribute, so esc() it: a value
+      // containing ' (would close the attr) becomes &#39;, and " / < / > / & are
+      // neutralized too. hydrate() HTML-decodes the attribute before JSON.parse, so the
+      // payload round-trips intact.
       var spark = it.spark
-        ? '<div class="h-32 mt-12" data-spark=\'' + JSON.stringify(it.spark) + '\'></div>'
+        ? '<div class="h-32 mt-12" data-spark=\'' + esc(JSON.stringify(it.spark)) + '\'></div>'
         : '';
 
       // note: the right home for baseline-free context ("vs 0 baseline", "provisional")
@@ -612,29 +713,23 @@
      Emits the components.md "Severity-coded findings list" verbatim, incl. the
      optional Alpine severity-chip filter. tone doubles as severity.
      ========================================================================== */
-  var SEV_LABEL = { critical: 'Critical', warning: 'High', info: 'Medium', neutral: 'Low' };
-  var SEV_LABEL_KO = { critical: '심각', warning: '높음', info: '보통', neutral: '낮음' };
-  // neutral/business vocabulary for opts.kind:'insights' — a dashboard's observations
-  // list ("success up 0.3%p") reads wrong as 'Medium' severity. Same tone colors +
-  // filter UI, just de-severitized chip/badge words.
-  var INSIGHT_LABEL = { critical: 'Action', warning: 'Watch', info: 'Note', neutral: 'Note' };
-  var INSIGHT_LABEL_KO = { critical: '조치', warning: '주의', info: '메모', neutral: '메모' };
   var SEV_RANK = { critical: 0, warning: 1, info: 2, neutral: 3 };
-  // severity labels follow the report locale (Korean when REPORT_LOCALE.number
-  // starts with 'ko'); opts.kind:'insights' swaps the incident-flavored severity
-  // ladder for a neutral business vocabulary. opts.sevLabels overrides the badge set,
-  // opts.chipLabels the chip set (incl. the 'all' key). A per-item f.label wins over all.
+  // severity labels follow the report locale via the F42 i18n table; opts.kind:'insights'
+  // swaps the incident-flavored severity ladder for a neutral business vocabulary. Built
+  // live from t() so a window.REPORT_LOCALE.strings override (sevHigh/insightWatch/…)
+  // propagates. opts.sevLabels overrides the badge set, opts.chipLabels the chip set (incl.
+  // the 'all' key). A per-item f.label wins over all.
   function baseLabels(opts) {
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    if (opts && opts.kind === 'insights') return ko ? INSIGHT_LABEL_KO : INSIGHT_LABEL;
-    return ko ? SEV_LABEL_KO : SEV_LABEL;
+    if (opts && opts.kind === 'insights') {
+      return { critical: t('insightAction'), warning: t('insightWatch'), info: t('insightNote'), neutral: t('insightNote') };
+    }
+    return { critical: t('sevCritical'), warning: t('sevHigh'), info: t('sevMedium'), neutral: t('sevLow') };
   }
   function sevLabelSet(opts) {
     return Object.assign({}, baseLabels(opts), (opts && opts.sevLabels) || {});
   }
   function chipLabelSet(opts) {
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var base = Object.assign({ all: ko ? '전체' : 'All' }, baseLabels(opts));
+    var base = Object.assign({ all: t('all') }, baseLabels(opts));
     return Object.assign(base, (opts && opts.chipLabels) || {});
   }
 
@@ -655,10 +750,11 @@
     if (withSort) list.sort(function (a, b) { return rank(a.tone) - rank(b.tone); });
 
     var lis = list.map(function (f) {
-      var t = tone(f.tone);
-      var badgeLabel = f.label || sevLabels[f.tone] || 'Note';
-      // normalize to a known tone so the per-item filter value matches the chip set
+      // normalize to a known tone ONCE, up front, so the badge color, badge label, the
+      // per-item filter value, and the chip set all agree for an unknown/custom tone.
       var sevTone = SEV_RANK[f.tone] != null ? f.tone : 'neutral';
+      var t = tone(sevTone);
+      var badgeLabel = f.label || sevLabels[sevTone] || 'Note';
       var show = withFilter ? ' x-show="sev===\'all\' || sev===\'' + sevTone + '\'"' : '';
       var where = f.where ? '<span class="font-mono">' + esc(f.where) + '</span>' : '';
       var note = f.note ? (where ? ' · ' : '') + esc(f.note) : '';
@@ -685,9 +781,16 @@
     // readable severity label (neutral -> 'Low') as the chip text.
     // single-quoted JS array literal — JSON.stringify would inject double quotes that
     // terminate the double-quoted x-for attribute (Alpine expr truncates, chips vanish).
-    var sqChip = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
+    // esc() the literal so a value containing " / < / > can't break out of the
+    // double-quoted attribute (browser HTML-decodes &quot; back to " INSIDE the JS
+    // single-quoted string before Alpine parses it — safe + correct). A trailing
+    // backslash is neutralized by escaping the closing-quote sequence below.
+    var sqChip = function (s) { return esc("'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"); };
     var chipDefs = '[' + chips.map(function (tn) {
-      var label = chipLabels[tn] || tn;
+      // an explicit chipLabels override wins; else fall back to the SAME sevLabels map the
+      // badges use so a sevLabels override propagates to the chips (no badge/chip desync);
+      // finally the tone key itself.
+      var label = chipLabels[tn] != null ? chipLabels[tn] : (sevLabels[tn] != null ? sevLabels[tn] : tn);
       return '{tone:' + sqChip(tn) + ',label:' + sqChip(label) + '}';
     }).join(',') + ']';
 
@@ -854,23 +957,27 @@
       var id = 'cbmmd' + (mmdSeq++);
       return mermaid.render(id, definition).then(function (res) {
         host.innerHTML = res.svg;
-        // host scrolls horizontally so a wide LR flowchart on a phone scrolls instead of
-        // shrinking every label to ~6px (the narrow-viewport illegibility footgun).
+        // host scrolls horizontally as a FALLBACK so a very wide diagram is still fully
+        // reachable when scaled-to-fit isn't enough.
         host.style.overflowX = 'auto';
         var svg = host.querySelector('svg');
         if (svg) {
-          // intrinsic px width Mermaid sized the diagram at (viewBox width when present)
-          var vb = svg.viewBox && svg.viewBox.baseVal;
-          var intrinsic = vb && vb.width ? vb.width : (parseFloat(svg.getAttribute('width')) || 0);
+          // SCALE-TO-FIT: drop the intrinsic px width and let the SVG shrink to the
+          // container (max-width:100%/width:100%/height:auto). A wide sequence diagram
+          // then shrinks gracefully instead of clipping on desktop / vanishing on mobile;
+          // the viewBox preserves the aspect ratio so labels scale, not crop.
           svg.removeAttribute('width');
+          svg.style.width = '100%';
+          svg.style.maxWidth = '100%';
           svg.style.height = 'auto';
-          // only scale-to-fit when the diagram actually fits the container; when it's
-          // wider, keep its intrinsic width so it stays legible and the host scrolls.
-          if (intrinsic && intrinsic > host.clientWidth) {
-            svg.style.width = Math.round(intrinsic) + 'px';
-            svg.style.maxWidth = 'none';
+          // if it still overflows (a genuinely huge diagram), add a subtle scroll-hint so
+          // the reader knows the host scrolls horizontally for the rest.
+          if (host.scrollWidth > host.clientWidth + 1) {
+            host.classList.add('cb-mermaid-scroll');
+            host.style.cursor = 'ew-resize';
           } else {
-            svg.style.maxWidth = '100%';
+            host.classList.remove('cb-mermaid-scroll');
+            host.style.cursor = '';
           }
         }
         if (res.bindFunctions) res.bindFunctions(host);
@@ -889,7 +996,7 @@
     }).catch(function (e) {
       console.warn('[cookiebite] COOKIEBITE.mermaid failed', e);
       if (opts.onError) host.innerHTML = opts.onError;
-      else host.innerHTML = '<pre class="text-caption-12 text-critical p-12 rounded-small bg-disabled-bg overflow-auto">다이어그램 렌더 실패 — Mermaid 정의를 확인하세요.</pre>';
+      else host.innerHTML = '<pre class="text-caption-12 text-critical p-12 rounded-small bg-disabled-bg overflow-auto">' + esc(t('mermaidFail')) + '</pre>';
     });
     return host;
   };
@@ -911,6 +1018,11 @@
     if (!host || !window.gridjs) { if (!window.gridjs) console.warn('[cookiebite] COOKIEBITE.table needs Grid.js — add its CDN tags in the HEAD-LIBS slot.'); return null; }
     config = config || {};
     var gridjs = window.gridjs;
+
+    // empty: a quiet "no data" line instead of an empty Grid.js shell (header-only,
+    // no rows). Grid.js refuses to render into a non-empty container, so this returns
+    // null WITHOUT building a grid (mirrors funnel/heatmap returning null when empty).
+    if (!(config.rows || []).length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null; }
 
     // stable scope id for the right-align <style>
     if (!host.id) host.id = 'cbTable' + (++tableSeq);
@@ -981,15 +1093,16 @@
     });
     grid.render(host);
 
-    // pills inside Grid.js need their lucide icons drawn after render
-    grid.config.store.subscribe(function () { CB.refreshIcons(); });
+    // pills inside Grid.js need their lucide icons drawn after render; any CB.cellSpark
+    // data-spark cells get wired by CB.hydrate (guarded per-element so re-renders on
+    // sort/page only wire the freshly-drawn cells).
+    grid.config.store.subscribe(function () { CB.refreshIcons(); CB.hydrate(host); });
 
     // opt-in CSV export: Grid.js already holds the raw rows, so serialize columns +
     // config.rows to a CSV the reader can pull into a spreadsheet (interactions.md §13's
     // "always end an editable artifact with a way out"). A pill/status cell ({label,…})
     // serializes to its label; a quote/comma/newline is RFC-4180 quote-escaped.
     if (config.csv) {
-      var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
       var headerNames = (config.columns || []).map(function (col) { return typeof col === 'string' ? col : (col.name || ''); });
       var csvCell = function (v) {
         if (v && typeof v === 'object' && v.label != null) v = v.label;
@@ -1006,7 +1119,7 @@
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'text-caption-12 text-secondary hover:text-primary';
-      btn.textContent = ko ? 'CSV 내보내기' : 'Export CSV';
+      btn.textContent = t('exportCsv');
       btn.addEventListener('click', function () { CB.download((config.csvName || 'table') + '.csv', toCsv(), 'text/csv;charset=utf-8'); });
       bar.appendChild(btn);
       host.parentNode ? host.parentNode.insertBefore(bar, host) : host.insertBefore(bar, host.firstChild);
@@ -1043,6 +1156,35 @@
   }
   CB.deepMerge = deepMerge; // exposed: hand charts may reuse the same merge semantics
 
+  // all-zero/all-empty detection for the chart empty-state. Returns true ONLY when the
+  // option carries inline series, EVERY series has a non-empty data array, and EVERY
+  // datum across them is empty/zero. A datum can be a number, [x,y] pair, or {value}
+  // object — we pull the magnitude out of each shape. Anything we can't read as a number
+  // (a string category, a missing value) is treated as a real value so we DON'T blank a
+  // legitimately-populated chart. Charts without inline series (dataset-driven, gauges)
+  // return false and render normally.
+  function chartSeriesAllZero(option) {
+    if (!isPlainObject(option)) return false;
+    var series = option.series;
+    if (isPlainObject(series)) series = [series];
+    if (!Array.isArray(series) || !series.length) return false;
+    var datumZero = function (d) {
+      if (d == null) return true;
+      if (typeof d === 'number') return d === 0;
+      if (Array.isArray(d)) { var v = d[d.length - 1]; return typeof v === 'number' ? v === 0 : false; }
+      if (typeof d === 'object') return d.value == null || (typeof d.value === 'number' && d.value === 0) || (Array.isArray(d.value) && d.value.every(function (x) { return typeof x === 'number' ? x === 0 : false; }));
+      return false; // a string/unknown datum is a real value
+    };
+    var sawData = false;
+    for (var i = 0; i < series.length; i++) {
+      var data = series[i] && series[i].data;
+      if (!Array.isArray(data) || !data.length) return false; // a series with no inline data -> can't judge, render
+      sawData = true;
+      for (var j = 0; j < data.length; j++) { if (!datumZero(data[j])) return false; }
+    }
+    return sawData;
+  }
+
   var chartSeq = 0;
 
   /* view-toggle labels: author overrides win, else locale default.
@@ -1050,12 +1192,9 @@
      Returns { table: show-table label, chart: show-chart label }. */
   function toggleLabels(cfg) {
     cfg = cfg || {};
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var dTable = ko ? '표로 보기' : 'View as table';
-    var dChart = ko ? '차트로 보기' : 'View as chart';
     return {
-      table: cfg.tableLabel != null ? cfg.tableLabel : dTable,
-      chart: cfg.chartLabel != null ? cfg.chartLabel : dChart,
+      table: cfg.tableLabel != null ? cfg.tableLabel : t('viewTable'),
+      chart: cfg.chartLabel != null ? cfg.chartLabel : t('viewChart'),
     };
   }
 
@@ -1072,6 +1211,14 @@
     var cid = 'cbChart' + (++chartSeq);
 
     CB.disposeIn(host); // re-run on the same target: dispose the prior chart instance
+
+    // all-empty / all-zero series -> the SAME quiet placeholder a collection helper
+    // shows, instead of a blank axis canvas the reader can't tell from a broken chart.
+    // Only fires when EVERY series has data AND every datum is empty/zero (a chart with
+    // any real value, or one driven by dataset/no inline series, renders normally).
+    if (chartSeriesAllZero(config.option) && config.emptyOnZero !== false) {
+      host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null;
+    }
 
     // build the §10 view-toggle scaffold (matches the template trend section)
     var hasTable = !!(config.table && config.table.columns);
@@ -1099,8 +1246,11 @@
 
     var tl = toggleLabels(config);
     // single-quoted literals: JSON.stringify's double quotes would terminate the
-    // double-quoted x-text attribute and blank the label.
-    var sqLabel = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
+    // double-quoted x-text attribute and blank the label. esc() the literal so a label
+    // containing " / < / > can't break out of the double-quoted attribute (the browser
+    // HTML-decodes &quot; back to " inside the JS single-quoted string before Alpine
+    // parses it — safe + correct). Backslashes are doubled so a trailing \ can't escape.
+    var sqLabel = function (s) { return esc("'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"); };
     var toggleBtnInner = hasTable
       ? '<button @click="table=!table" :aria-pressed="table" ' +
         'class="text-caption-12 text-secondary hover:text-primary" x-text="table ? ' +
@@ -1108,8 +1258,7 @@
       : '';
     // opt-in PNG export: a small button next to the view-toggle. cid is unique so it
     // wires to THIS chart's instance via CB.exportPNG (registered below).
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var pngLabel = ko ? 'PNG 저장' : 'Save PNG';
+    var pngLabel = t('savePng');
     var pngBtnInner = config.exportable
       ? '<button type="button" data-cb-png="' + cid + '" class="text-caption-12 text-secondary hover:text-primary">' + esc(pngLabel) + '</button>'
       : '';
@@ -1151,6 +1300,53 @@
       ? config.render
       : function (chart) { chart.setOption(deepMerge(CB.baseChart, lastOption), true); };
     CB.registerChart(inst, renderFn);
+
+    // F19 — narrow-width legibility. At phone widths a chart's axisName/grid eat the plot
+    // area and a dual-axis chart's RIGHT axisName collides with the data. When the
+    // container is < ~640px, apply a CONSERVATIVE overlay (a NON-merge setOption is never
+    // used — this is a shallow merge so the author's series/data are untouched): shrink
+    // axisName + axisLabel fonts a notch, tighten the grid, and blank the right yAxis name
+    // on a dual-axis chart. Guarded so it only ever touches axis chrome, and only toggles
+    // on an actual threshold CROSS (so a wide chart is never altered). opts.responsive:false
+    // opts out. Skipped entirely when ResizeObserver is unavailable (older engines).
+    if (config.responsive !== false && typeof ResizeObserver === 'function') {
+      var narrow = null; // null = unknown, then true/false; only re-apply on a change
+      var applyNarrow = function (isNarrow) {
+        // read the author's yAxis to detect a dual-axis (array of 2) chart
+        var yAxis = lastOption && lastOption.yAxis;
+        var dual = Array.isArray(yAxis) && yAxis.length > 1;
+        var nameFs = isNarrow ? 10 : 12;
+        var labelFs = isNarrow ? 10 : 12;
+        // narrow tightens the grid; widening RESTORES the author/base grid (so a chart
+        // that crossed below and back is unchanged from its original layout).
+        var wideGrid = (lastOption && lastOption.grid) || (CB.baseChart && CB.baseChart.grid) || { left: 8, right: 16, top: 24, bottom: 8, containLabel: true };
+        var overlay = {
+          grid: isNarrow ? { left: 4, right: 8, top: 18, bottom: 4, containLabel: true } : wideGrid,
+          xAxis: { nameTextStyle: { fontSize: nameFs }, axisLabel: { fontSize: labelFs } },
+        };
+        // yAxis overlay must MATCH the author's shape (single object vs 2-element array)
+        // so the merge lands on the right axis. On a dual-axis narrow chart, drop the
+        // RIGHT axis name (index 1) so it can't collide with the plotted data.
+        if (dual) {
+          overlay.yAxis = [
+            { nameTextStyle: { fontSize: nameFs }, axisLabel: { fontSize: labelFs } },
+            { name: isNarrow ? '' : (yAxis[1] && yAxis[1].name) || '', nameTextStyle: { fontSize: nameFs }, axisLabel: { fontSize: labelFs } },
+          ];
+        } else {
+          overlay.yAxis = { nameTextStyle: { fontSize: nameFs }, axisLabel: { fontSize: labelFs } };
+        }
+        try { inst.setOption(overlay); } catch (e) {}
+      };
+      var ro = new ResizeObserver(function (entries) {
+        var w = entries[0] && entries[0].contentRect ? entries[0].contentRect.width : el.clientWidth;
+        if (!w) return; // 0-width (hidden tab) — don't judge
+        var isNarrow = w < 640;
+        if (isNarrow === narrow) return; // only re-apply on a threshold cross
+        narrow = isNarrow;
+        applyNarrow(isNarrow);
+      });
+      try { ro.observe(el); } catch (e) {}
+    }
 
     CB.refreshIcons();
     return inst;
@@ -1196,15 +1392,22 @@
     var el = host.querySelector('#' + cid);
     var inst = window.echarts.init(el);
     var top = steps[0].value || 0; // overall-conversion denominator (first/top step)
+    // a 0-valued TOP step makes every conversion % a divide-by-zero — we skip just those
+    // %s (steps still render with their raw values), but warn so the author notices the
+    // funnel can't compute conversion from a zero baseline.
+    if (!top) console.warn('[cookiebite] COOKIEBITE.funnel: the top step value is 0 — conversion % is disabled (cannot divide by a zero baseline). Step values still render.');
 
     // option re-reads CB.ramp/CB.baseChart live so a dark toggle re-themes the ramp.
     function option() {
       var colors = CB.ramp(steps.length);
+      // step-to-step % carries a 'vs prev' qualifier so it's not confused with the
+      // OVERALL conversion shown in the subtitle below.
+      var vsPrev = t('vsPrev');
       var data = steps.map(function (s, i) {
         // label shows the step name + step-to-step conversion vs the PREVIOUS step
         var prev = i === 0 ? null : (steps[i - 1].value || 0);
         var pct = prev ? Math.round((s.value / prev) * 1000) / 10 : null;
-        var name = s.label + (pct != null ? ' · ' + pct + '%' : '');
+        var name = s.label + (pct != null ? ' · ' + pct + '%' + vsPrev : '');
         return { value: s.value, name: name, itemStyle: { color: colors[i] } };
       });
       var overall = top ? Math.round((steps[steps.length - 1].value / top) * 1000) / 10 : null;
@@ -1213,7 +1416,7 @@
         tooltip: { trigger: 'item', formatter: '{b}: {c}' },
         // overall conversion as a subtitle so the headline number is always visible
         title: overall != null ? {
-          text: (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '전체 전환율 ' : 'Overall ') + overall + '%',
+          text: t('overall') + overall + '%',
           left: 'center', bottom: 0, textStyle: { color: CB.theme.C_SECONDARY, fontSize: 12, fontWeight: 'normal', fontFamily: CB.theme.FONT },
         } : undefined,
         series: [{
@@ -1233,7 +1436,7 @@
     // a11y data-table alternative (vanilla toggle, same as a hand chart gets)
     CB.dataTableToggle(el, {
       ariaLabel: aria,
-      columns: [config.stepHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '단계' : 'Step'), config.valueHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '값' : 'Value'), '%'],
+      columns: [config.stepHeader || t('stepCol'), config.valueHeader || t('valueCol'), '%'],
       rows: steps.map(function (s, i) {
         var prev = i === 0 ? null : (steps[i - 1].value || 0);
         var pct = i === 0 ? '100%' : (prev ? (Math.round((s.value / prev) * 1000) / 10) + '%' : '—');
@@ -1278,9 +1481,14 @@
     var thickness = config.thickness || 16;
 
     // center figure: value (+ unit). A %-style gauge shows the value as-authored.
+    // opts.showMax appends a faint '/max' affordance so the reader sees the denominator
+    // (18 /24, 67 /100) — off by default to preserve the existing bare-value rendering.
     var unit = config.unit != null ? config.unit : '';
+    var maxAff = config.showMax
+      ? '<span class="text-title-20 text-secondary font-semibold"> /' + esc(CB.nf.format(max)) + esc(unit) + '</span>'
+      : '';
     var center = '<div class="absolute inset-0 flex flex-col items-center justify-center">' +
-      '<span class="text-title-28 font-bold nums leading-none">' + esc(CB.nf.format(value)) + esc(unit) + '</span>' +
+      '<span class="text-title-28 font-bold nums leading-none">' + esc(CB.nf.format(value)) + esc(unit) + maxAff + '</span>' +
       (config.sub ? '<span class="text-caption-12 text-secondary mt-2">' + esc(config.sub) + '</span>' : '') +
       '</div>';
 
@@ -1351,9 +1559,23 @@
       '<div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + height + 'px"></div>' +
       '</div>';
 
-    // calendar RANGE: the year span the data covers (ECharts wants the year(s))
-    var years = data.map(function (d) { return d.date.slice(0, 4); });
-    var range = years[0] === years[years.length - 1] ? years[0] : [years[0], years[years.length - 1]];
+    // calendar RANGE. An explicit config.range (or from/to) is passed straight to the
+    // calendar; otherwise default to the MONTH span the data actually covers (sorted, so
+    // an unsorted data array can't reverse start>end and render nothing). A few weeks of
+    // data should NOT draw a full Jan–Dec grid — so the auto-range is the min..max
+    // 'YYYY-MM' the dates span, which ECharts expands to whole months.
+    var range;
+    if (config.range != null) {
+      range = config.range;
+    } else if (config.from != null || config.to != null) {
+      range = [config.from, config.to];
+    } else {
+      // min/max from a SORTED copy of the dates (lexical sort works on YYYY-MM-DD), then
+      // narrow to the month span so a short window doesn't draw the whole year.
+      var sorted = data.map(function (d) { return d.date; }).sort();
+      var lo = sorted[0], hi = sorted[sorted.length - 1];
+      range = [lo.slice(0, 7), hi.slice(0, 7)];
+    }
     var maxVal = config.max != null ? config.max : data.reduce(function (m, d) { return Math.max(m, d.value); }, 0) || 1;
 
     var el = host.querySelector('#' + cid);
@@ -1389,7 +1611,7 @@
     // a11y data-table alternative (vanilla toggle, same as a hand chart gets)
     CB.dataTableToggle(el, {
       ariaLabel: aria,
-      columns: [config.dateHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '날짜' : 'Date'), config.valueHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '값' : 'Value')],
+      columns: [config.dateHeader || t('dateCol'), config.valueHeader || t('valueCol')],
       rows: data.map(function (d) { return [d.date, CB.nf.format(d.value)]; }),
     });
 
@@ -1464,8 +1686,7 @@
     config = config || {};
     var rows = config.rows || [];
     var options = config.options || [];
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var recLabel = ko ? '추천' : 'Recommended';
+    var recLabel = t('recommended');
 
     // ROW-MAJOR shape: transpose rows:[{label, cells}] into the option-major form so
     // the rest of the helper is unchanged. cell j (or cell.text) -> options[j].values[i].
@@ -1544,7 +1765,6 @@
     if (!host) return;
     config = config || {};
     var items = config.items || [];
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
 
     var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
     var caption = (config.captionHtml != null || config.caption != null)
@@ -1560,8 +1780,12 @@
       (it.tags || []).forEach(function (tg) { if (allTags.indexOf(tg) < 0) allTags.push(tg); });
     });
 
-    // single-quoted JS literals inside the double-quoted Alpine attrs (mirrors CB.findings)
-    var sq = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
+    // single-quoted JS literals inside the double-quoted Alpine attrs (mirrors CB.findings).
+    // esc() the literal so a tag containing " / < / > / & can't break out of the
+    // double-quoted attribute (browser HTML-decodes &quot; back to " INSIDE the JS
+    // single-quoted string before Alpine parses it). Backslashes doubled first so a
+    // trailing \ can't escape the closing quote.
+    var sq = function (s) { return esc("'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"); };
 
     var cards = items.map(function (it) {
       var itemTags = it.tags || [];
@@ -1581,7 +1805,7 @@
 
     // facet chip row — flex-wrap so a wide facet set never overflows the page on mobile.
     // toggling a chip adds/removes it from `active`; 'all' clears the filter.
-    var allLabel = ko ? '전체' : 'All';
+    var allLabel = t('all');
     var chips = '<button @click="active=[]" :class="active.length===0 ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
       'class="px-10 py-4 rounded-small">' + esc(allLabel) + '</button>' +
       allTags.map(function (tg) {
@@ -1593,7 +1817,7 @@
     // live "showing N of M" count, recomputed by Alpine from the active facets.
     // SINGLE-quoted nested array literal (NOT JSON.stringify) — double quotes would
     // terminate the double-quoted x-text attr and blank the count (same footgun as findings).
-    var ofWord = ko ? ' / ' : ' of ';
+    var ofWord = t('ofWord');
     var tagMatrix = '[' + items.map(function (it) {
       return '[' + (it.tags || []).map(sq).join(',') + ']';
     }).join(',') + ']';
@@ -1606,6 +1830,413 @@
       chipRow + count + grid + '</div>';
 
     CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F35 — COOKIEBITE.shapes: PURE ECharts-option BUILDERS. Each returns a plain
+     option object the author still passes to CB.chart (so it stays fully overridable
+     via deepMerge — NOT a closed {kind} enum). Every builder reads CB.baseChart tokens
+     / CB.theme so it lands on-theme AND dark-aware once routed through CB.chart's
+     register-for-re-theme path. Usage:
+       CB.chart('#c', { ariaLabel:'…', option: CB.shapes.waterfall({...}), table:{…} });
+     The author owns ariaLabel + the data-table (CB.chart builds both); shapes only
+     shape the option.
+     ========================================================================== */
+  CB.shapes = {};
+
+  // semantic negative color (read live so dark re-theme flips it). Falls back to the
+  // critical token, then a safe red.
+  function negColor() { return cssColor('--c-critical', '#D7373F'); }
+
+  /* CB.shapes.waterfall({ categories, deltas, total? }) -> option
+     The transparent-base stacking trick: a hidden 'base' bar lifts each visible bar to
+     its running cumulative, so + deltas grow up from the prior total and − deltas drop
+     down. Accent for +, the semantic critical/neutral for −. An optional final 'total'
+     bar (total:true, or a label string) resets to 0 to show the end balance.
+       categories: string[] (one per delta, plus the total bar if requested)
+       deltas: number[] (signed; + up, − down)
+       total: true | string — append a from-zero total bar (string overrides its label) */
+  CB.shapes.waterfall = function (cfg) {
+    cfg = cfg || {};
+    var cats = (cfg.categories || []).slice();
+    var deltas = (cfg.deltas || []).slice();
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var neg = negColor();
+    var base = [], vis = [], colors = [], run = 0;
+    for (var i = 0; i < deltas.length; i++) {
+      var d = deltas[i] || 0;
+      base.push(d >= 0 ? run : run + d);   // bottom of the floating bar
+      vis.push(Math.abs(d));
+      colors.push(d >= 0 ? accent : neg);
+      run += d;
+    }
+    var wantTotal = cfg.total === true || typeof cfg.total === 'string';
+    if (wantTotal) {
+      if (typeof cfg.total === 'string') cats = cats.concat(cfg.total);
+      else if (cats.length === deltas.length) cats = cats.concat(t('total'));
+      base.push(0); vis.push(run); colors.push(CB.theme.ACCENT_STRONG || accent);
+    }
+    return {
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        formatter: function (ps) {
+          // ps[0] is the transparent base; ps[1] the visible bar. Show the magnitude.
+          var p = ps[ps.length - 1];
+          return p.name + ': ' + CB.nf.format(p.value);
+        },
+      },
+      xAxis: { type: 'category', data: cats },
+      yAxis: { type: 'value' },
+      series: [
+        { name: 'base', type: 'bar', stack: 'wf', itemStyle: { color: 'transparent' }, emphasis: { itemStyle: { color: 'transparent' } }, data: base, silent: true, tooltip: { show: false } },
+        { name: 'delta', type: 'bar', stack: 'wf', data: vis.map(function (v, k) { return { value: v, itemStyle: { color: colors[k] } }; }) },
+      ],
+    };
+  };
+
+  /* CB.shapes.bullet({ value, target, ranges?, label?, max? }) -> option
+     A KPI-vs-target horizontal bullet: a thin accent value bar over graded neutral
+     qualitative bands, with a target tick. ranges are cumulative band tops (e.g.
+     [60,80,100]); the accent bar is `value`, the tick is `target`.
+       value, target: numbers. ranges: number[] band tops (default [max]). label: y
+       category name. max: axis top (default the largest of value/target/ranges). */
+  CB.shapes.bullet = function (cfg) {
+    cfg = cfg || {};
+    var value = +cfg.value || 0, target = +cfg.target || 0;
+    var ranges = (cfg.ranges && cfg.ranges.length) ? cfg.ranges.slice().sort(function (a, b) { return a - b; }) : null;
+    var max = cfg.max != null ? cfg.max : Math.max(value, target, ranges ? ranges[ranges.length - 1] : 0) || 1;
+    if (!ranges) ranges = [max];
+    var label = cfg.label || '';
+    var accent = CB.theme.ACCENT || '#E8552D';
+    // qualitative bands: a faint accent ramp (light low zone -> slightly stronger high
+    // zone), stacked to their cumulative tops so the value bar reads against on-theme zones.
+    var prev = 0, bands = ranges.map(function (top, i) {
+      var seg = Math.max(0, top - prev); prev = top;
+      return { value: seg, itemStyle: { color: accentRgba(0.06 + 0.05 * i) } };
+    });
+    return {
+      grid: { left: 8, right: 16, top: 12, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'item', formatter: function (p) { return (label ? label + ': ' : '') + CB.nf.format(value) + ' / ' + CB.nf.format(target); } },
+      xAxis: { type: 'value', max: max },
+      yAxis: { type: 'category', data: [label] },
+      series: [].concat(
+        bands.map(function (b) { return { type: 'bar', stack: 'bullet', barWidth: '60%', data: [b], silent: true, tooltip: { show: false } }; }),
+        [{ // the value bar, drawn thinner ON TOP of the bands
+          type: 'bar', barWidth: '24%', barGap: '-60%', z: 3,
+          data: [{ value: value, itemStyle: { color: accent } }],
+        },
+        { // target tick: a markLine at x=target
+          type: 'bar', barWidth: 0, data: [0], z: 4, silent: true, tooltip: { show: false },
+          markLine: {
+            symbol: 'none', label: { show: false },
+            lineStyle: { color: cssColor('--c-primary', '#18181B'), width: 2, type: 'solid' },
+            data: [{ xAxis: target }],
+          },
+        }]
+      ),
+    };
+  };
+
+  /* CB.shapes.sparkline({ data, area? }) -> option
+     An axis-less single-series line for inline/table cells. No grid chrome, accent
+     stroke, optional faint accent area fill. data: number[] (or [x,y] pairs). */
+  CB.shapes.sparkline = function (cfg) {
+    cfg = cfg || {};
+    var data = cfg.data || [];
+    var single = data.length <= 1;
+    var series = {
+      type: 'line', data: data, smooth: !single,
+      symbol: single ? 'circle' : 'none', symbolSize: single ? 6 : 4, showSymbol: single,
+      lineStyle: { width: 2, color: CB.theme.ACCENT },
+      itemStyle: { color: CB.theme.ACCENT },
+    };
+    if (cfg.area !== false) series.areaStyle = { color: accentRgba(0.10) };
+    return {
+      grid: { left: 0, right: 0, top: 2, bottom: 2 },
+      xAxis: { type: 'category', show: false, data: data.map(function (_, i) { return i; }) },
+      yAxis: { type: 'value', show: false, scale: true },
+      series: [series],
+    };
+  };
+
+  /* CB.shapes.scatter({ points:[{x,y,size?,label?}] }) -> option
+     A scatter; becomes a BUBBLE chart when any point carries `size` (size -> symbolSize
+     via a sqrt scale so AREA ~ value). points read on-theme accent. */
+  CB.shapes.scatter = function (cfg) {
+    cfg = cfg || {};
+    var pts = cfg.points || [];
+    var hasSize = pts.some(function (p) { return p && p.size != null; });
+    var sizes = pts.map(function (p) { return +((p && p.size) || 0); });
+    var maxSize = sizes.reduce(function (m, s) { return Math.max(m, s); }, 0) || 1;
+    var accent = CB.theme.ACCENT || '#E8552D';
+    return {
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          var d = p.data || [];
+          var nm = d[3] ? d[3] + '<br/>' : '';
+          return nm + 'x: ' + CB.nf.format(d[0]) + ', y: ' + CB.nf.format(d[1]) + (hasSize ? ', ' + CB.nf.format(d[2]) : '');
+        },
+      },
+      xAxis: { type: 'value' },
+      yAxis: { type: 'value' },
+      series: [{
+        type: 'scatter',
+        // [x, y, size, label] — size+label ride along for the tooltip/symbolSize fn
+        data: pts.map(function (p) { return [(p && p.x), (p && p.y), (p && p.size != null ? p.size : 0), (p && p.label) || '']; }),
+        symbolSize: hasSize
+          ? function (d) { return 8 + 36 * Math.sqrt((d[2] || 0) / maxSize); } // area-proportional
+          : 12,
+        itemStyle: { color: accentRgba(0.7), borderColor: accent, borderWidth: 1 },
+      }],
+    };
+  };
+
+  /* CB.shapes.radar({ indicators:[{name,max}], series:[{name,values}] }) -> option
+     A radar/spider chart. indicators define the axes; each series is one polygon. Uses
+     CB.categoricalColors for multi-series so they stay one accent family, not a rainbow. */
+  CB.shapes.radar = function (cfg) {
+    cfg = cfg || {};
+    var indicators = cfg.indicators || [];
+    var series = cfg.series || [];
+    var colors = CB.categoricalColors(series.length || 1);
+    return {
+      tooltip: { trigger: 'item' },
+      legend: series.length > 1 ? { data: series.map(function (s) { return s.name; }), textStyle: { color: CB.theme.C_SECONDARY } } : undefined,
+      radar: {
+        indicator: indicators.map(function (ind) { return { name: ind.name, max: ind.max }; }),
+        axisName: { color: CB.theme.C_SECONDARY },
+        splitLine: { lineStyle: { color: CB.theme.C_LINE } },
+        axisLine: { lineStyle: { color: CB.theme.C_LINE } },
+        splitArea: { areaStyle: { color: ['transparent', accentRgba(0.03)] } },
+      },
+      series: [{
+        type: 'radar',
+        data: series.map(function (s, i) {
+          return {
+            name: s.name, value: s.values,
+            lineStyle: { color: colors[i] }, itemStyle: { color: colors[i] },
+            areaStyle: { color: colors[i], opacity: series.length > 1 ? 0.12 : 0.18 },
+          };
+        }),
+      }],
+    };
+  };
+
+  /* ==========================================================================
+     F39 — COOKIEBITE.bigNumber(target, { value, label, delta?, caption?, spark? })
+     ONE oversized hero number (CountUp), with an optional delta badge, sparkline, and
+     a takeaway caption. Reuses the kpis internals (data-countup wiring via hydrate,
+     CB.deltaBadge, data-spark). For the single most important figure in a report.
+       value: number | numeric-string (CountUp) | non-numeric string (verbatim).
+       label: small caption above. delta: { dir, tone, text } (-> CB.deltaBadge).
+       caption: a takeaway line below. spark: number[] (-> a sparkline under the figure).
+       prefix/suffix/unit/decimals mirror CB.kpis. align: 'center' (default) | 'left'.
+     ========================================================================== */
+  CB.bigNumber = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+
+    CB.disposeIn(host); // re-run on the same target: drop a prior spark instance
+
+    // empty/invalid value -> the shared quiet placeholder
+    if (config.value == null || config.value === '') { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    var align = config.align === 'left' ? 'items-start text-left' : 'items-center text-center';
+    var label = config.label ? '<p class="text-body-14 text-secondary">' + esc(config.label) + '</p>' : '';
+
+    var pre = config.prefix != null ? config.prefix : '';
+    var suf = config.suffix != null ? config.suffix : '';
+    var val = config.value;
+    if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val))) val = Number(val);
+
+    var unitSpan = config.unit ? '<span class="text-title-24 text-secondary font-semibold">' + esc(config.unit) + '</span>' : '';
+    var numHtml;
+    if (typeof val === 'string') {
+      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap">' + esc(pre) + esc(val) + unitSpan +
+        (suf ? '<span class="text-title-24 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>';
+    } else {
+      var inferDec = function (v) { var s = String(v); var dot = s.indexOf('.'); return dot < 0 ? 0 : s.length - dot - 1; };
+      var dec = config.decimals != null ? config.decimals : inferDec(val);
+      var cuAttrs = 'data-countup="' + val + '"' + (dec ? ' data-decimals="' + dec + '"' : '');
+      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap">' + esc(pre) +
+        '<span ' + cuAttrs + (suf && !config.unit ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>' + unitSpan +
+        (config.unit && suf ? '<span class="text-title-24 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>';
+    }
+
+    var deltaHtml = config.delta
+      ? CB.deltaBadge(config.delta.text, { dir: config.delta.dir, tone: config.delta.tone, className: 'mb-8' })
+      : '';
+    var spark = config.spark
+      ? '<div class="h-40 mt-12 w-full max-w-[280px]" data-spark=\'' + esc(JSON.stringify(config.spark)) + '\'></div>'
+      : '';
+    var caption = config.caption
+      ? '<p class="text-body-14 text-secondary mt-12 prose-measure">' + esc(config.caption) + '</p>'
+      : '';
+
+    host.innerHTML =
+      '<div class="flex flex-col ' + align + '">' + label +
+      '<div class="flex items-end gap-12 mt-4">' + numHtml + deltaHtml + '</div>' +
+      spark + caption + '</div>';
+
+    CB.refreshIcons();
+    CB.hydrate(host);
+  };
+
+  /* ==========================================================================
+     F39 — COOKIEBITE.steps(target, items[{label, status, detail?}], opts?)
+     A connected progress stepper. status: 'done' | 'current' | 'pending', mapped
+     through the tone contract (done->success, current->accent, pending->neutral).
+     Horizontal on desktop, vertical (stacked) below sm. detail -> a small caption.
+       opts.emptyText overrides the empty placeholder.
+     ========================================================================== */
+  var STEP_TONE = { done: 'success', current: 'info', pending: 'neutral' };
+
+  CB.steps = function (target, items, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    items = items || [];
+    opts = opts || {};
+
+    if (!items.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
+    var n = items.length;
+    var nodes = items.map(function (it, i) {
+      var status = it.status || 'pending';
+      var toneName = STEP_TONE[status] || 'neutral';
+      var dot = TONE_DOT[toneName] || TONE_DOT.neutral;
+      // done -> check, current -> accent dot (filled), pending -> hollow.
+      var icon = status === 'done' ? iconTag('check', 'w-14 h-14 text-white')
+        : status === 'current' ? iconTag('circle-dot', 'w-14 h-14 text-white') : '';
+      var ring = status === 'current' ? ' ring-4 ring-accent-weak' : '';
+      // current is the EMPHASIS node -> accent fill (the project's one-accent thesis);
+      // done -> the success tone dot; pending -> a hollow neutral chip.
+      var badgeBg = status === 'pending' ? 'bg-disabled-bg border border-line-weak'
+        : status === 'current' ? 'bg-accent' : dot;
+      var aria = status === 'done' ? t('stDone') : status === 'current' ? t('stCurrent') : t('stPending');
+      // connector: a 2px rail to the NEXT node (hidden on the last). Horizontal on
+      // sm+, the marker stacks above on mobile so it reads as a vertical list.
+      var connector = i < n - 1
+        ? '<span class="hidden sm:block absolute top-[13px] left-1/2 w-full h-2 ' + (status === 'done' ? dot : 'bg-line-weak') + '" style="z-index:0"></span>'
+        : '';
+      var detail = it.detail ? '<p class="text-caption-12 text-secondary mt-2">' + esc(it.detail) + '</p>' : '';
+      return '<li class="relative flex sm:flex-col sm:items-center sm:text-center gap-12 sm:gap-8 flex-1 min-w-0">' +
+        connector +
+        '<span class="relative z-10 w-28 h-28 rounded-full shrink-0 ' + badgeBg + ring + ' flex items-center justify-center shadow-sm">' +
+        icon + '<span class="sr-only">' + esc(aria) + '</span></span>' +
+        '<div class="min-w-0"><p class="text-body-14 font-semibold ' + (status === 'pending' ? 'text-secondary' : '') + '">' + esc(it.label) + '</p>' + detail + '</div>' +
+        '</li>';
+    }).join('');
+
+    host.innerHTML = '<ol class="flex flex-col sm:flex-row gap-16 sm:gap-8">' + nodes + '</ol>';
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F40 — COOKIEBITE.leaderboard(target, items[{label, value, deltaRank?, tone?}], opts?)
+     Numbered rows with value-proportional accent inline bars, right-aligned
+     tabular-nums values, and an optional rank-change indicator (deltaRank: +n moved
+     up, −n moved down). Built-in empty-state.
+       opts.format: (v) -> string for the value (default CB.nf.format).
+       opts.max: bar denominator (default the largest value). opts.emptyText override.
+     ========================================================================== */
+  CB.leaderboard = function (target, items, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    items = items || [];
+    opts = opts || {};
+
+    if (!items.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
+    var fmt = typeof opts.format === 'function' ? opts.format : function (v) { return typeof v === 'number' ? CB.nf.format(v) : v; };
+    var max = opts.max != null ? opts.max : items.reduce(function (m, it) { var v = +it.value; return isFinite(v) ? Math.max(m, v) : m; }, 0) || 1;
+
+    var rows = items.map(function (it, i) {
+      var v = +it.value;
+      var frac = isFinite(v) && max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
+      var barColor = (it.tone && GAUGE_FILL[it.tone]) || 'var(--accent)';
+      // rank-change indicator: +n up (positive tone), −n down (critical), 0/absent none
+      var dr = it.deltaRank;
+      var rankBadge = '';
+      if (dr != null && dr !== 0 && isFinite(+dr)) {
+        var up = +dr > 0;
+        rankBadge = '<span class="inline-flex items-center gap-2 text-caption-12 font-semibold ' + (up ? 'text-positive' : 'text-critical') + '">' +
+          iconTag(up ? 'arrow-up' : 'arrow-down', 'w-12 h-12') + Math.abs(+dr) + '</span>';
+      } else if (dr === 0) {
+        rankBadge = '<span class="text-caption-12 text-secondary">—</span>';
+      }
+      return '<li class="flex items-center gap-12 py-8">' +
+        '<span class="w-20 text-right text-caption-12 font-semibold text-secondary nums shrink-0">' + (i + 1) + '</span>' +
+        '<div class="min-w-0 flex-1">' +
+        '<div class="flex items-baseline gap-8"><span class="text-body-14 font-medium truncate">' + esc(it.label) + '</span>' +
+        (rankBadge ? '<span class="shrink-0">' + rankBadge + '</span>' : '') + '</div>' +
+        // value-proportional accent bar under the label
+        '<div class="mt-4 h-6 rounded-full bg-disabled-bg overflow-hidden"><div class="h-full rounded-full" style="width:' + (frac * 100).toFixed(1) + '%;background:' + barColor + ';"></div></div>' +
+        '</div>' +
+        '<span class="text-body-14 font-semibold nums tabular-nums text-right shrink-0">' + esc(fmt(it.value)) + '</span>' +
+        '</li>';
+    }).join('');
+
+    host.innerHTML = '<ol class="divide-y divide-line-weak">' + rows + '</ol>';
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F40 — opt-in CB.table column cell formatters. Each returns a Grid.js formatter
+     fn (a function(cell) -> gridjs.html(...)) you attach to a column's `formatter`:
+       columns: [ 'Name',
+                  { name:'Trend', formatter: CB.cellBar({ max: 100 }) },
+                  { name:'Heat',  formatter: CB.cellHeat({ max: 100 }) },
+                  { name:'7d',    formatter: CB.cellSpark() } ]
+     They render value-proportional bars / accent-tint heat chips / inline sparklines.
+     cellSpark emits a data-spark element (same axis-less accent spark as CB.kpis /
+     CB.shapes.sparkline) that CB.table's post-render hydrate wires — CB.table calls
+     CB.hydrate on every store update, so sparks survive sort/page re-renders.
+     ========================================================================== */
+  CB.cellBar = function (opts) {
+    opts = opts || {};
+    return function (cell) {
+      var v = +cell;
+      if (!isFinite(v)) return cell;
+      var max = opts.max != null ? opts.max : 100;
+      var frac = max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
+      var fmt = typeof opts.format === 'function' ? opts.format : function (x) { return CB.nf.format(x); };
+      return window.gridjs.html(
+        '<div class="flex items-center gap-8"><div class="flex-1 h-6 rounded-full bg-disabled-bg overflow-hidden min-w-[40px]">' +
+        '<div class="h-full rounded-full" style="width:' + (frac * 100).toFixed(1) + '%;background:var(--accent);"></div></div>' +
+        '<span class="nums tabular-nums text-caption-12 shrink-0">' + esc(fmt(v)) + '</span></div>'
+      );
+    };
+  };
+
+  CB.cellHeat = function (opts) {
+    opts = opts || {};
+    return function (cell) {
+      var v = +cell;
+      if (!isFinite(v)) return cell;
+      var max = opts.max != null ? opts.max : 100;
+      var frac = max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
+      var fmt = typeof opts.format === 'function' ? opts.format : function (x) { return CB.nf.format(x); };
+      // accent-tint chip: opacity scales with magnitude (faint -> full accent).
+      return window.gridjs.html(
+        '<span class="inline-flex items-center justify-end px-8 py-2 rounded-xxs nums tabular-nums text-caption-12 font-medium" ' +
+        'style="background:' + accentRgba(0.10 + 0.5 * frac) + ';">' + esc(fmt(v)) + '</span>'
+      );
+    };
+  };
+
+  CB.cellSpark = function (opts) {
+    opts = opts || {};
+    return function (cell) {
+      // cell is expected to be a number[] (the series for this row). A non-array passes
+      // through verbatim. The data-spark element is wired by CB.hydrate post-render.
+      if (!Array.isArray(cell)) return cell;
+      var w = opts.width || 80, h = opts.height || 24;
+      return window.gridjs.html(
+        '<div style="width:' + w + 'px;height:' + h + 'px;display:inline-block" data-spark=\'' + esc(JSON.stringify(cell)) + '\'></div>'
+      );
+    };
   };
 
   /* ==========================================================================
@@ -1625,6 +2256,8 @@
     items = items || [];
     opts = opts || {};
     var gid = 'cbTabs' + (++tabsSeq);
+
+    CB.disposeIn(host); // re-run on the same target: dispose charts from the prior panels before innerHTML wipes them
 
     // tab buttons + panels; aria roles wire the buttons to their panels
     var tablist = items.map(function (it, i) {
@@ -1771,7 +2404,7 @@
     var flash = function () {
       if (!btnEl) return;
       var orig = btnEl.textContent;
-      btnEl.textContent = 'Copied ✓';
+      btnEl.textContent = t('copied');
       setTimeout(function () { btnEl.textContent = orig; }, 1200);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1813,6 +2446,537 @@
   };
 
   /* ==========================================================================
+     F44 — COOKIEBITE.diff(target, { lines, filename?, lang? })
+     Codifies the components.md "Diff view" markup so an author stops hand-escaping
+     +/− code. lines: [{ type:'add'|'del'|'ctx', text }]. Renders a monospaced block
+     with a +/− gutter, per-side line numbers (old/new, like GitHub), and tone-tinted
+     add/del rows. `text` is ESCAPED (it's code, never trusted HTML). filename -> a
+     small header chip; lang -> shown next to the filename (no syntax highlight — kept
+     dependency-free, the gutter/tint is the signal).
+     ========================================================================== */
+  CB.diff = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var lines = config.lines || [];
+
+    if (!lines.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    // per-side running line numbers: a context line advances BOTH, an add advances only
+    // the new side, a del only the old side (standard unified-diff numbering).
+    var oldN = config.startOld != null ? config.startOld : 1;
+    var newN = config.startNew != null ? config.startNew : 1;
+    var rowTone = { add: { bg: 'bg-positive/10', sign: '+', txt: 'text-positive' }, del: { bg: 'bg-critical/10', sign: '−', txt: 'text-critical' }, ctx: { bg: '', sign: '', txt: 'text-secondary' } };
+    var body = lines.map(function (ln) {
+      var type = (ln && ln.type) || 'ctx';
+      var rt = rowTone[type] || rowTone.ctx;
+      var ol = '', nl = '';
+      if (type === 'add') { nl = newN++; }
+      else if (type === 'del') { ol = oldN++; }
+      else { ol = oldN++; nl = newN++; }
+      return '<tr class="' + rt.bg + '">' +
+        '<td class="select-none text-right pr-8 pl-12 text-caption-12 ' + rt.txt + ' opacity-60 w-[1%] whitespace-nowrap">' + ol + '</td>' +
+        '<td class="select-none text-right pr-8 text-caption-12 ' + rt.txt + ' opacity-60 w-[1%] whitespace-nowrap">' + nl + '</td>' +
+        '<td class="select-none text-center px-4 ' + rt.txt + ' font-semibold w-[1%]">' + rt.sign + '</td>' +
+        '<td class="pr-12 whitespace-pre ' + (type === 'ctx' ? '' : rt.txt) + '">' + esc(ln && ln.text != null ? ln.text : '') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    var head = '';
+    if (config.filename || config.lang) {
+      head = '<div class="flex items-center gap-8 px-12 py-8 border-b border-line-weak bg-disabled-bg text-caption-12 text-secondary">' +
+        iconTag('file-diff', 'w-12 h-12') +
+        (config.filename ? '<span class="font-mono font-medium text-primary">' + esc(config.filename) + '</span>' : '') +
+        (config.lang ? '<span class="ml-auto">' + esc(config.lang) + '</span>' : '') +
+        '</div>';
+    }
+    host.innerHTML =
+      '<div class="rounded-medium border border-line-weak bg-surface overflow-hidden">' + head +
+      '<div class="overflow-x-auto"><table class="w-full text-caption-12 font-mono leading-relaxed border-collapse">' +
+      '<tbody>' + body + '</tbody></table></div></div>';
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F44 — COOKIEBITE.pseudocode(target, codeOrLines, opts?)
+     Codifies the components.md annotated-code / pseudocode markup. codeOrLines is
+     either a STRING (split on \n) or an ARRAY of lines; a line may be a plain string
+     OR { text, note?, tone? } where `note` renders as a muted right-aligned inline
+     annotation and `tone` tints the line. All text is ESCAPED. Line numbers in a
+     non-selectable gutter (opts.numbers:false to drop them). opts.title -> header chip.
+     ========================================================================== */
+  CB.pseudocode = function (target, codeOrLines, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    opts = opts || {};
+    var lines = Array.isArray(codeOrLines)
+      ? codeOrLines
+      : String(codeOrLines == null ? '' : codeOrLines).split('\n');
+
+    if (!lines.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
+    var showNums = opts.numbers !== false;
+    var lineTone = { info: 'text-informative', success: 'text-positive', warning: 'text-cautionary', critical: 'text-critical', accent: 'text-accent-strong' };
+    var body = lines.map(function (ln, i) {
+      var obj = ln && typeof ln === 'object' ? ln : { text: ln };
+      var txtCls = (obj.tone && lineTone[obj.tone]) ? ' ' + lineTone[obj.tone] : '';
+      var note = obj.note
+        ? '<span class="text-secondary opacity-80 italic ml-12 font-sans">' + esc(obj.note) + '</span>'
+        : '';
+      return '<tr>' +
+        (showNums ? '<td class="select-none text-right pr-12 pl-12 text-caption-12 text-secondary opacity-50 w-[1%] whitespace-nowrap">' + (i + 1) + '</td>' : '') +
+        '<td class="pr-12' + (showNums ? '' : ' pl-12') + ' whitespace-pre-wrap' + txtCls + '">' +
+        esc(obj.text != null ? obj.text : '') + note + '</td></tr>';
+    }).join('');
+
+    var head = opts.title
+      ? '<div class="flex items-center gap-8 px-12 py-8 border-b border-line-weak bg-disabled-bg text-caption-12 text-secondary">' +
+        iconTag('code', 'w-12 h-12') + '<span class="font-medium text-primary">' + esc(opts.title) + '</span></div>'
+      : '';
+    host.innerHTML =
+      '<div class="rounded-medium border border-line-weak bg-surface overflow-hidden">' + head +
+      '<div class="overflow-x-auto"><table class="w-full text-caption-12 font-mono leading-relaxed border-collapse">' +
+      '<tbody>' + body + '</tbody></table></div></div>';
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F44 — COOKIEBITE.matrix(target, { rows, cols, data, caption?, ariaLabel?, max? })
+     A GENERIC rows×cols×value grid-heatmap (cohort/retention/confusion matrices) —
+     CB.heatmap stays calendar-only. data is a 2D array (data[r][c]); cells tint via a
+     SINGLE-HUE accent ramp (CB.ramp resolved to per-cell opacity off max). Row/col
+     headers from `rows`/`cols`. caption -> muted line above; ariaLabel -> table caption
+     + role. max overrides the auto color-scale top. A null/undefined cell renders blank
+     (a confusion matrix's empty corner). Pure DOM table — dark-aware, print-friendly,
+     no chart lib, no 0×0-in-hidden-tab footgun.
+     ========================================================================== */
+  CB.matrix = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var rows = config.rows || [];
+    var cols = config.cols || [];
+    var data = config.data || [];
+    var aria = config.ariaLabel || 'data matrix';
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.matrix: pass ariaLabel describing the matrix — it becomes the screen-reader caption.');
+
+    if (!rows.length || !cols.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    // color scale top: explicit max, else the largest finite cell.
+    var maxVal = config.max;
+    if (maxVal == null) {
+      maxVal = 0;
+      data.forEach(function (r) { (r || []).forEach(function (v) { var n = +v; if (isFinite(n)) maxVal = Math.max(maxVal, n); }); });
+      if (!maxVal) maxVal = 1;
+    }
+    var fmt = typeof config.format === 'function' ? config.format : function (v) { return typeof v === 'number' ? CB.nf.format(v) : v; };
+
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    var thead = '<thead><tr><th class="p-8"></th>' + cols.map(function (c) {
+      return '<th class="p-8 text-caption-12 font-medium text-secondary text-center whitespace-nowrap">' + esc(c) + '</th>';
+    }).join('') + '</tr></thead>';
+
+    var tbody = '<tbody>' + rows.map(function (rowLabel, ri) {
+      var cells = cols.map(function (c, ci) {
+        var v = (data[ri] || [])[ci];
+        if (v == null || v === '') return '<td class="p-8 text-center text-secondary opacity-40">—</td>';
+        var n = +v;
+        // per-cell accent opacity off the magnitude (faint low -> full accent high) — the
+        // SINGLE-HUE ramp the project mandates, applied as alpha so dark re-theme follows.
+        var frac = isFinite(n) && maxVal > 0 ? Math.max(0, Math.min(1, n / maxVal)) : 0;
+        var bg = isFinite(n) ? 'background:' + accentRgba(0.08 + 0.62 * frac) + ';' : '';
+        // text flips to accent-on once the tint is dark enough to need contrast
+        var txt = frac > 0.55 ? ' text-accent-on' : '';
+        return '<td class="p-8 text-center text-caption-12 nums tabular-nums' + txt + '" style="' + bg + '">' + esc(fmt(v)) + '</td>';
+      }).join('');
+      return '<tr><th scope="row" class="p-8 text-caption-12 font-medium text-secondary text-right whitespace-nowrap">' + esc(rowLabel) + '</th>' + cells + '</tr>';
+    }).join('') + '</tbody>';
+
+    host.innerHTML = caption +
+      '<div class="overflow-x-auto rounded-medium border border-line-weak bg-surface p-12">' +
+      '<table class="border-collapse" role="table" aria-label="' + esc(aria) + '">' +
+      '<caption class="sr-only">' + esc(aria) + '</caption>' + thead + tbody + '</table></div>';
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F44 — COOKIEBITE.actionItems(target, items, opts?)
+     items: [{ title, owner?, due?, priority?, body? }]. Renders an action-item list
+     with a priority pill (priority -> tone via PRIORITY_TONE: p0/high->critical,
+     p1/med->warning, p2/low->neutral), an owner/due meta line, an optional collapsible
+     body (<details>, so it print-expands for free), and a "Copy as Markdown" button that
+     serializes the list via the shared CB.copy flash. All fields ESCAPED; body is
+     trusted HTML (parallels callout). opts.copy:false drops the copy button.
+     ========================================================================== */
+  var PRIORITY_TONE = {
+    p0: 'critical', p1: 'warning', p2: 'neutral', p3: 'neutral',
+    high: 'critical', med: 'warning', medium: 'warning', low: 'neutral',
+    critical: 'critical', urgent: 'critical',
+  };
+  var aiSeq = 0;
+  CB.actionItems = function (target, items, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    items = items || [];
+    opts = opts || {};
+    if (!host.id) host.id = 'cbAI' + (++aiSeq);
+
+    if (!items.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
+    var rows = items.map(function (it) {
+      var prTone = it.priority ? (PRIORITY_TONE[String(it.priority).toLowerCase()] || 'neutral') : null;
+      var prPill = it.priority ? CB.pill(it.priority, { tone: prTone, icon: null }) : '';
+      var metaBits = [];
+      if (it.owner) metaBits.push(iconTag('user', 'w-12 h-12') + esc(it.owner));
+      if (it.due) metaBits.push(iconTag('calendar', 'w-12 h-12') + esc(it.due));
+      var meta = metaBits.length
+        ? '<p class="flex flex-wrap items-center gap-x-12 gap-y-2 text-caption-12 text-secondary mt-2">' +
+          metaBits.map(function (b) { return '<span class="inline-flex items-center gap-2">' + b + '</span>'; }).join('') + '</p>'
+        : '';
+      // collapsible body via native <details> — print-expands through the @media print
+      // [open]/details rule for free, no JS state to wire.
+      var body = it.body
+        ? '<details class="mt-8"><summary class="text-caption-12 text-accent-strong cursor-pointer select-none">' +
+          esc(opts.detailsLabel || t('details')) + '</summary>' +
+          '<div class="text-body-14 text-secondary mt-6">' + it.body + '</div></details>'
+        : '';
+      return '<li class="flex gap-12 rounded-medium border border-line-weak bg-surface p-16">' +
+        (prPill ? '<div class="shrink-0">' + prPill + '</div>' : '') +
+        '<div class="min-w-0 flex-1"><p class="text-body-14 font-semibold">' + esc(it.title) + '</p>' + meta + body + '</div></li>';
+    }).join('');
+
+    // copy-as-markdown: a checkbox-list serialization with owner/due/priority inline.
+    var copyBtn = '';
+    if (opts.copy !== false) {
+      copyBtn = '<div class="flex justify-end mb-8"><button type="button" data-cb-ai-copy="' + host.id +
+        '" class="text-caption-12 text-secondary hover:text-primary inline-flex items-center gap-4">' +
+        iconTag('clipboard', 'w-12 h-12') + esc(opts.copyLabel || t('copyMarkdown')) + '</button></div>';
+    }
+
+    host.innerHTML = copyBtn + '<ul class="space-y-8">' + rows + '</ul>';
+
+    if (opts.copy !== false) {
+      var toMd = function () {
+        return items.map(function (it) {
+          var tail = [];
+          if (it.owner) tail.push('@' + it.owner);
+          if (it.due) tail.push('due ' + it.due);
+          if (it.priority) tail.push('[' + it.priority + ']');
+          return '- [ ] ' + (it.title || '') + (tail.length ? ' (' + tail.join(', ') + ')' : '');
+        }).join('\n');
+      };
+      var cbtn = host.querySelector('[data-cb-ai-copy="' + host.id + '"]');
+      if (cbtn) cbtn.addEventListener('click', function () { CB.copy(toMd(), cbtn); });
+    }
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     F38 — COOKIEBITE.search(opts?) — sticky report search that filters/dims
+     [data-searchable] regions (author opt-in) whose text doesn't match, and
+     scroll-highlights matches (vanilla mark.js-style, no dependency). Pairs with the
+     TOC. Each top-level [data-searchable] element (or its [data-search-item] children,
+     if present) is shown/dimmed per query; a count + clear button live in the field.
+     opts.placeholder / opts.sticky(false) / opts.minChars override. Off unless called.
+     ========================================================================== */
+  CB.search = function (opts) {
+    opts = opts || {};
+    if (document.getElementById('cbSearch')) return; // idempotent
+    var scopes = [].slice.call(document.querySelectorAll('[data-searchable]'));
+    if (!scopes.length) { console.warn('[cookiebite] COOKIEBITE.search: no [data-searchable] regions found — mark sections opt-in with data-searchable.'); return; }
+    var minChars = opts.minChars != null ? opts.minChars : 2;
+
+    // each searchable UNIT: a [data-search-item] child if any exist under a scope, else
+    // the scope itself. Caches the original textContent (lowercased) for matching.
+    var units = [];
+    scopes.forEach(function (sc) {
+      var items = [].slice.call(sc.querySelectorAll('[data-search-item]'));
+      var els = items.length ? items : [sc];
+      els.forEach(function (el) { units.push({ el: el, text: (el.textContent || '').toLowerCase() }); });
+    });
+
+    var bar = document.createElement('div');
+    bar.id = 'cbSearch';
+    bar.className = (opts.sticky === false ? '' : 'sticky top-0 z-40 ') + 'bg-bg/90 backdrop-blur border-b border-line-weak py-8';
+    bar.innerHTML =
+      '<div class="relative max-w-[1400px] mx-auto px-16">' +
+      '<label class="sr-only" for="cbSearchInput">' + esc(t('search')) + '</label>' +
+      iconTag('search', 'w-16 h-16 absolute left-28 top-1/2 -translate-y-1/2 text-secondary pointer-events-none') +
+      '<input id="cbSearchInput" type="search" autocomplete="off" placeholder="' + esc(opts.placeholder || t('search')) + '" ' +
+      'class="w-full bg-surface border border-line-weak rounded-small text-body-14 pl-36 pr-80 py-8" />' +
+      '<span id="cbSearchCount" class="absolute right-28 top-1/2 -translate-y-1/2 text-caption-12 text-secondary" aria-live="polite"></span>' +
+      '</div>';
+    document.body.insertBefore(bar, document.body.firstChild);
+
+    var input = bar.querySelector('#cbSearchInput');
+    var countEl = bar.querySelector('#cbSearchCount');
+
+    // highlight wrap/unwrap: wrap matched substrings in a <mark> inside an element's
+    // TEXT nodes only (never re-wrapping markup), and unwrap on clear. Conservative —
+    // skips nodes already inside a <mark> and inside script/style.
+    function clearMarks(el) {
+      var marks = [].slice.call(el.querySelectorAll('mark[data-cb-mark]'));
+      marks.forEach(function (m) {
+        var parent = m.parentNode;
+        if (!parent) return;
+        parent.replaceChild(document.createTextNode(m.textContent), m);
+        parent.normalize();
+      });
+    }
+    function addMarks(el, q) {
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (n) {
+          if (!n.nodeValue || !n.nodeValue.trim()) return NodeFilter.FILTER_REJECT;
+          var p = n.parentNode;
+          if (!p || p.nodeName === 'SCRIPT' || p.nodeName === 'STYLE' || (p.closest && p.closest('mark[data-cb-mark]'))) return NodeFilter.FILTER_REJECT;
+          return n.nodeValue.toLowerCase().indexOf(q) >= 0 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        },
+      });
+      var hits = []; while (walker.nextNode()) hits.push(walker.currentNode);
+      hits.forEach(function (node) {
+        var lower = node.nodeValue.toLowerCase(), idx = lower.indexOf(q);
+        if (idx < 0) return;
+        var range = node.splitText(idx);
+        range.splitText(q.length);
+        var mark = document.createElement('mark');
+        mark.setAttribute('data-cb-mark', '1');
+        mark.className = 'cb-mark';
+        mark.textContent = range.nodeValue;
+        range.parentNode.replaceChild(mark, range);
+      });
+    }
+
+    var apply = function () {
+      var q = input.value.trim().toLowerCase();
+      units.forEach(function (u) { clearMarks(u.el); });
+      if (q.length < minChars) {
+        units.forEach(function (u) { u.el.classList.remove('cb-search-hide'); });
+        countEl.textContent = '';
+        return;
+      }
+      var matched = 0, firstHit = null;
+      units.forEach(function (u) {
+        var hit = u.text.indexOf(q) >= 0;
+        u.el.classList.toggle('cb-search-hide', !hit);
+        if (hit) {
+          matched++;
+          addMarks(u.el, q);
+          if (!firstHit) firstHit = u.el;
+        }
+      });
+      countEl.textContent = matched ? String(matched) : t('noMatches');
+      if (firstHit && opts.scroll !== false) {
+        firstHit.scrollIntoView({ behavior: CB.MOTION_OK ? 'smooth' : 'auto', block: 'center' });
+      }
+    };
+    // debounce so each keystroke doesn't re-walk the whole DOM
+    var deb = 0;
+    input.addEventListener('input', function () {
+      if (deb) clearTimeout(deb);
+      deb = setTimeout(apply, 140);
+    });
+    // Escape clears
+    input.addEventListener('keydown', function (e) { if (e.key === 'Escape') { input.value = ''; apply(); } });
+    return bar;
+  };
+
+  /* ==========================================================================
+     F45 — COOKIEBITE.densityToggle(opts?) injects a quiet chrome button that flips
+     html[data-density='compact'] (the CSS compact layer lives in cookiebite.css).
+     Off by default; opt-in. Persists in localStorage('report-density'). Sits next to
+     the theme/print chrome (top-right stack).
+     ========================================================================== */
+  CB.densityToggle = function (opts) {
+    opts = opts || {};
+    if (document.getElementById('cbDensityToggle')) return document.getElementById('cbDensityToggle');
+    var saved = null;
+    try { saved = localStorage.getItem('report-density'); } catch (e) {}
+    if (saved === 'compact') document.documentElement.dataset.density = 'compact';
+    var btn = document.createElement('button');
+    btn.id = 'cbDensityToggle';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', t('density'));
+    // stack under the theme toggle (top:64 leaves the 16+40 theme button clear)
+    btn.className = 'fixed top-64 right-16 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition print:hidden';
+    btn.innerHTML = '<i data-lucide="rows-3" class="w-20 h-20"></i>';
+    document.body.appendChild(btn);
+    btn.addEventListener('click', function () {
+      var on = document.documentElement.dataset.density === 'compact';
+      if (on) { delete document.documentElement.dataset.density; } else { document.documentElement.dataset.density = 'compact'; }
+      try { localStorage.setItem('report-density', on ? 'comfortable' : 'compact'); } catch (e) {}
+      // charts may need a resize after the row-height shift
+      pruneCharts();
+      charts.forEach(function (c) { if (c.instance) { try { c.instance.resize(); } catch (e) {} } });
+    });
+    CB.refreshIcons();
+    return btn;
+  };
+
+  /* ==========================================================================
+     F45 — COOKIEBITE.permalinks(opts?) injects a quiet hover '#' anchor on each
+     section[id] heading that copies the section URL (origin+path+#id) via the shared
+     CB.copy flash. Off by default; opt-in. opts.scope narrows the root; opts.selector
+     overrides the heading selector (default the first h2/h3 inside each section[id]).
+     ========================================================================== */
+  CB.permalinks = function (opts) {
+    opts = opts || {};
+    var root = opts.scope ? resolveTarget(opts.scope) : document;
+    if (!root) return;
+    var sections = [].slice.call(root.querySelectorAll('section[id]'));
+    sections.forEach(function (sec) {
+      var heading = sec.querySelector(opts.selector || 'h1,h2,h3,h4');
+      if (!heading || heading.querySelector('[data-cb-permalink]')) return;
+      heading.classList.add('cb-permalink-h');
+      var a = document.createElement('a');
+      a.setAttribute('data-cb-permalink', '1');
+      a.href = '#' + sec.id;
+      a.setAttribute('aria-label', t('copyLink'));
+      a.className = 'cb-permalink text-secondary hover:text-accent-strong no-underline select-none';
+      a.textContent = '#';
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var url = location.origin + location.pathname + '#' + sec.id;
+        history.replaceState(null, '', '#' + sec.id);
+        // copy via the shared clipboard helper (no btnEl -> no text swap), then flash a
+        // checkmark on the anchor itself (its only content is '#', so restore that).
+        CB.copy(url);
+        a.textContent = '✓';
+        setTimeout(function () { a.textContent = '#'; }, 1200);
+      });
+      heading.appendChild(a);
+    });
+    return sections.length;
+  };
+
+  /* ==========================================================================
+     F37 — COOKIEBITE.printButton() injects a quiet 'Print / Save as PDF' chrome
+     button (near the theme toggle). Forces the LIGHT layer, expands every <details>
+     and reveals all tab panels, then calls window.print() (the @media print block in
+     cookiebite.css handles the rest). Injectable like the dark toggle; skipped when
+     window.REPORT_NO_PRINT is truthy. After printing, the prior theme/expansion is
+     restored so the on-screen report is unchanged.
+     ========================================================================== */
+  CB.print = function () {
+    // 1) remember + force light so the PDF prints on the light layer even from a dark page
+    var prevTheme = document.documentElement.dataset.theme || '';
+    if (prevTheme === 'dark') applyTheme('light');
+    // 2) reveal every native <details> (remember which were closed to restore after)
+    var reopened = [].slice.call(document.querySelectorAll('details:not([open])'));
+    reopened.forEach(function (d) { d.open = true; });
+    // 3) reveal all tab panels (CB.tabs hides inactive panels with [hidden]); remember them
+    var hiddenPanels = [].slice.call(document.querySelectorAll('[role="tabpanel"][hidden]'));
+    hiddenPanels.forEach(function (p) { p.hidden = false; });
+    // give the layout a frame to settle (charts may resize) before the print dialog
+    var restore = function () {
+      reopened.forEach(function (d) { d.open = false; });
+      hiddenPanels.forEach(function (p) { p.hidden = true; });
+      if (prevTheme === 'dark') applyTheme('dark');
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    requestAnimationFrame(function () { window.print(); });
+  };
+
+  function ensurePrintButton() {
+    if (window.REPORT_NO_PRINT) return;
+    if (document.getElementById('cbPrintButton')) return;
+    var btn = document.createElement('button');
+    btn.id = 'cbPrintButton';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', t('print'));
+    btn.title = t('print');
+    // sit to the LEFT of the fixed theme toggle (theme is right-16 w-40 -> clear it by 56)
+    btn.className = 'fixed top-16 right-64 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition print:hidden';
+    btn.innerHTML = '<i data-lucide="printer" class="w-20 h-20"></i>';
+    document.body.appendChild(btn);
+    btn.addEventListener('click', CB.print);
+    CB.refreshIcons(btn);
+    return btn;
+  }
+
+  /* ==========================================================================
+     F43 — COOKIEBITE.audit() — opt-in dev-only DOM audit. Off by default; run via
+     console (COOKIEBITE.audit()) or auto when the URL carries ?audit=1. Scans the
+     rendered DOM and console.warns + shows an on-page badge for:
+       - charts/canvases with no aria-label AND no sibling data-table toggle
+       - tone-colored spans (text-critical/cautionary/positive/informative) with no
+         icon and no text (color-only meaning)
+       - <img> missing alt
+       - token color pairs below WCAG AA contrast (primary/secondary/accent on bg/surface)
+     Returns the findings array. Never runs unless explicitly invoked.
+     ========================================================================== */
+  // relative luminance + contrast ratio from an 'rgb(r,g,b)' string (via cssColor probe)
+  function luminance(rgb) {
+    var m = (rgb || '').match(/(\d+(?:\.\d+)?)/g);
+    if (!m || m.length < 3) return null;
+    var c = [+m[0], +m[1], +m[2]].map(function (v) {
+      v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contrastRatio(a, b) {
+    var la = luminance(a), lb = luminance(b);
+    if (la == null || lb == null) return null;
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return (hi + 0.05) / (lo + 0.05);
+  }
+  CB.audit = function () {
+    var findings = [];
+    var add = function (kind, msg, el) { findings.push({ kind: kind, msg: msg, el: el || null }); console.warn('[cookiebite audit] ' + kind + ': ' + msg, el || ''); };
+
+    // charts/canvases without aria-label or a sibling data-table toggle
+    [].slice.call(document.querySelectorAll('canvas, [role="img"], .echarts-for-react')).forEach(function (el) {
+      var labelled = el.getAttribute && (el.getAttribute('aria-label') || el.getAttribute('aria-labelledby'));
+      // a sibling toggle/table within the same card counts as the data-table alternative
+      var card = el.closest ? (el.closest('.bg-surface') || el.parentElement) : el.parentElement;
+      var hasTable = card && (card.querySelector('table') || card.querySelector('[aria-pressed]'));
+      if (!labelled && !hasTable) add('chart-a11y', 'chart/canvas has no aria-label and no data-table alternative', el);
+    });
+
+    // tone-colored spans with no icon and no text (color-only signal)
+    [].slice.call(document.querySelectorAll('[class*="text-critical"],[class*="text-cautionary"],[class*="text-positive"],[class*="text-informative"]')).forEach(function (el) {
+      var hasIcon = el.querySelector && (el.querySelector('[data-lucide]') || el.querySelector('svg'));
+      var hasText = (el.textContent || '').trim().length > 0;
+      if (!hasIcon && !hasText) add('color-only', 'tone-colored element conveys meaning by color alone (no icon, no text)', el);
+    });
+
+    // images missing alt
+    [].slice.call(document.querySelectorAll('img:not([alt])')).forEach(function (el) {
+      add('img-alt', 'image missing alt attribute', el);
+    });
+
+    // token contrast pairs (primary/secondary/accent-strong over bg/surface) below AA
+    var bg = cssColor('--c-bg', '#fff'), surface = cssColor('--c-surface', '#fff');
+    var pairs = [
+      ['--c-primary', bg, 4.5, 'primary on bg'], ['--c-secondary', bg, 4.5, 'secondary on bg'],
+      ['--c-primary', surface, 4.5, 'primary on surface'], ['--c-secondary', surface, 4.5, 'secondary on surface'],
+      ['--accent-strong', surface, 3, 'accent-strong on surface'],
+    ];
+    pairs.forEach(function (p) {
+      var fg = cssColor(p[0], '#000');
+      var ratio = contrastRatio(fg, p[1]);
+      if (ratio != null && ratio < p[2]) add('contrast', p[3] + ' contrast ' + ratio.toFixed(2) + ':1 below ' + p[2] + ':1', null);
+    });
+
+    // on-page badge summarizing the count (replaces any prior badge)
+    var badge = document.getElementById('cbAuditBadge');
+    if (badge) badge.remove();
+    badge = document.createElement('div');
+    badge.id = 'cbAuditBadge';
+    var clean = findings.length === 0;
+    badge.className = 'fixed bottom-16 left-16 z-50 px-12 py-8 rounded-small shadow-md text-caption-12 font-semibold ' +
+      (clean ? 'bg-positive text-white' : 'bg-critical text-white');
+    badge.textContent = t('auditTitle') + ': ' + (clean ? '0' : findings.length);
+    badge.title = findings.map(function (f) { return f.kind + ' — ' + f.msg; }).join('\n');
+    document.body.appendChild(badge);
+    return findings;
+  };
+
+  /* ==========================================================================
      TOC active-section highlight (IntersectionObserver). Auto-wires whatever
      #toc a + main section[id] exist — the model only authors the <ul>.
      Ported verbatim from template.html initToc().
@@ -1849,7 +3013,6 @@
   // <select> (so initToc can keep its value synced to the active section) or null.
   function buildMobileSectionNav(links) {
     if (document.getElementById('cbMobileNav')) return null;
-    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
     var opts = links.map(function (a) {
       var href = a.getAttribute('href') || '';
       return '<option value="' + esc(href) + '">' + esc((a.textContent || '').trim()) + '</option>';
@@ -1857,18 +3020,25 @@
     if (!opts) return null;
     var nav = document.createElement('nav');
     nav.id = 'cbMobileNav';
-    nav.setAttribute('aria-label', ko ? '섹션 이동' : 'Section navigation');
+    nav.setAttribute('aria-label', t('sectionNav'));
     // sticky strip, only below lg (the TOC's breakpoint); pr-56 leaves room for the
     // fixed top-right theme toggle so they never overlap.
     nav.className = 'lg:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line-weak py-8 pr-56';
     nav.innerHTML =
-      '<label class="sr-only" for="cbMobileNavSel">' + (ko ? '이 페이지에서' : 'On this page') + '</label>' +
+      '<label class="sr-only" for="cbMobileNavSel">' + esc(t('onThisPage')) + '</label>' +
       '<select id="cbMobileNavSel" class="w-full bg-surface border border-line-weak rounded-small text-body-14 text-secondary px-12 py-8">' +
-      '<option value="" disabled>' + (ko ? '이 페이지에서…' : 'On this page…') + '</option>' +
+      '<option value="" disabled>' + esc(t('onThisPageDots')) + '</option>' +
       opts + '</select>';
     var main = document.querySelector('main');
     if (!main || !main.parentNode) return null;
-    main.parentNode.insertBefore(nav, main);
+    // main's parent is the flex-row-reverse row (TOC + main); inserting the nav BEFORE
+    // main would make it a flex CHILD of that row and squeeze main to a sliver at narrow
+    // widths. Insert it BEFORE the flex row itself (the grandparent) so it spans full
+    // width above the row. Fall back to the old in-row placement if the grandparent is
+    // missing. (lg:hidden still keeps it below lg only; sticky top-0 keeps the offset.)
+    var row = main.parentNode;
+    if (row.parentNode) row.parentNode.insertBefore(nav, row);
+    else row.insertBefore(nav, main);
     var sel = nav.querySelector('select');
     sel.addEventListener('change', function () {
       var t = sel.value && document.querySelector(sel.value);
@@ -1890,7 +3060,7 @@
     btn = document.createElement('button');
     btn.id = 'themeToggle';
     btn.type = 'button';
-    btn.setAttribute('aria-label', '라이트/다크 전환');
+    btn.setAttribute('aria-label', t('themeToggle'));
     btn.className = 'fixed top-16 right-16 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition';
     btn.innerHTML = '<i data-lucide="moon" class="w-20 h-20"></i>';
     document.body.appendChild(btn);
@@ -1947,14 +3117,24 @@
      ========================================================================== */
   // wrap the first occurrence of each glossary term in [data-glossary] scopes.
   // `map` is the term->definition object; `scope` optionally narrows to one root.
+  // FIRST-OCCURRENCE-PER-ROOT (F48): each term is linked at most once PER [data-glossary]
+  // root (the inner `break`), not once per whole document — so the same term is reachable
+  // again in a later section. A term already wrapped in an earlier pass is skipped via the
+  // `.gloss` ancestor check. (No per-scope flag is added; this default is the intended one.)
   function linkGlossary(map, scope) {
     if (!map || typeof map !== 'object') return;
     var terms = Object.keys(map).sort(function (a, b) { return b.length - a.length; });
     var roots = scope
       ? [resolveTarget(scope)].filter(Boolean)
       : [].slice.call(document.querySelectorAll('[data-glossary]'));
+    // ASCII-word terms ('API', 'JWT') need a WORD BOUNDARY so they don't link inside a
+    // larger word ('API' inside 'rapid'/'scraping'); CJK terms (no word boundaries in
+    // the script) stay on plain substring match. A term counts as ASCII-word when it
+    // both starts and ends with [A-Za-z0-9_].
+    var isWord = function (ch) { return ch != null && /[A-Za-z0-9_]/.test(ch); };
     roots.forEach(function (root) {
       terms.forEach(function (term) {
+        var asciiWord = /^[A-Za-z0-9_].*[A-Za-z0-9_]$/.test(term) || /^[A-Za-z0-9_]$/.test(term);
         var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
         var nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
         for (var n = 0; n < nodes.length; n++) {
@@ -1963,7 +3143,19 @@
           // skip detached nodes (DOM mutated mid-iteration), already-linked terms,
           // and headings (h1–h4) — linking a term inside a title looks broken.
           if (!p || p.closest('.gloss') || p.closest('h1,h2,h3,h4')) continue;
-          var i = node.nodeValue.indexOf(term);
+          // for an ASCII-word term, find the first occurrence whose surrounding chars are
+          // non-word (true word boundary); for CJK leave plain substring behavior.
+          var i;
+          if (asciiWord) {
+            var from = 0, hit = -1;
+            while ((hit = node.nodeValue.indexOf(term, from)) >= 0) {
+              if (!isWord(node.nodeValue[hit - 1]) && !isWord(node.nodeValue[hit + term.length])) break;
+              from = hit + 1;
+            }
+            i = hit;
+          } else {
+            i = node.nodeValue.indexOf(term);
+          }
           if (i < 0) continue;
           var span = document.createElement('span');
           span.className = 'gloss'; span.tabIndex = 0; span.setAttribute('role', 'button');
@@ -1975,7 +3167,8 @@
       });
     });
     if (window.tippy) {
-      window.tippy('.gloss', { theme: 'report', maxWidth: 300, allowHTML: false, trigger: 'mouseenter focus' });
+      // include 'click' so .gloss is tap-to-reveal on touch (interactions.md §11)
+      window.tippy('.gloss', { theme: 'report', maxWidth: 300, allowHTML: false, trigger: 'mouseenter focus click' });
     }
   }
 
@@ -1992,8 +3185,9 @@
     if (window.GLOSSARY && typeof window.GLOSSARY === 'object') {
       linkGlossary(window.GLOSSARY);
     } else if (window.tippy) {
-      // no parse-time glossary, but author may have hand-authored .gloss spans
-      window.tippy('.gloss', { theme: 'report', maxWidth: 300, allowHTML: false, trigger: 'mouseenter focus' });
+      // no parse-time glossary, but author may have hand-authored .gloss spans.
+      // include 'click' so .gloss is tap-to-reveal on touch (interactions.md §11)
+      window.tippy('.gloss', { theme: 'report', maxWidth: 300, allowHTML: false, trigger: 'mouseenter focus click' });
     }
   }
 
@@ -2050,6 +3244,9 @@
     initTheme();
     initGlossary();
     initCredit();
+    ensurePrintButton();    // F37: inject the Print/Save-as-PDF chrome button (opt-out: window.REPORT_NO_PRINT)
+    // F43: opt-in audit auto-run when the URL carries ?audit=1 (off otherwise)
+    try { if (/[?&]audit=1\b/.test(location.search)) CB.audit(); } catch (e) {}
     // resize every registered chart instance (sparks, fast-path + escape-hatch charts).
     // coalesce a burst of resize events into ONE trailing rAF (same pattern CB.tabs
     // uses) so a continuous window drag / mobile URL-bar reflow doesn't fire a

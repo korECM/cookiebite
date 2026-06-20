@@ -381,9 +381,11 @@ string (the `interactions.md §5` accordion binds plain `x-text`). Native `<deta
 
 ```html
 <details class="rounded-medium border border-line-weak bg-surface group">
-  <summary class="flex items-center justify-between px-16 py-12 cursor-pointer select-none list-none">
-    <span class="text-body-16 font-semibold">재시도 로직 상세 분석</span>
-    <i data-lucide="chevron-down" class="w-16 h-16 text-secondary transition-transform group-open:rotate-180"></i>
+  <summary class="flex items-start justify-between gap-12 px-16 py-12 cursor-pointer select-none list-none">
+    <!-- title WRAPS (min-w-0 + no truncate) so a long summary stays fully readable on a
+         phone; the chevron is shrink-0 so it never gets squeezed off -->
+    <span class="text-body-16 font-semibold min-w-0">재시도 로직 상세 분석: 백오프·지터·상한과 동시 재시도 분산</span>
+    <i data-lucide="chevron-down" class="w-16 h-16 shrink-0 mt-2 text-secondary transition-transform group-open:rotate-180"></i>
   </summary>
   <div class="px-16 pb-16 pt-2 text-body-14 text-secondary space-y-8">
     <p>백오프는 지수적으로 증가하되 상한을 둡니다. 동시 재시도를 분산하기 위해…</p>
@@ -393,7 +395,11 @@ string (the `interactions.md §5` accordion binds plain `x-text`). Native `<deta
 </details>
 ```
 `list-none` hides the default triangle so your own chevron carries the affordance;
-`group-open:rotate-180` flips it. If you collapse a **chart**, init it lazily on first open
+`group-open:rotate-180` flips it. **Let the summary title wrap — don't `truncate` it.** A
+`truncate` on a `<summary>` title clips the text to one line with an ellipsis, which on a
+narrow phone hides most of the title (and the reader can't hover to see the rest); wrap it
+instead (`min-w-0` on the title + `shrink-0` on the chevron, as above) so the full title
+stays readable at 390px. If you collapse a **chart**, init it lazily on first open
 (or `resize()` on the `toggle` event) — a chart inside a closed `<details>` measures 0×0,
 the same footgun as a hidden tab (`interactions.md §6`). For an Alpine version that folds
 rich children, swap the §5 accordion's `x-text="item.detail"` for child markup under the

@@ -106,7 +106,11 @@
         <div class="space-y-10" id="accent-group"></div>
         <!-- live WCAG contrast for the two real use-sites: accent number on bg, white pill text on accent -->
         <div id="contrast-row" class="mt-12 grid grid-cols-2 gap-8"></div>
-        <!-- dark-accent rows: only shown when a near-black accent auto-generates accentDark -->
+        <!-- always-available affordance to ship an accentDark on any preset (F26) -->
+        <p id="add-dark-accent-row" class="mt-10 text-[11px] text-faint">
+          <button id="btn-add-dark-accent" class="underline hover:text-ink" data-i18n="add_dark_accent">+ Add a dark-mode accent override</button>
+        </p>
+        <!-- dark-accent rows: shown when a near-black accent auto-generates accentDark, or via the link above -->
         <div id="dark-accent-block" class="mt-12 pt-12 border-t border-hairsoft hidden">
           <div class="text-[11px] font-semibold uppercase tracking-wide text-faint mb-2" data-i18n="accent_dark">Dark mode accent</div>
           <p class="text-[11px] text-faint leading-relaxed mb-10" data-i18n="accent_dark_hint">Your near-black accent vanishes on a dark surface, so these auto-derive for dark mode. Edit to override.</p>
@@ -131,6 +135,10 @@
           <div>
             <label class="block text-[12px] text-sub mb-4" data-i18n="font_custom_url">Custom stylesheet URL (optional)</label>
             <input id="font-url" type="text" placeholder="https://fonts.googleapis.com/css2?family=..." class="w-full h-[34px] px-10 rounded-xs border border-hair text-[12px]" />
+          </div>
+          <div>
+            <label class="block text-[12px] text-sub mb-4" data-i18n="font_custom_fallback">Fallback stack</label>
+            <input id="font-fallback" type="text" placeholder="-apple-system, system-ui, sans-serif" class="w-full h-[34px] px-10 rounded-xs border border-hair text-[12px]" />
           </div>
         </div>
       </div>
@@ -359,6 +367,12 @@ const FONTS = [
    Preset library — embedded from assets/presets/*.json
    (kept inline so the file stays self-contained under file://)
    Order = gallery order. Neutral is first / default.
+
+   SINGLE SOURCE OF TRUTH: assets/presets/<name>.json is canonical.
+   This inline copy is a mirror so the studio works under file:// with no
+   fetch. When you change a token, change BOTH the JSON and this block.
+   verifyPresetParity() below fetches the JSON at runtime (when served over
+   http://) and console.warns on any drift, so a stale mirror is caught.
    ============================================================ */
 const PRESET_LIST = [
   { name:"neutral", label:"Neutral",
@@ -398,7 +412,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"supabase", label:"Supabase",
     font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#3ECF8E", accentStrong:"#24B47E", accentWeak:"#E6F9F0", accentOn:"#0A2E1F",
+    colors:{ accent:"#3ECF8E", accentStrong:"#24B47E", accentText:"#157F56", accentWeak:"#E6F9F0", accentOn:"#0A2E1F",
       bg:"#FCFCFD", surface:"#FFFFFF", primary:"#171717", secondary:"#707070", disabled:"#B2B2B2",
       placeholder:"#9A9A9A", line:"#DFDFDF", lineWeak:"#EDEDED", disabledBg:"#FAFAFA",
       critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
@@ -419,7 +433,7 @@ const PRESET_LIST = [
     locale:{ number:"en-US", currency:"USD", symbol:"$", bigUnits:false } },
   { name:"raycast", label:"Raycast",
     font:{ family:"Inter", url:"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap", fallback:"-apple-system, system-ui, sans-serif" },
-    colors:{ accent:"#FF5C5C", accentStrong:"#E04545", accentWeak:"#FFECEC", accentOn:"#FFFFFF",
+    colors:{ accent:"#FF5C5C", accentStrong:"#D23E3E", accentWeak:"#FFECEC", accentOn:"#FFFFFF",
       bg:"#FCFCFD", surface:"#FFFFFF", primary:"#0D0D0F", secondary:"#5C5C5E", disabled:"#9C9C9D",
       placeholder:"#B5B5B6", line:"#E6E6E8", lineWeak:"#F1F1F3", disabledBg:"#F4F4F6",
       critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
@@ -435,6 +449,31 @@ const PRESET_LIST = [
 // keyed lookup; first entry (Neutral) is the default
 const PRESETS = Object.fromEntries(PRESET_LIST.map(p=>[p.name, p]));
 const DEFAULT_PRESET = PRESET_LIST[0];
+
+/* Self-check: warn in console if the inline mirror drifts from the canonical
+   assets/presets/<name>.json. Best-effort — fetch of a sibling file fails under
+   file:// (browsers block it), so this only runs when the studio is served over
+   http(s); under file:// it silently no-ops. Compares the colors map per preset. */
+async function verifyPresetParity(){
+  for(const p of PRESET_LIST){
+    let json;
+    try{
+      const res = await fetch(`presets/${p.name}.json`, { cache:"no-store" });
+      if(!res.ok) continue;
+      json = await res.json();
+    }catch(e){ return; } // file:// or offline — give up quietly for all presets
+    if(!json || !json.colors) continue;
+    const drift = [];
+    const keys = new Set([...Object.keys(p.colors), ...Object.keys(json.colors)]);
+    keys.forEach(k=>{
+      const a = (p.colors[k]||"").toUpperCase(), b = (json.colors[k]||"").toUpperCase();
+      if(a !== b) drift.push(`${k}: inline ${a||"∅"} vs json ${b||"∅"}`);
+    });
+    if(drift.length){
+      console.warn(`[theme-studio] preset "${p.name}" inline copy drifted from presets/${p.name}.json — fix both (json is canonical):\n  ${drift.join("\n  ")}`);
+    }
+  }
+}
 
 /* ============================================================
    Color helpers (hex <-> rgb, derive strong/weak)
@@ -475,14 +514,37 @@ function contrastRatio(fg, bg){
    State
    ============================================================ */
 const STORAGE_KEY = "wds-report-theme";
+// Bump when the token shape changes (new/renamed color keys, etc). A persisted theme
+// stamped with a different (or missing) version is merged over DEFAULT_PRESET on load so
+// it can never write undefined CSS vars from a stale localStorage payload.
+const SCHEMA_VERSION = 1;
+// stamp the canonical default so a reset / merge-base always carries the current version
+DEFAULT_PRESET.schemaVersion = SCHEMA_VERSION;
 let theme = null;
 
 function loadInitial(){
+  const base = JSON.parse(JSON.stringify(DEFAULT_PRESET));
   try{
     const raw = localStorage.getItem(STORAGE_KEY);
-    if(raw){ const t = JSON.parse(raw); if(t && t.colors && t.font && t.locale) return t; }
+    if(raw){
+      const t = JSON.parse(raw);
+      if(t && t.colors && t.font && t.locale){
+        // every export-contract color key must be present; missing keys mean a stale shape
+        const complete = COLOR_KEYS.every(([k])=> typeof t.colors[k] === "string" && t.colors[k]);
+        if(t.schemaVersion === SCHEMA_VERSION && complete) return t;
+        // version mismatch OR a missing/blank key: merge over DEFAULT_PRESET so the saved
+        // tweaks survive but no key is ever undefined (which would blank a CSS var).
+        return {
+          ...base, ...t,
+          schemaVersion: SCHEMA_VERSION,
+          colors: { ...base.colors, ...t.colors },
+          font:   { ...base.font,   ...t.font },
+          locale: { ...base.locale, ...t.locale },
+        };
+      }
+    }
   }catch(e){}
-  return JSON.parse(JSON.stringify(DEFAULT_PRESET));
+  return base;
 }
 
 /* ============================================================
@@ -530,10 +592,23 @@ function renderContrast(){
   const row = document.getElementById("contrast-row");
   if(!row) return;
   const c = theme.colors;
-  const sites = [
-    { label: t("contrast_accent_on_bg"), fg: c.accent, bg: c.bg, min: 3.0 },   // big KPI numbers
-    { label: t("contrast_on_accent"),    fg: c.accentOn, bg: c.accent, min: 4.5 }, // small pill text
-  ];
+  // Mirror the preview mode: in dark, the report surface is the dark bg (#101013, the
+  // same value applyAccentDark injects) and the effective accent flips to accentDark /
+  // accentOnDark when present — so dark-mode contrast failures become visible too.
+  const pr = document.getElementById("preview-root");
+  const dark = pr && pr.getAttribute("data-theme") === "dark";
+  // accentText (when present) is the contrast-safe variant for accent-as-TEXT, so the
+  // KPI-number badge evaluates it rather than the raw fill accent.
+  const accentTextLight = c.accentText || c.accent;
+  const sites = dark
+    ? [
+        { label: t("contrast_accent_on_bg"), fg: (c.accentDark || c.accent),  bg: "#101013",   min: 3.0 }, // big KPI numbers (dark)
+        { label: t("contrast_on_accent"),    fg: (c.accentOnDark || c.accentOn), bg: (c.accentDark || c.accent), min: 4.5 }, // pill text (dark)
+      ]
+    : [
+        { label: t("contrast_accent_on_bg"), fg: accentTextLight, bg: c.bg,    min: 3.0 },   // big KPI numbers
+        { label: t("contrast_on_accent"),    fg: c.accentOn,      bg: c.accent, min: 4.5 }, // small pill text
+      ];
   row.innerHTML = sites.map(s=>{
     const ratio = contrastRatio(s.fg, s.bg);
     const pass = ratio >= s.min;
@@ -541,7 +616,7 @@ function renderContrast(){
       ? `<span class="px-6 py-2 rounded text-[10px] font-bold text-white" style="background:var(--c-positive)">AA ✓</span>`
       : `<span class="px-6 py-2 rounded text-[10px] font-bold text-white" style="background:var(--c-critical)">${t("contrast_fail")}</span>`;
     return `<div class="rounded-xs border border-hair p-8">
-      <div class="text-[10px] text-faint leading-tight mb-4">${s.label}</div>
+      <div class="text-[10px] text-faint leading-tight mb-4">${s.label}${dark?` · ${t("mode_dark")}`:""}</div>
       <div class="flex items-center justify-between gap-6">
         <span class="text-[13px] font-bold nums" style="color:${pass?'#18181B':'var(--c-critical)'}">${ratio.toFixed(2)}:1</span>
         ${chip}
@@ -550,7 +625,7 @@ function renderContrast(){
   }).join("");
 }
 
-function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(theme)); }catch(e){} }
+function persist(){ try{ theme.schemaVersion = SCHEMA_VERSION; localStorage.setItem(STORAGE_KEY, JSON.stringify(theme)); }catch(e){} }
 
 /* Flip the preview root between light and dark (the dark layer is injected by
    applyAccentDark). Editor chrome is unaffected since the override is .preview-root scoped. */
@@ -561,6 +636,8 @@ function setPreviewMode(mode){
   document.querySelectorAll("#mode-toggle .mode-btn").forEach(btn=>{
     btn.classList.toggle("is-active", btn.dataset.mode === mode);
   });
+  // re-evaluate the WCAG badges against the now-active (light/dark) palette
+  if(theme) renderContrast();
 }
 
 /* Inject the dark-mode layer the PREVIEW renders under data-theme="dark".
@@ -678,7 +755,12 @@ function buildCSS(){
     `--c-disabled:${c.disabled}`, `--c-placeholder:${c.placeholder}`, `--c-line:${c.line}`, `--c-line-weak:${c.lineWeak}`,
     `--c-disabled-bg:${c.disabledBg}`,
     `--c-critical:${c.critical}`, `--c-cautionary:${c.cautionary}`, `--c-positive:${c.positive}`, `--c-informative:${c.informative}`,
-  ].join("; ");
+  ];
+  // ACCENT-TEXT CONTRACT: a bright accent can fail WCAG as KPI-number / outline-button
+  // TEXT on the light bg even though it's fine as a FILL. accentText (when present) is a
+  // darker, contrast-safe variant for those text use-sites; the brand accent stays the fill.
+  if(c.accentText) vars.push(`--accent-text:${c.accentText}`);
+  const varsStr = vars.join("; ");
   const linkLine = theme.font.url ? `<link rel="stylesheet" href="${theme.font.url}">\n` : "";
   // ACCENT-DARK CONTRACT: near-black accents vanish on the dark surface, so an
   // optional accentDark overrides --accent / --accent-strong only in dark mode.
@@ -686,7 +768,7 @@ function buildCSS(){
   const darkLine = c.accentDark
     ? ` html[data-theme="dark"]{ --accent:${c.accentDark}; --accent-strong:${c.accentDark}; --accent-on:${c.accentOnDark || "#111111"}; }`
     : "";
-  return `${linkLine}<style>:root{ ${vars}; }${darkLine}</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
+  return `${linkLine}<style>:root{ ${varsStr}; }${darkLine}</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
 }
 
 /* ============================================================
@@ -807,16 +889,30 @@ function buildControls(){
   // font select
   fs.addEventListener("change", e=>{
     const v = e.target.value;
-    if(v==="__custom"){ /* user fills custom fields below */ return; }
+    if(v==="__custom"){
+      // entering Custom: keep family/url but guarantee a sane editable fallback so a
+      // URL-only or name-only custom font never renders with a stale/empty stack
+      if(!theme.font.fallback) theme.font.fallback = "-apple-system, system-ui, sans-serif";
+      syncFontInputs(); applyTheme(); return;
+    }
     const f = FONTS.find(x=>x.name===v);
     if(f){ theme.font = { family:f.name, url:f.url, fallback:f.fallback }; syncFontInputs(); applyTheme(); }
   });
-  document.getElementById("font-name").addEventListener("change", e=>{
-    const name = e.target.value.trim();
-    if(name){ theme.font.family = name; document.getElementById("font-select").value="__custom"; applyTheme(); }
+  // Custom font fields apply live on 'input' so the preview font updates as you type.
+  // A URL-only edit keeps the family; a name-only edit re-renders with the (now
+  // editable) fallback stack so the preview never stays stuck on the prior family.
+  document.getElementById("font-name").addEventListener("input", e=>{
+    theme.font.family = e.target.value.trim();
+    document.getElementById("font-select").value="__custom";
+    applyTheme();
   });
-  document.getElementById("font-url").addEventListener("change", e=>{
+  document.getElementById("font-url").addEventListener("input", e=>{
     theme.font.url = e.target.value.trim();
+    document.getElementById("font-select").value="__custom";
+    applyTheme();
+  });
+  document.getElementById("font-fallback").addEventListener("input", e=>{
+    theme.font.fallback = e.target.value.trim();
     document.getElementById("font-select").value="__custom";
     applyTheme();
   });
@@ -836,6 +932,16 @@ function buildControls(){
   document.getElementById("btn-rederive").addEventListener("click", ()=>{
     theme.colors.accentStrong = deriveStrong(theme.colors.accent);
     theme.colors.accentWeak   = deriveWeak(theme.colors.accent);
+    syncInputsFromTheme(); applyTheme();
+  });
+
+  // add a dark-mode accent override to ANY preset (not just near-black accents).
+  // Seed sensible values: keep a bright accent as-is for dark, but if it's near-black
+  // (vanishes on the dark surface) seed the auto-derived light tint instead.
+  document.getElementById("btn-add-dark-accent").addEventListener("click", ()=>{
+    const a = theme.colors.accent;
+    theme.colors.accentDark   = isNearBlack(a) ? lightenTint(a, 0.92) : a;
+    theme.colors.accentOnDark = theme.colors.accentOnDark || "#111111";
     syncInputsFromTheme(); applyTheme();
   });
 }
@@ -864,15 +970,15 @@ function setColor(key, hex, fromAccent){
 /* ============================================================
    Sync inputs <- theme
    ============================================================ */
-/* Highlight the gallery card matching the current theme (if any) */
+/* Highlight the gallery card matching the current theme.
+   Matches on theme.name (set when a preset card is clicked) rather than reverse-matching
+   colors — a color reverse-match is brittle (two presets sharing accent/bg collide, and a
+   user can't intentionally diverge from a preset). theme.name is a known preset key only
+   right after a preset click; any manual color edit doesn't change it, so the card stays
+   highlighted as the "based on" preset, which is the intended UX. */
 function matchPresetName(){
-  for(const p of PRESET_LIST){
-    const c = p.colors, t = theme.colors;
-    if(c.accent===t.accent && c.primary===t.primary && c.bg===t.bg && p.font.family===theme.font.family){
-      return p.name;
-    }
-  }
-  return null;
+  const n = theme && theme.name;
+  return (n && PRESETS[n]) ? n : null;
 }
 function markActivePreset(){
   const active = matchPresetName();
@@ -887,6 +993,8 @@ function syncFontInputs(){
   sel.value = known ? theme.font.family : "__custom";
   document.getElementById("font-name").value = known ? "" : (theme.font.family||"");
   document.getElementById("font-url").value = theme.font.url || "";
+  const fb = document.getElementById("font-fallback");
+  if(fb) fb.value = theme.font.fallback || "";
 }
 /* Show the dark-accent rows only when a dark accent exists (near-black accent),
    and mirror the auto-derived / hand-edited values into their inputs. */
@@ -895,6 +1003,9 @@ function syncDarkAccentRows(){
   if(!block) return;
   const has = !!theme.colors.accentDark;
   block.classList.toggle("hidden", !has);
+  // the "+ Add a dark-mode accent override" link only makes sense when there isn't one yet
+  const addRow = document.getElementById("add-dark-accent-row");
+  if(addRow) addRow.classList.toggle("hidden", has);
   if(!has) return;
   const map = { accentDark: theme.colors.accentDark, accentOnDark: theme.colors.accentOnDark || "#111111" };
   for(const [key,hex] of Object.entries(map)){
@@ -975,8 +1086,10 @@ const STRINGS = {
     contrast_fail: "AA fail",
     accent_dark: "Dark mode accent",
     accent_dark_hint: "Your near-black accent vanishes on a dark surface, so these auto-derive for dark mode. Edit to override.",
+    add_dark_accent: "+ Add a dark-mode accent override",
     font: "Font", font_family: "Family",
     font_custom_name: "Custom name (optional)", font_custom_url: "Custom stylesheet URL (optional)",
+    font_custom_fallback: "Fallback stack",
     neutrals: "Neutrals", semantic: "Semantic",
     locale: "Locale & numbers", loc_number: "Number format", loc_currency: "Currency code",
     loc_symbol: "Symbol", loc_bigunits: "Big units (만/억)",
@@ -1019,8 +1132,10 @@ const STRINGS = {
     contrast_fail: "AA 미달",
     accent_dark: "다크 모드 강조색",
     accent_dark_hint: "거의 검은 강조색은 어두운 배경에서 안 보여서 다크 모드용으로 자동 계산돼요. 직접 바꾸면 덮어써요.",
+    add_dark_accent: "+ 다크 모드 강조색 추가",
     font: "폰트", font_family: "글꼴",
     font_custom_name: "직접 입력 (선택)", font_custom_url: "스타일시트 URL 직접 입력 (선택)",
+    font_custom_fallback: "폴백 글꼴 스택",
     neutrals: "중립색", semantic: "의미색",
     locale: "지역 · 숫자", loc_number: "숫자 형식", loc_currency: "통화 코드",
     loc_symbol: "기호", loc_bigunits: "큰 단위 (만/억)",
@@ -1164,6 +1279,10 @@ function init(){
     theme = JSON.parse(JSON.stringify(DEFAULT_PRESET));
     syncInputsFromTheme(); applyTheme(); markActivePreset(); showToast(t("t_reset"));
   });
+
+  // dev parity check: warn if the inline PRESET_LIST drifted from presets/*.json
+  // (no-ops under file://, where fetching a sibling file is blocked)
+  verifyPresetParity();
 }
 init();
 </script>

@@ -112,15 +112,25 @@ td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-c
   /* drop fixed/interactive chrome that has no meaning on paper — the report's
      only <nav> is the TOC sidebar, so hiding nav reclaims the column for print.
      [data-cb-credit] = the auto-injected "Made with cookiebite" promo link;
-     #themeToggle is the injected dark toggle — neither belongs on paper. */
-  #themeToggle, nav, .toc, [x-cloak], [data-cb-credit]{ display:none !important; }
+     #themeToggle is the dark toggle; #cbPrintButton/#cbDensityToggle are the F37/F45
+     chrome buttons; #cbMobileNav the below-lg section dropdown; #cbSearch the F38 search
+     bar; #cbAuditBadge the F43 dev badge — none belong on paper. */
+  #themeToggle, #cbPrintButton, #cbDensityToggle, #cbMobileNav, #cbSearch, #cbAuditBadge,
+  nav, .toc, [x-cloak], [data-cb-credit]{ display:none !important; }
+  /* search dimming/highlight are screen-only — print every region at full opacity */
+  .cb-search-hide{ display:block !important; opacity:1 !important; }
+  mark.cb-mark{ background:transparent !important; color:inherit !important; }
+  /* the F45 permalink '#' anchor is a hover affordance, never on paper */
+  .cb-permalink{ display:none !important; }
   /* don't strand a section/heading alone at a page bottom, away from its body */
   h1, h2, h3{ break-after:avoid-page; }
   p, li{ orphans:3; widows:3; }
   /* tabbed/collapsed content is screen-only chrome but holds real report data —
-     force-expand inactive tab panels and collapsed timeline details so a printed
-     PDF doesn't silently drop 1/2–2/3 of the tabbed content + all incident notes */
+     force-expand inactive tab panels, collapsed timeline details, and native
+     <details> (action-item bodies) so a printed PDF doesn't silently drop content */
   [role=tabpanel][hidden]{ display:block !important; }
+  details:not([open]) > *{ display:revert !important; }
+  details{ display:block !important; }
   [x-show], [x-collapse]{ display:block !important; height:auto !important; overflow:visible !important; }
   /* re-apply the light neutrals even when the toggle left html[data-theme="dark"] on */
   html[data-theme="dark"]{
@@ -141,3 +151,30 @@ td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-c
   /* the main column drops its centered max-width and uses the full page */
   main{ max-width:none !important; width:100% !important; }
 }
+
+/* (7) F38 search — dim (not remove) non-matching regions so the page structure stays
+   readable, and tint matched substrings. .cb-search-hide is applied by COOKIEBITE.search;
+   mark.cb-mark is the vanilla mark.js-style highlight (accent-weak chip, on-token so it
+   follows dark). Both screen-only (overridden in the print block above). */
+.cb-search-hide{ opacity:.28; transition:opacity .15s ease; }
+mark.cb-mark{ background:var(--accent-weak); color:var(--accent-strong); border-radius:3px; padding:0 1px; }
+
+/* (8) F45 compact-density layer — flips on html[data-density="compact"] (toggled by
+   COOKIEBITE.densityToggle). Tightens card/list padding + vertical rhythm a notch for
+   data-dense exec reads, WITHOUT touching the comfortable default. Scoped to the report's
+   common surfaces/utilities; token-based so it re-themes for free. */
+html[data-density="compact"] .p-20{ padding:12px !important; }
+html[data-density="compact"] .p-16{ padding:10px !important; }
+html[data-density="compact"] .gap-16{ gap:10px !important; }
+html[data-density="compact"] .space-y-8 > * + *{ margin-top:5px !important; }
+html[data-density="compact"] .mt-12{ margin-top:8px !important; }
+html[data-density="compact"] .py-8{ padding-top:5px !important; padding-bottom:5px !important; }
+html[data-density="compact"] .gridjs-td, html[data-density="compact"] .gridjs-th{ padding-top:6px !important; padding-bottom:6px !important; }
+
+/* (9) F45 permalinks — a quiet '#' anchor that appears on heading hover/focus, copied via
+   COOKIEBITE.permalinks. Hidden until the heading is hovered or the anchor itself is
+   focused (keyboard reachable); accent on reveal. */
+.cb-permalink-h{ position:relative; }
+.cb-permalink{ opacity:0; margin-left:.4em; font-weight:600; transition:opacity .12s ease; }
+.cb-permalink-h:hover .cb-permalink, .cb-permalink:focus-visible{ opacity:.55; }
+.cb-permalink:hover{ opacity:1 !important; }

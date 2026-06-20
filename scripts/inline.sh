@@ -39,7 +39,15 @@ JS_FILE="$REPO_ROOT/assets/cookiebite.js"
 [ -f "$CSS_FILE" ] || { echo "missing $CSS_FILE" >&2; exit 1; }
 [ -f "$JS_FILE" ]  || { echo "missing $JS_FILE"  >&2; exit 1; }
 
-[ -n "$OUT" ] || OUT="${IN%.html}.inlined.html"
+if [ -n "$OUT" ]; then
+  # Warn (don't prompt) when -o targets an existing, unrelated file — so a stray path can't
+  # silently clobber something. The input itself is exempt (intentional in-place re-inline).
+  [ -f "$OUT" ] && [ "$OUT" != "$IN" ] && echo "overwriting existing $OUT" >&2
+else
+  # Strip .html / .htm so a non-.html input doesn't get a double extension (F50).
+  base="${IN%.html}"; base="${base%.htm}"
+  OUT="$base.inlined.html"
+fi
 
 # Idempotency: if the input is already inlined (carries our marker), re-inlining is a
 # no-op SUCCESS — not an error. Copy through to OUT (when distinct) so callers that pass
@@ -72,6 +80,8 @@ js_pat = re.compile(
 
 # guard against a stray "</script>" in the JS body breaking the inline <script>
 js_safe = js.replace('</script>', '<\\/script>')
+# symmetric guard: a stray "</style>" in the CSS would close the inline <style> early
+css = css.replace('</style>', '<\\/style>')
 
 n_css = n_js = 0
 def repl_css(_):
@@ -96,8 +106,14 @@ if n_css == 0:
     sys.stderr.write("warning: no cookiebite.css <link> found to inline (continuing).\n")
 
 # Any raw ./assets/cookiebite.js still left (e.g. a non-<script>-src reference the pattern
-# can't safely fold) would break offline — warn so the author can resolve it by hand.
-leftover = len(re.findall(r'(?:\./|/)?assets/cookiebite\.js', html, re.IGNORECASE))
+# can't safely fold) would break offline — warn so the author can resolve it by hand. Scope
+# this to actual src=/href= ATTRIBUTE occurrences, not prose: the template's head doc-comment
+# mentions cookiebite.js by name, which would otherwise trip this warning on every clean build.
+# Strip HTML comments first so comment prose never counts, then match only attribute refs.
+html_no_comments = re.sub(r'<!--.*?-->', '', html, flags=re.DOTALL)
+leftover = len(re.findall(
+    r'(?:src|href)=["\'][^"\']*(?:\./|/)?assets/cookiebite\.js',
+    html_no_comments, re.IGNORECASE))
 if leftover:
     sys.stderr.write(
         "warning: %d raw './assets/cookiebite.js' reference(s) remain after inlining.\n" % leftover)

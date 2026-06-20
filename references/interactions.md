@@ -83,6 +83,15 @@ pointer.** You don't need to build a separate mobile path or over-engineer a tap
 the chart hover/tooltip degrades gracefully to tap on its own. (This is unlike the glossary
 tooltip in §11, which needs an explicit tap trigger — see there.)
 
+**Narrow viewports — `grid:{ containLabel:true }`, not a fixed `left` px.** A horizontal
+bar (or any chart with long y-axis labels) should let ECharts measure the labels via
+`grid:{ containLabel:true }`; a hard-coded `grid:{ left:120 }` clips long Korean labels on
+desktop and wastes width on a phone. `CB.chart` additionally **shrinks the `axisName`/grid
+padding on narrow (<640px) containers** by default (its `responsive` option — pass
+`responsive:false` to opt out), so a chart authored with `containLabel:true` survives the
+390px narrow pass without hand-written breakpoints. Same rule for a dual-axis chart: keep
+both axes' names short and let `containLabel` reserve the room.
+
 **A fast-path `CB.chart` you later mutate via `setOption` (a filter, a metric toggle,
 a drilldown) must keep that reader state across a dark toggle.** The dark toggle re-runs
 the chart's registered render function, which re-applies the *original* `option` — so a
@@ -258,9 +267,11 @@ report) becomes top-to-bottom scroll with no jump-to and no progress. Give narro
   TOC highlight (observe `main section[id]`).
 - **Or a compact "On this page" dropdown/sheet** shown only `lg:hidden`, listing the same
   `section[id]` headings as `<a href="#id">` jump links.
-- At minimum, if you ship a TOC, **reuse its section list for a mobile `<details>` jump
-  menu** rather than hiding it outright. `CB.sectionNav()` (when present) auto-builds this
-  from the headings the runtime already observes.
+- At minimum, if you ship a TOC, **reuse its section list for a mobile jump menu** rather
+  than hiding it outright. **The runtime already does this for you** — `initToc()` (which
+  runs automatically) builds a compact below-`lg` "On this page" dropdown from your
+  `<ul id="toc">` links and keeps it synced to the active section. There's no function to
+  call; just author the desktop TOC and the mobile nav appears on narrow viewports.
 
 ## 10. Chart data-table toggle (accessibility + exact values)
 A canvas/SVG chart is invisible to screen readers and hides exact figures. Offer a

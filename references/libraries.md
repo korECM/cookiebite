@@ -82,7 +82,7 @@ with real structure.
 | Small bespoke figure (≤ ~6 shapes), annotated illustration, precise custom art | **Hand inline SVG** | full control, crisp, themeable, hand-editable. Layout is on you — keep it small. |
 | Node-link / hierarchy / flow from data (org, dependency, process) | **ECharts `graph` / `tree` / `sankey`** | already loaded, auto-layout, themes from your CSS vars for free. The default here. |
 | Boxes-and-arrows graph where layout quality matters (module map, call graph, ER) | **Graphviz** via [viz.js](https://github.com/mdaines/viz-js) (`@viz-js/viz`, ~1.4 MB) | real hierarchical/graph layout — the thing LLMs can't do by hand. Render DOT to SVG, then recolor with theme vars. |
-| Flowchart / sequence / state / gantt from a text description | **Mermaid** | fastest text→diagram. **Use the `COOKIEBITE.mermaid(target, definition, opts?)` helper** — it dynamically imports Mermaid (no CDN tag), themes `themeVariables` from your CSS vars, and re-renders on the dark toggle. Drop to raw `mermaid.initialize({ theme:'base', themeVariables:{...} })` only for something the helper can't express. |
+| Flowchart / sequence / state / gantt from a text description | **Mermaid** | fastest text→diagram. **Use the `COOKIEBITE.mermaid(target, definition, opts?)` helper** — it dynamically imports Mermaid (no CDN tag), themes `themeVariables` from your CSS vars, re-renders on the dark toggle, and now **scales the rendered SVG to fit its container** (drops the intrinsic px width; the viewBox keeps the aspect ratio, so a wide sequence diagram shrinks to width instead of clipping on desktop or vanishing on mobile, and the host scrolls horizontally only as a fallback for a genuinely huge diagram). Still keep participant counts / label lengths reasonable — a 12-actor sequence shrinks legible-but-tiny; split it or use a flowchart. Drop to raw `mermaid.initialize({ theme:'base', themeVariables:{...} })` only for something the helper can't express. |
 | Quick UML / class / component sketch | **nomnoml** (`nomnoml@1`, ~30 KB) | tiny, text→SVG. |
 
 Hand inline SVG, when it fits, uses `currentColor` + theme vars and real `<text>`:
@@ -131,6 +131,12 @@ the visual self-check (`scripts/verify-report.sh`).
   percentage labels, or switch to a horizontal bar.
 - **X-axis category labels**: rotate (`axisLabel:{ rotate:30 }`) or wrap, or use a
   horizontal bar so labels sit on the roomy y-axis.
+- **Horizontal bar — let the grid measure the labels, don't hard-code `left`.** Use
+  `grid:{ containLabel:true }` so ECharts reserves exactly the width the y-axis labels
+  need; a fixed `grid:{ left: 120 }` either clips long Korean labels or wastes space on a
+  phone. `CB.chart` also **shrinks `axisName`/`grid` padding on narrow (<640px) containers**
+  (its `responsive` default — pass `responsive:false` to opt out), so a horizontal bar
+  authored with `containLabel:true` survives the 390px pass without manual breakpoints.
 - **Treemap/wordcloud**: small cells truncate text unreadably — set a min font and
   hide labels on tiny cells.
 - **General rule**: pick the chart type that *fits the labels you actually have*, not

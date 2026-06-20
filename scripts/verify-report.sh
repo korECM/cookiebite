@@ -16,6 +16,14 @@ HTML="${1:?usage: verify-report.sh <path-to-html> [out-dir]}"
 [ -f "$HTML" ] || { echo "file not found: $HTML" >&2; exit 1; }
 ABS="$(cd "$(dirname "$HTML")" && pwd)/$(basename "$HTML")"
 OUT="${2:-$(dirname "$ABS")/.verify}"
+# Absolutize OUT up front (without creating it yet — the mkdir still waits until the runner
+# resolves, so a missing runner never touches the filesystem): a RELATIVE custom out-dir
+# otherwise yields a relative file:// URL for the auto-inlined copy below, crashing the
+# runner with ERR_INVALID_URL. Resolve an existing dir via cd/pwd; otherwise prefix $PWD.
+case "$OUT" in
+  /*) ;;
+  *) if [ -d "$OUT" ]; then OUT="$(cd "$OUT" && pwd)"; else OUT="$PWD/$OUT"; fi ;;
+esac
 URL="file://$ABS"
 S="report-verify-$$"
 
@@ -111,6 +119,19 @@ capture(){
   var customScaleApplied = w12 > 0 && w12 < 24; // 12px expected; 48px = broken
   var oversizedIcons = Array.from(document.querySelectorAll('svg[data-lucide], [data-lucide] > svg, .lucide'))
     .filter(el => el.getBoundingClientRect().height > 32).length;
+  // Contained-clip: an element whose own overflow-x is hidden/clip but whose content is far
+  // wider than its box (scrollWidth >> clientWidth) is silently clipping content — a "narrow
+  // pass looks clean" trap that horizontalOverflow misses because the page itself doesn't
+  // overflow. Flag elements clipping >48px of content; report a few worst offenders.
+  var clipped = Array.from(document.querySelectorAll('body *')).filter(function (el) {
+    if (el.scrollWidth <= el.clientWidth + 48) return false;
+    // skip visually-hidden a11y nodes (sr-only): 1px boxes whose scrollWidth is the full
+    // off-screen text — intentional, not a clip. Real clips have a substantive box width.
+    if (el.clientWidth <= 1 || el.clientHeight <= 1) return false;
+    if (/\bsr-only\b/.test(el.className || '')) return false;
+    var ox = getComputedStyle(el).overflowX;
+    return ox === 'hidden' || ox === 'clip';
+  });
   return JSON.stringify({
     innerWidth: window.innerWidth,
     pageHeight: document.body.scrollHeight,
@@ -123,6 +144,10 @@ capture(){
     tableScrollsInternally: wide.length > real.length, // wide Grid.js table inside its own scroller — OK, not a break
     collapsedCharts: Array.from(document.querySelectorAll('canvas, svg, [_echarts_instance_], .echart, [id*="chart"]'))
       .filter(el => el.offsetHeight < 24).length,
+    containedClipCount: clipped.length,           // elements clipping >48px of their own content
+    containedClips: clipped.slice(0, 8).map(el =>
+      el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')
+      + ' (' + el.scrollWidth + '>' + el.clientWidth + ')'),
   }, null, 0);
 })()
 EOF
@@ -207,6 +232,30 @@ PY
 capture desktop 1280
 capture narrow 390
 
+# Narrow column-collapse heuristic (F18): a narrow pass can report "all clear" while the
+# layout has actually collapsed every column into one tall stack. Compare narrow pageHeight
+# to desktop pageHeight — a >3x blow-up is the tell. Annotate the narrow checks file with a
+# narrowColumnCollapse field (matching the double-encoded shape) and note it on stderr.
+python3 - "$OUT/checks-desktop.json" "$OUT/checks-narrow.json" >&2 2>/dev/null <<'PY' || true
+import json, sys
+def load(p):
+    raw = json.load(open(p))
+    return json.loads(raw) if isinstance(raw, str) else raw
+try:
+    d = load(sys.argv[1]); n = load(sys.argv[2])
+except Exception:
+    sys.exit(0)
+dh = d.get("pageHeight") or 0
+nh = n.get("pageHeight") or 0
+collapse = bool(dh and nh and nh > dh * 3)
+n["narrowColumnCollapse"] = collapse
+n["desktopPageHeight"] = dh
+json.dump(json.dumps(n, separators=(",", ":")), open(sys.argv[2], "w"))
+if collapse:
+    print(f"⚠ [narrow] pageHeight {nh}px is >3x desktop {dh}px — columns likely "
+          "collapsed into one tall stack (check narrow tiles).")
+PY
+
 # Dark pass (only if the report ships a dark toggle) — flip to dark and re-capture
 # at desktop width so dark-mode contrast + re-themed charts get eyeballed too.
 # Calls the page's applyTheme() so canvas charts re-theme, falling back to a raw flip.
@@ -263,6 +312,9 @@ echo "checks-*.json: 'horizontalOverflow' is the primary layout-break signal. 'o
 echo "now excludes Grid.js internal nodes; 'tableScrollsInternally:true' just means a wide"
 echo "table scrolls inside its own wrapper (fine). 'consoleErrorCount'/'consoleErrors' surface"
 echo "console.error() calls + uncaught page exceptions — any non-zero count is worth a look."
+echo "'containedClipCount'>0 flags elements clipping their own content (overflow-x:hidden/clip"
+echo "with scrollWidth >> clientWidth) — a 'narrow looks clean' trap. 'narrowColumnCollapse:true'"
+echo "(narrow pageHeight >3x desktop) means columns collapsed into one tall stack — check tiles."
 echo "'customScaleApplied:false' (or 'oversizedIcons'>0) means cookiebite.js loaded BEFORE the"
 echo "Tailwind CDN, so the 12px icon/spacing scale was ignored (giant icons, collapsed layout) —"
 echo "fix the <head> order: load cdn.tailwindcss.com before cookiebite.js."

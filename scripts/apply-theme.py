@@ -67,8 +67,50 @@ TOC_HEADING_RE = re.compile(
 )
 
 
+# A CSS color value we accept for a preset color key: hex (#rgb/#rgba/#rrggbb/#rrggbbaa),
+# or a functional/named form (rgb()/hsl()/oklch()/transparent/named). We can't enumerate
+# every named color, so anything non-hex must at least be a non-empty token that doesn't
+# contain characters that would break the CSS rule (';', '}', quotes, newlines).
+HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
+BAD_COLOR_CHARS_RE = re.compile(r"[;{}\"'\n]")
+
+
+def is_valid_color(value: object) -> bool:
+    """True if value is a CSS color we can safely emit into a `--var:VALUE;` rule."""
+    if not isinstance(value, str):
+        return False
+    v = value.strip()
+    if not v:
+        return False
+    if HEX_COLOR_RE.match(v):
+        return True
+    # functional/named form: reject only values that would break the CSS rule
+    return BAD_COLOR_CHARS_RE.search(v) is None
+
+
+def _luminance(hex_color: str) -> float | None:
+    """Relative luminance (0..1) of a #rgb/#rrggbb color, or None if not a hex color."""
+    v = hex_color.strip().lstrip("#")
+    if len(v) in (3, 4):
+        v = "".join(c * 2 for c in v[:3])
+    elif len(v) in (6, 8):
+        v = v[:6]
+    else:
+        return None
+    try:
+        r, g, b = (int(v[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+    def lin(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+
+
 def validate_preset(preset: object) -> list[str]:
-    """Return a list of human-readable problems with the preset, empty if valid."""
+    """Return a list of human-readable problems with the preset, empty if valid.
+    Also emits non-fatal warnings (e.g. near-black accent without accentDark) to stderr."""
     problems = []
     if not isinstance(preset, dict):
         return ["preset is not a JSON object"]
@@ -91,12 +133,29 @@ def validate_preset(preset: object) -> list[str]:
         for k in COLOR_VARS:
             if k not in colors:
                 problems.append(f"missing color key 'colors.{k}'")
+            elif not is_valid_color(colors[k]):
+                problems.append(
+                    f"color 'colors.{k}' is not a valid color: {colors[k]!r}")
+        # Mirror the studio's isNearBlack: a near-black accent (relative luminance < ~0.18)
+        # vanishes on a dark surface, so accentDark is expected. Warn (don't fail) if absent,
+        # so the CLI and the theme-studio agree on the contract.
+        accent = colors.get("accent")
+        if is_valid_color(accent):
+            lum = _luminance(accent) if isinstance(accent, str) else None
+            if lum is not None and lum < 0.18 and not colors.get("accentDark"):
+                print(
+                    f"warning: accent {accent} is near-black (luminance {lum:.3f} < 0.18) "
+                    "but no 'colors.accentDark' is set — it may vanish in dark mode.",
+                    file=sys.stderr)
     return problems
 
 
 def build_block(preset: dict) -> str:
     font = preset["font"]
-    family = font["family"]
+    # The family is interpolated inside a single-quoted CSS string ('…'), so any apostrophe
+    # in the name (e.g. "Bob's Font") would close the string early and corrupt the rule.
+    # CSS escapes a quote with a backslash inside a quoted string.
+    family = font["family"].replace("\\", "\\\\").replace("'", "\\'")
     fallback = font.get("fallback", "-apple-system, system-ui, sans-serif")
     colors = preset["colors"]
     loc = preset["locale"]
@@ -114,7 +173,9 @@ def build_block(preset: dict) -> str:
         f"{COLOR_VARS[k]}:{colors[k]};" for k in
         ("critical", "cautionary", "positive", "informative")
     )
-    locale = json.dumps(loc).replace('"', "'")
+    # JSON is valid JS, and double quotes are safe inside a <script> body — emit it
+    # directly. The old .replace('"',"'") corrupted any value containing an apostrophe/quote.
+    locale = json.dumps(loc)
 
     # ACCENT-DARK CONTRACT: an optional preset hex used as the accent ONLY in dark
     # mode (for near-black accents that vanish on a dark surface). When present, emit a
