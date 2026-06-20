@@ -151,7 +151,7 @@
       insightAction: 'Action', insightWatch: 'Watch', insightNote: 'Note', keyTakeaways: 'Key takeaways',
       recommended: 'Recommended', total: 'Total', overall: 'Overall ', vsPrev: ' vs prev',
       stepCol: 'Step', valueCol: 'Value', dateCol: 'Date',
-      pathCol: 'Path', sourceCol: 'Source', targetCol: 'Target',
+      pathCol: 'Path', sourceCol: 'Source', targetCol: 'Target', gaugeTarget: 'Target',
       taskCol: 'Task', startCol: 'Start', endCol: 'End', today: 'Today',
       stDone: 'done', stCurrent: 'current', stPending: 'pending',
       sectionNav: 'Section navigation', onThisPage: 'On this page', onThisPageDots: 'On this page…',
@@ -175,7 +175,7 @@
       insightAction: '조치', insightWatch: '주의', insightNote: '메모', keyTakeaways: '핵심 요약',
       recommended: '추천', total: '합계', overall: '전체 전환율 ', vsPrev: ' 직전 대비',
       stepCol: '단계', valueCol: '값', dateCol: '날짜',
-      pathCol: '경로', sourceCol: '출발', targetCol: '도착',
+      pathCol: '경로', sourceCol: '출발', targetCol: '도착', gaugeTarget: '목표',
       taskCol: '작업', startCol: '시작', endCol: '종료', today: '오늘',
       stDone: '완료', stCurrent: '진행 중', stPending: '예정',
       sectionNav: '섹션 이동', onThisPage: '이 페이지에서', onThisPageDots: '이 페이지에서…',
@@ -213,7 +213,7 @@
       insightAction: 'Acción', insightWatch: 'Atención', insightNote: 'Nota', keyTakeaways: 'Conclusiones clave',
       recommended: 'Recomendado', total: 'Total', overall: 'General ', vsPrev: ' vs ant.',
       stepCol: 'Paso', valueCol: 'Valor', dateCol: 'Fecha',
-      pathCol: 'Ruta', sourceCol: 'Origen', targetCol: 'Destino',
+      pathCol: 'Ruta', sourceCol: 'Origen', targetCol: 'Destino', gaugeTarget: 'Objetivo',
       taskCol: 'Tarea', startCol: 'Inicio', endCol: 'Fin', today: 'Hoy',
       stDone: 'hecho', stCurrent: 'en curso', stPending: 'pendiente',
       sectionNav: 'Navegación de secciones', onThisPage: 'En esta página', onThisPageDots: 'En esta página…',
@@ -237,7 +237,7 @@
       insightAction: 'Aktion', insightWatch: 'Beobachten', insightNote: 'Notiz', keyTakeaways: 'Kernaussagen',
       recommended: 'Empfohlen', total: 'Gesamt', overall: 'Insgesamt ', vsPrev: ' vs. vorher',
       stepCol: 'Schritt', valueCol: 'Wert', dateCol: 'Datum',
-      pathCol: 'Pfad', sourceCol: 'Quelle', targetCol: 'Ziel',
+      pathCol: 'Pfad', sourceCol: 'Quelle', targetCol: 'Ziel', gaugeTarget: 'Ziel',
       taskCol: 'Aufgabe', startCol: 'Start', endCol: 'Ende', today: 'Heute',
       stDone: 'fertig', stCurrent: 'laufend', stPending: 'ausstehend',
       sectionNav: 'Abschnittsnavigation', onThisPage: 'Auf dieser Seite', onThisPageDots: 'Auf dieser Seite…',
@@ -261,7 +261,7 @@
       insightAction: 'Action', insightWatch: 'À surveiller', insightNote: 'Note', keyTakeaways: 'Points clés',
       recommended: 'Recommandé', total: 'Total', overall: 'Global ', vsPrev: ' vs préc.',
       stepCol: 'Étape', valueCol: 'Valeur', dateCol: 'Date',
-      pathCol: 'Chemin', sourceCol: 'Source', targetCol: 'Cible',
+      pathCol: 'Chemin', sourceCol: 'Source', targetCol: 'Cible', gaugeTarget: 'Objectif',
       taskCol: 'Tâche', startCol: 'Début', endCol: 'Fin', today: "Aujourd'hui",
       stDone: 'terminé', stCurrent: 'en cours', stPending: 'à venir',
       sectionNav: 'Navigation des sections', onThisPage: 'Sur cette page', onThisPageDots: 'Sur cette page…',
@@ -285,7 +285,7 @@
       insightAction: '行动', insightWatch: '关注', insightNote: '备注', keyTakeaways: '关键要点',
       recommended: '推荐', total: '合计', overall: '总体 ', vsPrev: ' 较上期',
       stepCol: '步骤', valueCol: '值', dateCol: '日期',
-      pathCol: '路径', sourceCol: '来源', targetCol: '目标',
+      pathCol: '路径', sourceCol: '来源', targetCol: '目标', gaugeTarget: '目标',
       taskCol: '任务', startCol: '开始', endCol: '结束', today: '今天',
       stDone: '完成', stCurrent: '进行中', stPending: '待办',
       sectionNav: '章节导航', onThisPage: '本页内容', onThisPageDots: '本页内容…',
@@ -1720,13 +1720,17 @@
       var dz = opt && opt.dataZoom; if (!dz) return opt;
       (Array.isArray(dz) ? dz : [dz]).forEach(function (z) {
         if (!z || z.type !== 'slider') return;
-        if (z.fillerColor == null) z.fillerColor = accentRgba(0.15);
-        if (z.borderColor == null) z.borderColor = CB.theme.C_LINE;
+        // LIGHT touch only — accent handles + a faint accent window, and a thin data-shadow
+        // OUTLINE (no solid fill). Over-filling these (filler + selected area both opaque) made
+        // the slider read as a heavy salmon band, so keep every fill subtle/translucent.
+        if (z.height == null) z.height = 18;
+        if (z.fillerColor == null) z.fillerColor = accentRgba(0.10);
+        if (z.borderColor == null) z.borderColor = 'transparent';
         if (z.handleStyle == null) z.handleStyle = { color: CB.theme.ACCENT, borderColor: CB.theme.ACCENT };
-        if (z.moveHandleStyle == null) z.moveHandleStyle = { color: CB.theme.ACCENT };
+        if (z.moveHandleStyle == null) z.moveHandleStyle = { color: accentRgba(0.45) };
         if (z.textStyle == null) z.textStyle = { color: CB.theme.C_SECONDARY };
-        if (z.dataBackground == null) z.dataBackground = { lineStyle: { color: CB.theme.C_LINE }, areaStyle: { color: CB.theme.C_LINE } };
-        if (z.selectedDataBackground == null) z.selectedDataBackground = { lineStyle: { color: CB.theme.ACCENT }, areaStyle: { color: accentRgba(0.25) } };
+        if (z.dataBackground == null) z.dataBackground = { lineStyle: { color: CB.theme.C_LINE, width: 1 }, areaStyle: { color: 'transparent' } };
+        if (z.selectedDataBackground == null) z.selectedDataBackground = { lineStyle: { color: CB.theme.ACCENT, width: 1 }, areaStyle: { color: accentRgba(0.06) } };
       });
       return opt;
     }
@@ -1920,81 +1924,87 @@
        value/max -> fraction. label -> caption under the ring. unit -> appended to the
        center figure (e.g. '%'). target -> a tick mark at that value. tone -> semantic.
      ========================================================================== */
+  var gaugeSeq = 0;
+  // tone -> CSS-var STRING (for CSS-context fills, e.g. bullet/leaderboard bars)
   var GAUGE_FILL = { neutral: 'var(--accent)', info: 'var(--c-informative)', success: 'var(--c-positive)', warning: 'var(--c-cautionary)', critical: 'var(--c-critical)' };
+  // tone -> the CSS var NAME, resolved live (per render) for the ECharts gauge progress arc
+  var GAUGE_TONE_VAR = { neutral: '--accent', info: '--c-informative', success: '--c-positive', warning: '--c-cautionary', critical: '--c-critical' };
 
-  /* gaugeRing(config) -> the '<div class="flex flex-col items-center">…</div>' ring HTML
-     (or '' when value/max is empty/invalid). Extracted from CB.gauge so CB.gaugeGrid can
-     drop the SAME conic-gradient ring into each cell — pure CSS vars, so every cell is
-     dark-aware with no JS re-theme. Output is byte-identical to the prior inline CB.gauge. */
-  function gaugeRing(config) {
+  /* gaugeOption(config) -> an ECharts NATIVE gauge option (a full-circle progress donut).
+     Replaces the old hand-rolled conic-gradient ring + CSS target tick — the library draws a
+     clean rounded progress arc, and the target reads as a calm '목표 N' sub-line under the
+     value (an on-ring tick crowded the arc whenever value≈target). All colors are read live,
+     so a dark toggle re-themes via registerChart. */
+  function gaugeOption(config) {
     var max = config.max != null ? config.max : 100;
-    var raw = config.value;
-    if (raw == null || !isFinite(Number(raw)) || !(max > 0)) return '';
-
-    var value = Number(raw);
-    var frac = Math.max(0, Math.min(1, value / max)); // clamp into 0..1
-    var deg = Math.round(frac * 360);
-    var fill = (config.tone && GAUGE_FILL[config.tone]) || 'var(--accent)';
-    // the ring: a conic-gradient fill on a track, masked to a ring by an inner surface
-    // disc. All colors are CSS vars -> follows dark re-theme with no JS registration.
-    var size = config.size || 160;
-    var thickness = config.thickness || 16;
-
-    // center figure: value (+ unit). A %-style gauge shows the value as-authored.
-    // opts.showMax appends a faint '/max' affordance so the reader sees the denominator
-    // (18 /24, 67 /100) — off by default to preserve the existing bare-value rendering.
+    var value = Number(config.value);
     var unit = config.unit != null ? config.unit : '';
-    var maxAff = config.showMax
-      ? '<span class="text-title-20 text-secondary font-semibold"> /' + esc(CB.nf.format(max)) + esc(unit) + '</span>'
-      : '';
-    var center = '<div class="absolute inset-0 flex flex-col items-center justify-center">' +
-      '<span class="text-title-28 font-bold nums leading-none">' + esc(CB.nf.format(value)) + esc(unit) + maxAff + '</span>' +
-      (config.sub ? '<span class="text-caption-12 text-secondary mt-2">' + esc(config.sub) + '</span>' : '') +
-      '</div>';
-
-    // optional target tick: a short radial mark at the target fraction, drawn as a
-    // rotated thin bar pinned to the top of the ring.
-    var tick = '';
-    if (config.target != null && isFinite(Number(config.target)) && max > 0) {
-      var tdeg = Math.round(Math.max(0, Math.min(1, Number(config.target) / max)) * 360);
-      // a neat radial tick that sits WITHIN the ring band (was a 2px dark bar poking past both
-      // edges, which read as a stray slash). 3px rounded, in --c-primary, spanning just the band.
-      tick = '<div class="absolute left-1/2 top-0 origin-bottom" ' +
-        'style="height:' + (size / 2) + 'px;transform:translateX(-50%) rotate(' + tdeg + 'deg);">' +
-        '<span class="block rounded-full" style="width:3px;height:' + thickness + 'px;background:var(--c-primary);opacity:.75;"></span></div>';
-    }
-
-    var labelHtml = config.label
-      ? '<p class="text-body-14 text-secondary mt-12 text-center">' + esc(config.label) + '</p>'
-      : '';
-
-    // role=img + aria-label so the ring is announced as a single value, not silent decoration
-    var aria = config.ariaLabel || ((config.label ? config.label + ': ' : '') + CB.nf.format(value) + unit + (config.target != null ? ' (target ' + CB.nf.format(Number(config.target)) + unit + ')' : ''));
-
-    return '<div class="flex flex-col items-center">' +
-      '<div role="img" aria-label="' + esc(aria) + '" class="relative" style="width:' + size + 'px;height:' + size + 'px;">' +
-      // track + conic fill
-      '<div class="absolute inset-0 rounded-full" style="background:conic-gradient(' + fill + ' ' + deg + 'deg, var(--c-disabled-bg) ' + deg + 'deg);"></div>' +
-      // inner disc punches the center out, leaving a ring of `thickness`
-      '<div class="absolute rounded-full bg-surface" style="inset:' + thickness + 'px;"></div>' +
-      tick + center +
-      '</div>' + labelHtml +
-      '</div>';
+    var thickness = config.thickness || 14;
+    var arc = cssColor((config.tone && GAUGE_TONE_VAR[config.tone]) || '--accent', CB.theme.ACCENT);
+    var track = cssColor('--c-disabled-bg', '#F0F0F0');
+    var primary = cssColor('--c-primary', '#222');
+    var secondary = cssColor('--c-secondary', '#555');
+    var hasTarget = config.target != null && isFinite(Number(config.target));
+    var targetText = hasTarget ? (t('gaugeTarget', 'Target') + ' ' + CB.nf.format(Number(config.target)) + unit) : '';
+    var maxText = config.showMax ? (' / ' + CB.nf.format(max) + unit) : '';
+    return {
+      series: [{
+        type: 'gauge', radius: '97%', center: ['50%', '50%'],
+        startAngle: 90, endAngle: -270, min: 0, max: max,            // full circle, top start, clockwise
+        progress: { show: true, width: thickness, roundCap: true, itemStyle: { color: arc } },
+        axisLine: { lineStyle: { width: thickness, color: [[1, track]] } },
+        pointer: { show: false }, anchor: { show: false }, axisTick: { show: false },
+        splitLine: { show: false }, axisLabel: { show: false }, title: { show: false },
+        detail: {
+          offsetCenter: [0, 0],
+          formatter: function () {
+            var v = CB.nf.format(value) + unit + maxText;
+            return targetText ? ('{v|' + v + '}\n{t|' + targetText + '}') : ('{v|' + v + '}');
+          },
+          rich: {
+            v: { fontSize: config.valueFontSize || 26, fontWeight: 'bold', color: primary, fontFamily: CB.theme.FONT, lineHeight: 30 },
+            t: { fontSize: 12, color: secondary, fontFamily: CB.theme.FONT, padding: [4, 0, 0, 0] },
+          },
+        },
+        data: [{ value: isFinite(value) ? value : 0 }],
+      }],
+    };
+  }
+  // init an ECharts gauge into `el` and register it for dark re-theme
+  function renderGauge(el, config) {
+    var inst = window.echarts.init(el);
+    inst.setOption(gaugeOption(config));
+    CB.registerChart(inst, function (c) { c.setOption(gaugeOption(config), true); });
+    return inst;
   }
 
+  // aria-label so the gauge is announced as one value (+ target), not silent decoration
+  function gaugeAria(c) {
+    var unit = c.unit != null ? c.unit : '';
+    return c.ariaLabel || ((c.label ? c.label + ': ' : '') + CB.nf.format(Number(c.value)) + unit +
+      (c.target != null ? ' (' + t('gaugeTarget', 'target') + ' ' + CB.nf.format(Number(c.target)) + unit + ')' : ''));
+  }
   CB.gauge = function (target, config) {
     var host = resolveTarget(target);
-    if (!host) return;
+    if (!host) return null;
     config = config || {};
     var max = config.max != null ? config.max : 100;
     var raw = config.value;
-
-    // empty/invalid: a quiet "no data" line instead of an empty ring
-    if (raw == null || !isFinite(Number(raw)) || !(max > 0)) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
-
-    host.innerHTML = gaugeRing(config);
-
+    // empty/invalid (or no echarts): a quiet "no data" line instead of an empty ring
+    if (raw == null || !isFinite(Number(raw)) || !(max > 0) || !window.echarts) {
+      if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.gauge needs echarts.');
+      host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null;
+    }
+    CB.disposeIn(host);
+    var size = config.size || 170;
+    var cid = 'cbGauge' + (++gaugeSeq);
+    var labelHtml = config.label ? '<p class="text-body-14 text-secondary mt-8 text-center">' + esc(config.label) + '</p>' : '';
+    host.innerHTML = '<div class="flex flex-col items-center">' +
+      '<div id="' + cid + '" role="img" aria-label="' + esc(gaugeAria(config)) + '" style="width:' + size + 'px;height:' + size + 'px;"></div>' +
+      labelHtml + '</div>';
+    renderGauge(host.querySelector('#' + cid), config);
     CB.refreshIcons();
+    return host;
   };
 
   /* ==========================================================================
@@ -2016,23 +2026,31 @@
 
     if (!items.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
 
+    if (!window.echarts) { console.warn('[cookiebite] COOKIEBITE.gaugeGrid needs echarts.'); host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
     // explicit opts.cols wins; else auto-pick by item count (same map as CB.kpis)
     var colsKey = opts.cols && COLS_MAP[opts.cols] ? opts.cols : autoCols(items.length);
+    var size = opts.size || 150;
+    var toInit = []; // [{id, cfg}] — built as HTML strings, then each ECharts gauge is init'd
 
     var cells = items.map(function (it) {
       it = it || {};
-      // per-cell: render the SHARED ring; an empty/invalid value degrades to a quiet line
-      var ring = gaugeRing({
-        value: it.value, max: it.max, target: it.target, tone: it.tone,
-        unit: it.unit, label: it.label, sub: it.sub, showMax: it.showMax,
-        size: it.size, thickness: it.thickness, ariaLabel: it.ariaLabel,
-      });
-      var inner = ring || ('<div class="text-center text-body-14 text-secondary py-24">' +
-        esc(it.label ? it.label + ': ' : '') + esc(t('noData')) + '</div>');
-      return '<div class="cb-gaugegrid-cell">' + inner + '</div>';
+      var max = it.max != null ? it.max : 100;
+      // an empty/invalid value degrades to a quiet line (no chart)
+      if (it.value == null || !isFinite(Number(it.value)) || !(max > 0)) {
+        return '<div class="cb-gaugegrid-cell"><div class="text-center text-body-14 text-secondary py-24">' +
+          esc(it.label ? it.label + ': ' : '') + esc(t('noData')) + '</div></div>';
+      }
+      var cid = 'cbGauge' + (++gaugeSeq);
+      toInit.push({ id: cid, cfg: it });
+      var labelHtml = it.label ? '<p class="text-body-14 text-secondary mt-8 text-center">' + esc(it.label) + '</p>' : '';
+      return '<div class="cb-gaugegrid-cell"><div class="flex flex-col items-center">' +
+        '<div id="' + cid + '" role="img" aria-label="' + esc(gaugeAria(it)) + '" style="width:' + size + 'px;height:' + size + 'px;"></div>' +
+        labelHtml + '</div></div>';
     }).join('');
 
     host.innerHTML = '<div class="cb-gaugegrid ' + COLS_MAP[colsKey] + '">' + cells + '</div>';
+    toInit.forEach(function (g) { var el = host.querySelector('#' + g.id); if (el) renderGauge(el, g.cfg); });
     CB.refreshIcons();
   };
 
