@@ -25,7 +25,7 @@
 @layer cookiebite-defaults {
   :root{
     --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
-    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;
+    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;  --accent-on-text:var(--accent-on);
     --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
     --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
   }
@@ -41,6 +41,7 @@
 html[data-theme="dark"]{
   --accent-weak: color-mix(in srgb, var(--accent) 22%, #16161a);
   --accent-text: var(--accent);
+  --accent-on-text: var(--accent-on);
   --c-bg:#101013;  --c-surface:#1a1a1f;  --c-primary:#F1F1F4;  --c-secondary:#AEAEB6;
   --c-disabled:#6E6E78;  --c-placeholder:#5A5A63;  --c-line:#3A3A42;  --c-line-weak:#2A2A30;  --c-disabled-bg:#26262C;
   /* nudge semantic hues brighter so they read on a dark surface */

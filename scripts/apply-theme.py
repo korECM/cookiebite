@@ -368,6 +368,13 @@ def build_block(preset: dict) -> str:
     accent_text = colors.get("accentText")
     if accent_text and is_valid_color(accent_text):
         accent += f"  --accent-text:{accent_text};"
+    # ACCENT-ON-TEXT CONTRACT (F39): the ink for SMALL (<14px / non-bold) text sitting on
+    # an --accent fill, so a bright accent clears the 4.5 small-text AA floor while large
+    # titles/fills keep --accent-on. Defaults to var(--accent-on); presets whose white-on-
+    # accent already passes omit it (byte-identical). Emitted only when present.
+    accent_on_text = colors.get("accentOnText")
+    if accent_on_text and is_valid_color(accent_on_text):
+        accent += f"  --accent-on-text:{accent_on_text};"
     neutrals = "  ".join(
         f"{COLOR_VARS[k]}:{colors[k]};" for k in
         ("bg", "surface", "primary", "secondary", "disabled",

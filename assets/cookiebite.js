@@ -42,6 +42,12 @@
           // --accent for FILLS. Falls back to --accent when the preset omits it, so a report
           // without --accent-text is byte-identical to today. Consumed via text-accent-text.
           'accent-text': 'var(--accent-text, var(--accent))',
+          // F39 — on-accent SMALL-text ink. White (--accent-on) clears AA on LARGE
+          // titles/fills, but a bright accent (persimmon/raycast) can fail the 4.5
+          // small-text floor; a preset ships --accent-on-text (a dark ink) for chips
+          // and <14px on-accent text. Falls back to --accent-on, so presets whose
+          // white already passes are byte-identical. Consumed via text-accent-on-text.
+          'accent-on-text': 'var(--accent-on-text, var(--accent-on))',
         },
         borderColor: { DEFAULT: 'var(--c-line-weak)' },
         borderRadius: { xxs: '4px', xs: '8px', small: '12px', medium: '16px', large: '24px', xlarge: '32px' },

@@ -190,6 +190,15 @@ or to know where the skill is installed. Map the JSON to the THEME block:
   light bg. The brand accent stays the **fill**; this is only the text/ink variant. Theme-
   studio emits it in `buildCSS()` and scores it in the light-mode contrast badge (shipped on
   `supabase` = `#157F56`). Omit it and accent text falls back to `--accent`.
+- `colors.accentOnText` (optional) → `--accent-on-text`: the **ink for small text on an
+  accent fill** (chips, pills, `<14px`/non-bold on-accent labels). `--accent-on` (white)
+  clears AA on large on-accent titles and non-text fills, but a bright accent fails the 4.5
+  small-text floor against white; `--accent-on-text` is a dark ink for those tiny on-accent
+  sites while large titles keep `--accent-on`. Consumed via the `text-accent-on-text`
+  utility and **defaults to `var(--accent-on)`**. A bright-accent preset ships it
+  (`persimmon` / `raycast` = `#2A1206`) so small on-accent chips clear AA while large titles
+  stay `--accent-on`; `apply-theme.py` emits it only when present, so presets whose
+  white-on-accent already passes are byte-identical.
 - `colors.accentDark` (optional) → a dark-mode override emitted **after** the `:root`
   block: `html[data-theme="dark"]{ --accent:<accentDark>; --accent-strong:<accentDark>;
   --accent-on:<accentOnDark> }`. Only present for near-black accents that would vanish on

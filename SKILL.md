@@ -35,10 +35,17 @@ bespoke parts.
 
 1. **Find the 1–3 takeaways** the reader must leave with → those become the headline
    visuals.
-2. **`cp assets/template.html <report>.html`**, then `Read` the copy (a fresh file —
-   `Edit` fails until you read it) and surgical-`Edit` only the `<!-- COOKIEBITE:* -->`
-   slots (`HEAD-THEME`, `HEAD-LIBS`, `TITLE`, `TOC`, `HEADER`, `SECTIONS`, `FOOTER`,
-   `REPORT-SCRIPT`). Set `<html lang>` to the report's language.
+2. **Start from a TYPE skeleton, not the payments demo**: `bash scripts/scaffold.sh <type>
+   <report>.html` (`type` ∈ `dashboard` | `review` | `postmortem` | `explainer` |
+   `comparison`, or run the `cookiebite new` command) — it `cp`s the template and swaps the
+   demo `SECTIONS`/`REPORT-SCRIPT` (+ `TOC`/`HEADER`/`FOOTER`) for a small, correct, on-theme
+   skeleton built from the *right* helpers for that type, slot markers intact. This replaces
+   the old "`cp` the payments template then gut it". (Bare `cp assets/template.html
+   <report>.html` still works if you want the demo as a reference.) Then `Read` the file (a
+   fresh file — `Edit` fails until you read it) and surgical-`Edit` only the
+   `<!-- COOKIEBITE:* -->` slots (`HEAD-THEME`, `HEAD-LIBS`, `TITLE`, `TOC`, `HEADER`,
+   `SECTIONS`, `FOOTER`, `REPORT-SCRIPT`) — see **`references/snippets.md`** for the
+   section-recipe library to paste in. Set `<html lang>` to the report's language.
 3. **Pick the theme** (default Persimmon, or a preset / saved default) and **pick the
    chart/diagram type by the data** — see "Which chart when" in step 4 below.
 4. **Author the repetitive sections with the helpers** (`COOKIEBITE.kpis`/`findings`/
@@ -404,6 +411,15 @@ The token contract (CSS vars on `:root`, set in the template's THEME block):
   optional `colors.accentText` field (theme-studio emits it in `buildCSS()` and scores it
   in the light-mode contrast badge; shipped on `supabase` = `#157F56`). Omit it and accent
   text falls back to `--accent`.
+- `--accent-on-text` (optional) — the **ink for small text on an accent fill** (chips,
+  pills, `<14px`/non-bold on-accent labels). `--accent-on` (usually white) clears AA on
+  large titles and non-text accent fills, but a bright accent (persimmon, raycast) fails the
+  4.5 small-text floor against white; `--accent-on-text` is a dark ink for those tiny
+  on-accent sites while large on-accent titles stay `--accent-on`. Consumed via the
+  `text-accent-on-text` Tailwind utility; **defaults to `--accent-on`**. It comes from a
+  preset's optional `colors.accentOnText` field — a bright-accent preset ships it
+  (`persimmon` / `raycast` = `#2A1206`) so small on-accent chips clear AA while large titles
+  stay `--accent-on`. Presets whose white-on-accent already passes omit it (byte-identical).
 - Neutrals: `--c-bg`, `--c-surface`, `--c-primary`, `--c-secondary`, `--c-disabled`,
   `--c-placeholder`, `--c-line`, `--c-line-weak`, `--c-disabled-bg`
 - Semantic: `--c-critical`, `--c-cautionary`, `--c-positive`, `--c-informative`
@@ -692,6 +708,16 @@ Before handing over, verify:
 - `assets/template.html` — slim, slot-marked report skeleton (`<!-- COOKIEBITE:* -->`
   regions). **`cp` this to start, then surgical-`Edit` the slots.** References the
   hosted runtime; ships the built-in **light/dark toggle** (see "Theming → Dark mode").
+- `scripts/scaffold.sh <type> <out.html>` — the **non-demo starting point** (replaces "`cp`
+  the payments template then gut it"). Copies the template and swaps the demo
+  `SECTIONS`/`REPORT-SCRIPT` (+ `TOC`/`HEADER`/`FOOTER`) for a small, correct, on-theme
+  skeleton built from the right helpers for the TYPE (`dashboard` | `review` | `postmortem`
+  | `explainer` | `comparison`), slot markers intact. The **`cookiebite new`** command wraps
+  it. Then edit the `‹REPLACE›` placeholders; see `references/snippets.md` for more recipes.
+- `references/snippets.md` — the **section-recipe library**: copy-paste, on-theme section
+  blocks (markup → `SECTIONS`, script → `REPORT-SCRIPT`) and the TYPE skeletons `scaffold.sh`
+  emits. Use it to hand-assemble or mix sections beyond a single scaffold type;
+  `helpers.md` has the per-helper input shapes.
 - `assets/cookiebite.css` / `assets/cookiebite.js` — the **hosted runtime**: invariant
   boilerplate (Tailwind config, default + dark token layers, number helpers, `baseChart`,
   dark toggle, TOC observer, card hydration, a quiet auto-injected "Made with cookiebite"
