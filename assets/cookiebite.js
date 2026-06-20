@@ -1276,6 +1276,10 @@
       // and wrapping so long labels don't collide. ELK (when registered) routes far better.
       mermaid.initialize({
         startOnLoad: false, securityLevel: 'loose', theme: 'base', themeVariables: mermaidThemeVars(),
+        // suppressErrorRendering stops Mermaid from appending its own raw "Syntax error" SVG to
+        // document.body on a parse failure (it leaked to the page bottom outside any card) — we
+        // contain the error inside the host instead (parse-first + the .catch below).
+        suppressErrorRendering: true,
         layout: window.__cbMermaidElk ? 'elk' : 'dagre',
         elk: { mergeEdges: false, nodePlacementStrategy: 'BRANDES_KOEPF' },
         flowchart: { nodeSpacing: 55, rankSpacing: 70, curve: 'basis', htmlLabels: true, padding: 14, useMaxWidth: true, wrappingWidth: 220 },
@@ -1285,7 +1289,11 @@
         gantt: { useMaxWidth: true },
       });
       var id = 'cbmmd' + (mmdSeq++);
-      return mermaid.render(id, definition).then(function (res) {
+      // parse FIRST so a syntax error (a reserved char like ';' in a label/Note is the common
+      // one) is caught cleanly and shown IN the host, instead of leaving the card blank.
+      return Promise.resolve(mermaid.parse ? mermaid.parse(definition) : true).then(function () {
+        return mermaid.render(id, definition);
+      }).then(function (res) {
         host.innerHTML = res.svg;
         // host scrolls horizontally as a FALLBACK so a very wide diagram is still fully
         // reachable when scaled-to-fit isn't enough.
@@ -1317,6 +1325,11 @@
           }
         }
         if (res.bindFunctions) res.bindFunctions(host);
+      }).catch(function (e) {
+        // contain a parse/render failure IN the host (also covers the dark re-render path),
+        // so the card shows a readable message instead of going blank with a stray body SVG.
+        console.warn('[cookiebite] COOKIEBITE.mermaid failed', e);
+        host.innerHTML = opts.onError || '<pre class="text-caption-12 text-critical p-12 rounded-small bg-disabled-bg overflow-auto whitespace-pre-wrap">' + esc(t('mermaidFail')) + '</pre>';
       });
     }
 
@@ -1667,7 +1680,7 @@
     // swapped via chart.__cbUpdate) then keeps its filtered state across the toggle
     // instead of snapping back to the initial series.
     var lastOption = config.option || {};
-    inst.setOption(deepMerge(CB.baseChart, lastOption), true);
+    inst.setOption(themeZoom(deepMerge(CB.baseChart, lastOption)), true);
     // chart.__cbUpdate(option): apply a new author option AND remember it, so the
     // next dark re-theme preserves it. Use this instead of raw setOption for updates
     // that should survive a theme toggle (e.g. reader filters/zoom on the data).
@@ -1677,14 +1690,33 @@
       // dataZoom persist, and the next dark re-theme still has the COMPLETE option. (Arrays
       // like series/dataZoom replace wholesale inside deepMerge, so swapping series data works.)
       lastOption = deepMerge(lastOption, opt || {});
-      inst.setOption(deepMerge(CB.baseChart, lastOption), notMerge !== false);
+      inst.setOption(themeZoom(deepMerge(CB.baseChart, lastOption)), notMerge !== false);
       return inst;
     };
+
+    // F06 — theme the dataZoom SLIDER from the live tokens (baseChart can't: a slider lives in
+    // the author's own dataZoom array, which REPLACES baseChart's on merge, so ECharts' default
+    // blue slider showed through and stayed blue in dark). Fill only the colors the author left
+    // unset, on every (re-)render, so it follows the dark toggle. inside-zoom needs no styling.
+    function themeZoom(opt) {
+      var dz = opt && opt.dataZoom; if (!dz) return opt;
+      (Array.isArray(dz) ? dz : [dz]).forEach(function (z) {
+        if (!z || z.type !== 'slider') return;
+        if (z.fillerColor == null) z.fillerColor = accentRgba(0.15);
+        if (z.borderColor == null) z.borderColor = CB.theme.C_LINE;
+        if (z.handleStyle == null) z.handleStyle = { color: CB.theme.ACCENT, borderColor: CB.theme.ACCENT };
+        if (z.moveHandleStyle == null) z.moveHandleStyle = { color: CB.theme.ACCENT };
+        if (z.textStyle == null) z.textStyle = { color: CB.theme.C_SECONDARY };
+        if (z.dataBackground == null) z.dataBackground = { lineStyle: { color: CB.theme.C_LINE }, areaStyle: { color: CB.theme.C_LINE } };
+        if (z.selectedDataBackground == null) z.selectedDataBackground = { lineStyle: { color: CB.theme.ACCENT }, areaStyle: { color: accentRgba(0.25) } };
+      });
+      return opt;
+    }
 
     // register for dark re-theme: re-merge the LAST author option over fresh baseChart
     var renderFn = config.render
       ? config.render
-      : function (chart) { chart.setOption(deepMerge(CB.baseChart, lastOption), true); };
+      : function (chart) { chart.setOption(themeZoom(deepMerge(CB.baseChart, lastOption)), true); };
 
     // F19 — narrow-width legibility. At phone widths a chart's axisName/grid eat the plot
     // area and a dual-axis chart's RIGHT axisName collides with the data. When the

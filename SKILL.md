@@ -470,7 +470,10 @@ contract, defaults, and the theme.json block are in
   presets distilled from real design systems (`stripe`, `vercel`, `linear`, `notion`,
   `supabase`, `sentry`, `resend`, `raycast` — sourced from voltagent/awesome-design-md,
   remapped to a light report surface with a free CDN font). To apply one, set the THEME
-  block's `:root` vars, font `<link>`, and `REPORT_LOCALE` from its JSON. If the user
+  block's `:root` vars, font `<link>`, and `REPORT_LOCALE` from its JSON — or run the CLI:
+  **`python scripts/apply-theme.py <preset> <report>.html [-o out.html]`** (a bare preset
+  name resolves to `assets/presets/<name>.json`; it rewrites the THEME block + `<html lang>`
+  + `REPORT_LOCALE` + any `look:{}`, and warns per-knob without aborting). If the user
   names a brand ("make it look like Stripe / Linear"), use that preset.
 - **Deep-fidelity theming**: each brand preset has the full source design spec at
   `assets/design-packs/<brand>/DESIGN.md`. Read it when you want more than tokens —
