@@ -501,6 +501,27 @@ opts: {
 Escaped annotated-code / pseudocode block (numbered gutter + inline `note`s, tone-colored
 outcomes) — the runtime version of the `components.md` pseudocode component.
 
+### `CB.code(target, config)` / `CB.codeTabs(target, panels, opts?)` — syntax-highlighted source
+
+```text
+CB.code config: {
+  code,               // the source STRING (verbatim, escaped)
+  lang?,              // 'javascript' | 'ts' | 'json' | 'python' | 'bash' | … (highlight.js id)
+  filename?,          // header chip ('token-exchange.js'); the lang shows next to it
+  lineNumbers?,       // default true — left number gutter
+}
+CB.codeTabs(target, panels, opts?)  // panels: [{ label, code, lang?, filename? }] — tabbed CB.code
+```
+A real syntax-highlighted code card (filename chip + line numbers). **Needs the highlight.js
+tag in `HEAD-LIBS`** (it ships in the template; remove it only for a no-code report).
+Highlighting is themed via cookiebite.css's `.hljs` token layer — keywords in the accent,
+strings green, numbers blue, comments quiet — so it stays **on-brand + dark-aware**, never
+highlight.js's default rainbow. Degrades to clean monospace if the tag is absent (never errors).
+Use `CB.codeTabs` for the "same thing in N languages/steps" tabbed block. Hand-authored
+`<pre><code class="language-js">` blocks are auto-highlighted too (`CB.highlightAll()` at init).
+For a +/− change use `CB.diff`; for annotated/pseudo logic use `CB.pseudocode`; for real
+runnable source use `CB.code`.
+
 ### `CB.matrix(target, config)` — generic rows×cols heatmap (F44)
 
 ```text

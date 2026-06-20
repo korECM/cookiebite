@@ -148,6 +148,20 @@ chart.setOption({ series:[{ type:'graph', layout:'force', roam:true,
 Whatever you pick, **the visual self-check is non-negotiable for diagrams** — auto-layout
 can overflow its box and hand SVG can misalign, and neither shows up in the source.
 
+**`COOKIEBITE.mermaid` now routes with the ELK layout engine** (loaded lazily; falls back
+to the built-in dagre if the CDN is blocked) plus roomier rank/node spacing, HTML edge
+labels with opaque backgrounds, and label wrapping. Together these largely fix the
+colliding edge-labels that made dense state/flowcharts unreadable. ELK still isn't magic —
+a graph with many cycles between the same nodes can crowd; keep transitions purposeful and
+prefer a flowchart over a state diagram when there are >~6 cross-edges.
+
+**Code samples / source listings**: use `COOKIEBITE.code` / `COOKIEBITE.codeTabs` for a
+filename-chipped, line-numbered, **syntax-highlighted** block. It needs the **highlight.js**
+tag in `HEAD-LIBS` (ships in the template; the highlight colors are themed from the report's
+design tokens via `.hljs` in cookiebite.css — do NOT add highlight.js's own theme CSS, it
+fights the tokens). Reach for `CB.diff` for a +/− change and `CB.pseudocode` for annotated
+logic instead.
+
 ## Common pitfalls
 - **CDN order**: load library scripts before the inline `<script>` that uses them, or wrap init in `DOMContentLoaded` / `defer`.
 - **Chart sizing**: give chart containers an explicit height (e.g. `h-72`) or the canvas collapses to 0.

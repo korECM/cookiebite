@@ -1019,6 +1019,11 @@
      ========================================================================== */
   var mmdSeq = 0;
   var MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+  // ELK is a far better graph-layout engine than the built-in dagre for anything with
+  // cycles or several edges between the same nodes — it dramatically reduces the crossing
+  // edges + colliding edge-labels that make dense state/flowcharts unreadable. Loaded
+  // lazily and registered if it imports cleanly; we fall back to dagre silently otherwise.
+  var MERMAID_ELK_URL = 'https://cdn.jsdelivr.net/npm/@mermaid-js/layout-elk@0.1.7/dist/mermaid-layout-elk.esm.min.mjs';
 
   // Resolve a token to a CONCRETE rgb(...) via a throwaway probe element.
   // getComputedStyle on a custom property returns its raw declared value, so a
@@ -1073,10 +1078,29 @@
     opts = opts || {};
     host.setAttribute('role', 'img');
     if (opts.aria) host.setAttribute('aria-label', opts.aria);
-    var loader = (window.__cbMermaid = window.__cbMermaid || import(MERMAID_URL).then(function (m) { return m.default; }));
+    var loader = (window.__cbMermaid = window.__cbMermaid || import(MERMAID_URL).then(function (m) {
+      var mermaid = m.default;
+      // try to register the ELK layout engine; keep dagre if it can't load (offline, blocked CDN).
+      return import(MERMAID_ELK_URL).then(function (elk) {
+        try { mermaid.registerLayoutLoaders(elk.default); window.__cbMermaidElk = true; } catch (e) { /* dagre fallback */ }
+        return mermaid;
+      }).catch(function () { return mermaid; });
+    }));
 
     function render(mermaid) {
-      mermaid.initialize({ startOnLoad: false, securityLevel: 'loose', theme: 'base', themeVariables: mermaidThemeVars() });
+      // Spacing + curve defaults that reduce overlap: roomier ranks/nodes, smooth edges,
+      // HTML edge labels (so the label background actually paints over crossing edges),
+      // and wrapping so long labels don't collide. ELK (when registered) routes far better.
+      mermaid.initialize({
+        startOnLoad: false, securityLevel: 'loose', theme: 'base', themeVariables: mermaidThemeVars(),
+        layout: window.__cbMermaidElk ? 'elk' : 'dagre',
+        elk: { mergeEdges: false, nodePlacementStrategy: 'BRANDES_KOEPF' },
+        flowchart: { nodeSpacing: 55, rankSpacing: 70, curve: 'basis', htmlLabels: true, padding: 14, useMaxWidth: true, wrappingWidth: 220 },
+        state: { nodeSpacing: 55, rankSpacing: 70, useMaxWidth: true },
+        sequence: { useMaxWidth: true, wrap: true, boxMargin: 8 },
+        er: { useMaxWidth: true },
+        gantt: { useMaxWidth: true },
+      });
       var id = 'cbmmd' + (mmdSeq++);
       return mermaid.render(id, definition).then(function (res) {
         host.innerHTML = res.svg;
@@ -1085,22 +1109,22 @@
         host.style.overflowX = 'auto';
         var svg = host.querySelector('svg');
         if (svg) {
-          // F01c — CAP, don't STRETCH. width:100% upscaled a small diagram to fill the host
-          // (huge, colliding labels on desktop). Instead: keep the SVG's INTRINSIC size when
-          // it's narrower than the host, and only shrink it when it's wider. We cap max-width
-          // at the intrinsic px width (read before clearing the attribute) so the viewBox
-          // can't grow it past its natural size; width:auto lets it take that intrinsic size;
-          // a wider-than-host diagram falls back to max-width:100% (shrink to fit). height:auto
-          // preserves aspect ratio either way; the host's overflow-x scroll is the last resort.
+          // Scale to a READABLE size: fill the container width (so a compact ELK/dagre
+          // layout isn't a tiny unreadable thumbnail) but cap the width so a 3-node diagram
+          // doesn't stretch comically across a wide column, and center it. A diagram whose
+          // INTRINSIC width already exceeds the cap fills 100% and shrinks to fit; the host's
+          // overflow-x scroll is the last resort for a genuinely huge one. height:auto keeps
+          // the aspect ratio. (ELK's routing keeps labels uncollided at any scale, so unlike
+          // the old dagre-only path, filling the width no longer means "huge colliding labels".)
           var intrinsic = parseFloat(svg.getAttribute('width')) || 0;
+          var CAP = 760; // px — comfortable max for a section-level diagram
           svg.removeAttribute('width');
-          svg.style.width = 'auto';
+          svg.style.width = '100%';
           svg.style.height = 'auto';
-          svg.style.maxWidth = (intrinsic > 0 && (!host.clientWidth || intrinsic <= host.clientWidth))
-            ? intrinsic + 'px'  // smaller than host -> keep natural size (no upscale)
-            : '100%';           // wider than host (or unknown) -> shrink to fit
-          // if it still overflows (a genuinely huge diagram), add a subtle scroll-hint so
-          // the reader knows the host scrolls horizontally for the rest.
+          svg.style.display = 'block';
+          svg.style.margin = '0 auto';
+          // cap the upscale of a small diagram; a naturally-wide one fills 100% (then scrolls).
+          svg.style.maxWidth = (intrinsic > CAP) ? '100%' : CAP + 'px';
           if (host.scrollWidth > host.clientWidth + 1) {
             host.classList.add('cb-mermaid-scroll');
             host.style.cursor = 'ew-resize';
@@ -3974,6 +3998,74 @@
   };
 
   /* ==========================================================================
+     COOKIEBITE.code / COOKIEBITE.codeTabs — syntax-highlighted source blocks
+     A filename-chipped, line-numbered code card. Highlighting is themed via the
+     `.hljs` token layer in cookiebite.css (keywords=accent, strings=positive,
+     numbers=informative, comments=disabled) so it stays on-brand + dark-aware — it
+     is NOT highlight.js's default rainbow. Works only when the highlight.js CDN tag
+     is present in HEAD-LIBS; degrades to clean plain monospace otherwise (never errors).
+     ========================================================================== */
+  function highlightCodeEl(codeEl, lang) {
+    if (!codeEl || !window.hljs) return;
+    try {
+      if (lang && window.hljs.getLanguage && window.hljs.getLanguage(lang)) {
+        codeEl.innerHTML = window.hljs.highlight(codeEl.textContent, { language: lang, ignoreIllegals: true }).value;
+      } else if (window.hljs.highlightElement) {
+        window.hljs.highlightElement(codeEl);
+      }
+      codeEl.classList.add('hljs');
+    } catch (e) { /* leave plain on any highlighter error */ }
+  }
+  // highlight every hand-authored `<pre><code class="language-x">` (and [data-cb-code]) once hljs is present.
+  CB.highlightAll = function (scope) {
+    var root = scope ? resolveTarget(scope) : document;
+    if (!root || !window.hljs) return;
+    [].forEach.call(root.querySelectorAll('pre code[class*="language-"]:not(.cb-hl), [data-cb-code]:not(.cb-hl)'), function (el) {
+      var m = (el.className.match(/language-([\w-]+)/) || [])[1] || el.getAttribute('data-lang') || '';
+      highlightCodeEl(el, m);
+      el.classList.add('cb-hl');
+    });
+  };
+
+  CB.code = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var code = config.code != null ? String(config.code) : '';
+    var lang = config.lang || '';
+    var showNums = config.lineNumbers !== false;
+    var lineCount = code.replace(/\n$/, '').split('\n').length;
+    var gutter = showNums
+      ? '<td class="cb-code__gutter select-none text-right align-top pl-12 pr-12"><pre class="m-0">' +
+        Array.apply(null, { length: lineCount }).map(function (_, i) { return i + 1; }).join('\n') + '</pre></td>'
+      : '';
+    var head = (config.filename || lang)
+      ? '<div class="cb-code__head flex items-center gap-8 px-12 py-8 border-b border-line-weak bg-disabled-bg text-caption-12 text-secondary">' +
+        iconTag('code', 'w-12 h-12') +
+        (config.filename ? '<span class="font-mono font-medium text-primary">' + esc(config.filename) + '</span>' : '') +
+        (lang ? '<span class="font-mono ' + (config.filename ? 'ml-auto opacity-70' : '') + '">' + esc(lang) + '</span>' : '') +
+        '</div>'
+      : '';
+    host.innerHTML =
+      '<div class="cb-code rounded-medium border border-line-weak bg-surface overflow-hidden">' + head +
+      '<div class="cb-code__scroll overflow-x-auto"><table class="cb-code__table border-collapse w-full"><tbody><tr>' + gutter +
+      '<td class="cb-code__body align-top"><pre class="m-0"><code class="' + (lang ? 'language-' + esc(lang) + ' ' : '') + '">' + esc(code) + '</code></pre></td>' +
+      '</tr></tbody></table></div></div>';
+    highlightCodeEl(host.querySelector('code'), lang);
+    CB.refreshIcons();
+    return host;
+  };
+
+  CB.codeTabs = function (target, panels, opts) {
+    var host = resolveTarget(target);
+    if (!host || !CB.tabs) return;
+    CB.tabs(host, (panels || []).map(function (p) {
+      return { label: p.label, render: function (panelEl) { CB.code(panelEl, p); } };
+    }), opts);
+    return host;
+  };
+
+  /* ==========================================================================
      F44 — COOKIEBITE.pseudocode(target, codeOrLines, opts?)
      Codifies the components.md annotated-code / pseudocode markup. codeOrLines is
      either a STRING (split on \n) or an ARRAY of lines; a line may be a plain string
@@ -5523,6 +5615,7 @@
     CB.applyLook();         // THEME-KNOB: project window.REPORT_LOOK onto html data-*/:root vars
     readThemeVars();        // re-read in case applyLook changed accent-derived/semantic tokens
     CB.hydrate(document);   // wire any [data-countup]/[data-spark] authored in raw HTML
+    CB.highlightAll();      // syntax-highlight hand-authored <pre><code class="language-*"> (if highlight.js loaded)
     initToc();
     initTheme();
     initGlossary();

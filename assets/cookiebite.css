@@ -307,6 +307,32 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
   .cb-diff-scroll{ overflow-x:visible; }  /* wrapping removes the need to scroll; avoid a stray scrollbar */
 }
 
+/* --- CB.code / CB.codeTabs — line-numbered source card + highlight.js token theme ----
+   The highlight.js classes are mapped to the report's DESIGN TOKENS (not hljs's default
+   rainbow), so highlighted code stays on-brand and dark-aware: structure in the accent,
+   strings green, numbers blue, comments quiet grey. Active only when the highlight.js CDN
+   tag is loaded — code degrades to clean monospace otherwise. Restrained on purpose: 4
+   token hues max so a code block still reads as designed, not a stained-glass window. */
+.cb-code__table{ table-layout:auto; }
+.cb-code__gutter{ background:var(--c-bg); border-right:1px solid var(--c-line-weak); width:1%; }
+.cb-code__gutter pre{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; line-height:1.6; color:var(--c-disabled); }
+.cb-code__body{ width:100%; }
+.cb-code__body pre{ padding:0 16px; }
+.cb-code__body code{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; line-height:1.6; color:var(--c-primary); background:transparent; white-space:pre; }
+.cb-code__scroll{ background:var(--c-surface); }
+/* highlight.js token -> token-color mapping (works for CB.code AND hand-authored
+   <pre><code class="language-*"> picked up by CB.highlightAll). */
+.hljs{ color:var(--c-primary); background:transparent; }
+.hljs-comment, .hljs-quote{ color:var(--c-disabled); font-style:italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-literal, .hljs-section, .hljs-doctag, .hljs-name, .hljs-built_in{ color:var(--accent-strong); font-weight:600; }
+.hljs-string, .hljs-regexp, .hljs-addition, .hljs-meta .hljs-string{ color:var(--c-positive); }
+.hljs-number, .hljs-symbol, .hljs-bullet, .hljs-link, .hljs-meta{ color:var(--c-informative); }
+.hljs-title, .hljs-title.function_, .hljs-title.class_, .hljs-type{ color:var(--c-primary); font-weight:600; }
+.hljs-attr, .hljs-attribute, .hljs-property, .hljs-variable, .hljs-template-variable, .hljs-selector-attr, .hljs-selector-class{ color:var(--accent); }
+.hljs-tag, .hljs-deletion{ color:var(--c-secondary); }
+.hljs-emphasis{ font-style:italic; } .hljs-strong{ font-weight:700; }
+@media print{ .cb-code__scroll{ overflow:visible; } .cb-code__body pre, .cb-code__body code{ white-space:pre-wrap; } }
+
 /* --- .cb-trendchip — an inline ▲N% / ▼N% chip sitting on the text baseline -- */
 /* inline-flex + align-items:center vertically centers the glyph/number/spark as a group;
    vertical-align:middle sits that group on the text's x-height (baseline left the spark
