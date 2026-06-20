@@ -1148,7 +1148,7 @@
 
     var rows = (items || []).map(function (it, i) {
       var toneName = toneMap[it.kind] || (it.kind && tone(it.kind) !== TONE.neutral ? it.kind : 'neutral');
-      var dot = TONE_DOT[toneName] || TONE_DOT.neutral;
+      var tColor = (toneName === 'neutral') ? cssColor('--c-secondary', '#52525B') : toneColor(toneName);
       var icon = it.icon || KIND_DEFAULT_ICON[it.kind] || TONE_DEFAULT_ICON[toneName] || 'circle';
       var t = tone(toneName);
       var hasDetail = !!it.detail;
@@ -1169,12 +1169,12 @@
         // spine — 2px rail centered under the 28px badge (badge left:0 -> center x = 14px),
         // starting just below the badge so the disc reads as a node on the line
         '<span class="absolute left-[13px] top-32 bottom-0 w-2 rounded-full bg-line-weak"></span>' +
-        // badge — tone-tinted disc with the step icon inside, ring-punched out of the page.
-        // F17: pick the icon ink by the disc-fill luminance (white fails on a bright/amber tone)
-        // so the glyph always reads; the disc keeps its solid tone fill.
-        '<span class="absolute left-0 top-2 w-28 h-28 rounded-full ' + dot + ' ring-4 ring-bg shadow-sm flex items-center justify-center" style="color:' +
-        inkOn(toneName === 'neutral' ? cssColor('--c-secondary', '#52525B') : toneColor(toneName), '#fff', cssColor('--c-primary', '#18181B')) + '">' +
-        iconTag(icon, 'w-14 h-14') + '</span>' +
+        // badge — a SOFT tone-tinted disc (Notion-style) with the icon in the strong tone
+        // color, ring-punched off the page. color-mix on the live tone var -> dark-aware; on a
+        // dark surface the tint lands dark and the tone-colored glyph still reads.
+        '<span class="absolute left-0 top-2 w-28 h-28 rounded-full ring-4 ring-bg flex items-center justify-center" ' +
+        'style="background:color-mix(in srgb,' + tColor + ' 16%, var(--c-surface));color:' + tColor + '">' +
+        iconTag(icon, 'w-15 h-15') + '</span>' +
         '<p class="text-caption-12 ' + t.text + ' font-semibold nums tracking-wide mb-2">' + esc(it.t) + '</p>' +
         titleRow + sub + detailBlock +
         '</li>';
@@ -1945,9 +1945,11 @@
     var tick = '';
     if (config.target != null && isFinite(Number(config.target)) && max > 0) {
       var tdeg = Math.round(Math.max(0, Math.min(1, Number(config.target) / max)) * 360);
+      // a neat radial tick that sits WITHIN the ring band (was a 2px dark bar poking past both
+      // edges, which read as a stray slash). 3px rounded, in --c-primary, spanning just the band.
       tick = '<div class="absolute left-1/2 top-0 origin-bottom" ' +
         'style="height:' + (size / 2) + 'px;transform:translateX(-50%) rotate(' + tdeg + 'deg);">' +
-        '<span class="block w-2 bg-primary rounded-full" style="height:' + (thickness + 4) + 'px;"></span></div>';
+        '<span class="block rounded-full" style="width:3px;height:' + thickness + 'px;background:var(--c-primary);opacity:.75;"></span></div>';
     }
 
     var labelHtml = config.label
@@ -5658,8 +5660,9 @@
       '<p class="cb-epigraph__body">' + (html == null ? '' : html) + '</p>' + cite + '</blockquote>';
   };
   CB.pullquote = function (html) {
+    // Notion-style: a clean accent left-rule + large text. No decorative quote glyph
+    // (the body font rendered “ poorly and it doubled with the CSS mark).
     return '<blockquote class="cb-pullquote">' +
-      '<span class="cb-pullquote__glyph" aria-hidden="true">“</span>' +
       '<p class="cb-pullquote__body">' + (html == null ? '' : html) + '</p></blockquote>';
   };
 
