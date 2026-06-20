@@ -50,7 +50,10 @@ html:not([data-theme="dark"]) body, html[data-theme="dark"] body{ transition:bac
 @media (prefers-reduced-motion: reduce){ body{ transition:none !important; } }
 
 /* (3) base utilities */
-html{ scroll-behavior:smooth; }
+/* scroll-padding-top makes every in-page anchor land with breathing room
+   regardless of per-section scroll-mt — so hand-authored escape-hatch sections
+   that forget scroll-mt-* don't jam their heading flush to the viewport top. */
+html{ scroll-behavior:smooth; scroll-padding-top:24px; }
 /* word-break:keep-all stops CJK (Korean) lines from breaking mid-word — the
    default CJK rule breaks between any two characters, so "않습니다" splits to
    "않습니" + "다". keep-all breaks only at spaces/punctuation (eojeol boundaries);
@@ -65,6 +68,11 @@ body{ font-family:var(--font-family); letter-spacing:-0.01em; word-break:keep-al
 .prose-measure{ max-width:68ch; }
 [x-cloak]{ display:none !important; }
 .sr-only{ position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+/* token-based keyboard focus ring for every interactive element (TOC links,
+   tabs, filter chips, toggles, copy/export buttons, summary disclosures).
+   :where() keeps specificity 0 so authors can still override; outline is in the
+   accent so it follows dark mode for free. Dropped in print (no focus on paper). */
+:where(a,button,[role=button],[role=tab],summary,[tabindex]):focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
 
 /* (4) glossary term: dotted underline in the accent, themed from CSS vars */
 .gloss{ border-bottom:1px dashed var(--accent); color:var(--accent-strong); cursor:help; text-underline-offset:3px; }
@@ -99,9 +107,21 @@ td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-c
    breaks, widen the column to the full page, and let surfaces print white to
    save ink. On-token throughout — reuses the @layer fallback neutrals. */
 @media print {
+  /* page margins so headers/footers/edges don't depend on the print-dialog default */
+  @page{ margin:14mm; }
   /* drop fixed/interactive chrome that has no meaning on paper — the report's
-     only <nav> is the TOC sidebar, so hiding nav reclaims the column for print */
-  #themeToggle, nav, .toc, [x-cloak]{ display:none !important; }
+     only <nav> is the TOC sidebar, so hiding nav reclaims the column for print.
+     [data-cb-credit] = the auto-injected "Made with cookiebite" promo link;
+     #themeToggle is the injected dark toggle — neither belongs on paper. */
+  #themeToggle, nav, .toc, [x-cloak], [data-cb-credit]{ display:none !important; }
+  /* don't strand a section/heading alone at a page bottom, away from its body */
+  h1, h2, h3{ break-after:avoid-page; }
+  p, li{ orphans:3; widows:3; }
+  /* tabbed/collapsed content is screen-only chrome but holds real report data —
+     force-expand inactive tab panels and collapsed timeline details so a printed
+     PDF doesn't silently drop 1/2–2/3 of the tabbed content + all incident notes */
+  [role=tabpanel][hidden]{ display:block !important; }
+  [x-show], [x-collapse]{ display:block !important; height:auto !important; overflow:visible !important; }
   /* re-apply the light neutrals even when the toggle left html[data-theme="dark"] on */
   html[data-theme="dark"]{
     --accent-weak:#FFEDE6;
@@ -111,6 +131,11 @@ td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-c
   }
   /* print white surfaces to spare ink, regardless of token */
   body{ background:#FFFFFF !important; }
+  /* flatten drop shadows so cards don't render as muddy gray smears on paper */
+  .card, .bg-surface, [class*=shadow]{ box-shadow:none !important; }
+  /* force-print the accent fills the report relies on (KPI deltas, pills,
+     timeline dots, markArea) — browsers strip backgrounds by default to save ink */
+  *{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   /* keep a chart/card/section from being sliced across two pages */
   section, .card, figure, table, .gridjs-wrapper{ break-inside:avoid; }
   /* the main column drops its centered max-width and uses the full page */

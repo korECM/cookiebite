@@ -270,3 +270,255 @@ doesn't need a canvas.)
 Position with `%` (responsive) and center each node with the `-translate-1/2` trick.
 For more than ~10 points or computed coordinates, use an ECharts scatter instead — hand
 placement drifts.
+
+## Key-takeaway box (TL;DR summary)
+
+The single most-requested element for exec/explainer reports and the "get the point in
+5 seconds" rule: a scannable 3–5 bullet summary at the **top** of the report, often
+tone-coded (2 wins, 1 risk). Distinct from a `Callout` — a callout is one highlight; this
+is a multi-point summary. Accent-weak surface + accent-strong title.
+
+```html
+<div class="rounded-medium bg-accent-weak border border-line-weak p-20 mb-24">
+  <p class="text-caption-12 font-semibold text-accent-strong uppercase tracking-wide mb-10">핵심 요약</p>
+  <ul class="space-y-8 text-body-14">
+    <li class="flex gap-8"><span class="w-6 h-6 mt-6 rounded-full bg-positive shrink-0"></span>결제 성공률 97.1%로 전주 대비 +1.4%p 개선</li>
+    <li class="flex gap-8"><span class="w-6 h-6 mt-6 rounded-full bg-positive shrink-0"></span>환불 처리 시간 중앙값 2.3일 → 1.1일</li>
+    <li class="flex gap-8"><span class="w-6 h-6 mt-6 rounded-full bg-cautionary shrink-0"></span>naverpay 채널 타임아웃이 여전히 임계값 초과</li>
+  </ul>
+</div>
+```
+The title uses **`text-accent-strong`** (accent-as-text on a light surface needs the
+stronger token for AA contrast), while the surface stays `bg-accent-weak`. Dot the bullets
+with tone colors and **pair with a word** if the dot carries meaning — a bare green dot
+fails the color-alone rule. **Runtime fast path — `CB.takeaway(pointsOrHtml, { title? })`**
+returns this box as a string (pass an array of bullet strings or raw HTML); see
+`helpers.md`.
+
+## Faceted card grid (filter a collection by 1–2 facets)
+
+Survey responses (by segment), roadmap initiatives (by quarter/team/status), research
+items (by method/confidence), retro action-items (by owner/status) — collections you want
+to filter by one or two facets at once, kept as cards (not flattened to a table). The
+single-axis segment chips in `interactions.md §1` filter one variable; this AND-combines
+the union of each item's tags. **The chip row MUST wrap or scroll** (`flex flex-wrap`) —
+a bare `flex` row of 8 facet chips runs off the right edge and breaks the page at 390px
+(`interactions.md §1` rule).
+
+```html
+<div x-data="{
+  active:'all',
+  // build the facet set from the tags actually present (union), never hardcoded
+  get facets(){ return ['all', ...new Set([...document.querySelectorAll('[data-tags]')].flatMap(el=>el.dataset.tags.split(',')))]; },
+  match(el){ return this.active==='all' || el.dataset.tags.split(',').includes(this.active); }
+}">
+  <!-- chip row: wraps so it never overflows on phones -->
+  <div class="flex flex-wrap gap-6 mb-12 text-caption-12">
+    <template x-for="f in facets" :key="f">
+      <button @click="active=f" :class="active===f ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
+        class="px-10 py-4 rounded-small capitalize" x-text="f"></button>
+    </template>
+  </div>
+  <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-16">
+    <!-- one card; data-tags drives BOTH the filter and the facet set above -->
+    <div data-tags="Q1,Backend" x-show="match($el)" class="bg-surface border border-line-weak rounded-medium p-16">
+      <p class="text-body-16 font-semibold">멱등 키 도입</p>
+      <p class="text-caption-12 text-secondary mt-2">재시도 이중 청구 차단</p>
+      <div class="flex flex-wrap gap-4 mt-8">
+        <span class="px-8 py-2 rounded-xxs bg-disabled-bg text-secondary text-caption-12">Q1</span>
+        <span class="px-8 py-2 rounded-xxs bg-disabled-bg text-secondary text-caption-12">Backend</span>
+      </div>
+    </div>
+    <!-- repeat cards with their own data-tags -->
+  </div>
+</div>
+```
+Build the chip set from the tags present (the union), never a fixed list — same reason as
+the findings filter. **Runtime fast path — `CB.cardGrid(target, { items, caption? })`**
+where each item is `{ title, body?, tags?, meta? }`; it builds the wrap/scroll chip row
+from the tag union for you (see `helpers.md`).
+
+## Status board / lanes (read-only kanban, Now/Next/Later)
+
+Sprint retros and roadmap one-pagers often want a static 3–4 column board — status lanes
+(To-do / In-progress / Done) or Now / Next / Later — that a timeline and the quadrant
+board don't give. Keep it **read-only** (no drag): a draggable triage board is product UI,
+out of scope. Pure Tailwind grid, tone-pilled cards, a per-column count.
+
+```html
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-16">
+  <!-- one lane -->
+  <div class="rounded-medium bg-disabled-bg/50 p-12">
+    <div class="flex items-center justify-between mb-10">
+      <span class="text-body-14 font-semibold">Now</span>
+      <span class="px-8 py-2 rounded-xxs bg-disabled-bg text-secondary text-caption-12 nums">2</span>
+    </div>
+    <div class="space-y-8">
+      <div class="bg-surface border border-line-weak rounded-small p-12 shadow-sm">
+        <p class="text-body-14 font-medium">멱등 키 추가</p>
+        <span class="inline-flex items-center gap-4 px-8 py-2 mt-6 rounded-xxs bg-cautionary/15 text-cautionary text-caption-12 font-medium">
+          <i data-lucide="alert-triangle" class="w-12 h-12"></i>진행 중
+        </span>
+      </div>
+      <div class="bg-surface border border-line-weak rounded-small p-12 shadow-sm">
+        <p class="text-body-14 font-medium">재시도 한도 적용</p>
+      </div>
+    </div>
+  </div>
+  <!-- Next / Later lanes: same structure -->
+</div>
+```
+Stacks to one column below `sm`. Tone the cards with the `tone` contract (status pill), and
+pair each colored pill with its label. For a roadmap, the lanes are Now / Next / Later; for
+a retro, To-do / In-progress / Done.
+
+## Collapsible rich section (`<details>` — fold away depth)
+
+The companion to the takeaway box for explainers/postmortems: fold away a block of **rich
+HTML** (a deep-dive, a raw log excerpt, detailed remediation steps), not just one text
+string (the `interactions.md §5` accordion binds plain `x-text`). Native `<details>` needs
+**zero JS**, holds arbitrary HTML, prints expanded, and themes from the tokens.
+
+```html
+<details class="rounded-medium border border-line-weak bg-surface group">
+  <summary class="flex items-center justify-between px-16 py-12 cursor-pointer select-none list-none">
+    <span class="text-body-16 font-semibold">재시도 로직 상세 분석</span>
+    <i data-lucide="chevron-down" class="w-16 h-16 text-secondary transition-transform group-open:rotate-180"></i>
+  </summary>
+  <div class="px-16 pb-16 pt-2 text-body-14 text-secondary space-y-8">
+    <p>백오프는 지수적으로 증가하되 상한을 둡니다. 동시 재시도를 분산하기 위해…</p>
+    <ul class="list-disc pl-20"><li>base = 200ms</li><li>ceiling = 8s</li></ul>
+    <!-- a sub-chart, a diff block, anything -->
+  </div>
+</details>
+```
+`list-none` hides the default triangle so your own chevron carries the affordance;
+`group-open:rotate-180` flips it. If you collapse a **chart**, init it lazily on first open
+(or `resize()` on the `toggle` event) — a chart inside a closed `<details>` measures 0×0,
+the same footgun as a hidden tab (`interactions.md §6`). For an Alpine version that folds
+rich children, swap the §5 accordion's `x-text="item.detail"` for child markup under the
+`x-collapse` div.
+
+## Footnotes & citations (provenance for research/postmortems)
+
+Research write-ups and postmortems need sources (change tickets, GMV estimates,
+dashboards). A `<sup>` ref in prose that jumps to a numbered note with a return link —
+themed, with matched ids so the jump never silently breaks.
+
+```html
+<!-- inline reference in prose -->
+<p class="text-body-14">주간 GMV는 ₩24.2억으로 추정됩니다<sup id="fnref1"><a href="#fn1"
+  class="text-accent-strong no-underline px-2">[1]</a></sup>.</p>
+
+<!-- the notes list (bottom of the report / section) -->
+<ol class="mt-24 pt-16 border-t border-line-weak space-y-6 text-caption-12 text-secondary">
+  <li id="fn1" class="flex gap-6">
+    <span class="text-secondary nums">1.</span>
+    <span>Looker 대시보드 #482, 2026-06-13 스냅샷.
+      <a href="#fnref1" class="text-accent-strong no-underline" aria-label="본문으로 돌아가기">↩</a></span>
+  </li>
+  <!-- #fn2, #fn3 … each with a matching #fnrefN return link -->
+</ol>
+```
+Keep the ref id (`fnref1`) and note id (`fn1`) paired — a mismatch silently breaks the
+jump with no error. The ref uses **`text-accent-strong`** (accent-as-text). For a looser
+"Sources" block use a `Callout` (tone `info`) with a list of links instead of numbered
+footnotes.
+
+## Annotated chart markers (markLine / markArea / markPoint)
+
+Reference lines are what turn a chart from "here's data" into "here's the point" — an
+average, a target, an SLO threshold, a launch-date window. Drop them on any
+series. **Color from RESOLVED theme values** (`CB.theme.ACCENT`, `CB.css('--c-*')`,
+`CB.accentRgba(a)`) — `var(--*)`/`color-mix` render black on the canvas (`libraries.md`).
+
+```js
+COOKIEBITE.chart('#trend', {
+  ariaLabel: '일별 매출, 목표선·평균선 표시',
+  caption: '금·토에 매출이 몰리며 목표선을 상회',
+  option: {
+    xAxis: { type: 'category', data: ['월','화','수','목','금','토','일'] },
+    yAxis: { type: 'value' },
+    series: [{
+      type: 'line', data: [82, 78, 90, 95, 140, 152, 110], smooth: true,
+      markLine: {
+        symbol: 'none',
+        // label positioned 'start' (LEFT) so it never clips off the right edge
+        label: { position: 'start', color: CB.css('--c-secondary') },
+        data: [
+          { type: 'average', name: '평균', lineStyle: { color: CB.css('--c-line'), type: 'dashed' } },
+          { yAxis: 120, name: '목표', lineStyle: { color: CB.theme.ACCENT, type: 'dashed' } },
+        ],
+      },
+      markArea: {  // event window (e.g. a promo) as a tinted band
+        itemStyle: { color: CB.accentRgba(0.08) },
+        data: [[{ xAxis: '금' }, { xAxis: '토' }]],
+      },
+      markPoint: {  // call out the peak
+        symbolSize: 44, itemStyle: { color: CB.theme.ACCENT },
+        data: [{ type: 'max', name: '최대' }],
+      },
+    }],
+  },
+});
+```
+**Position `markLine` labels `start` (the left edge), not the default end** — a right-edge
+label clips off the chart on narrow viewports (the known failure). Use a dashed neutral
+line for an average/baseline and the **accent** for the line that carries the point
+(target/threshold); don't accent both or the emphasis is lost.
+
+---
+
+## A second skeleton: explainer / postmortem (NOT a dashboard)
+
+The template ships **one** worked demo — a payments/weekly-metrics dashboard. Don't let it
+anchor every report to KPI-cards-plus-trend-chart (the exact "generic AI dashboard" the
+skill warns against). Many report types are **narrative**: a postmortem, an explainer, a
+research write-up. Their backbone is *takeaway → how it works → what we found*, composed
+from the blocks above — no KPI row required.
+
+```html
+<main class="max-w-[860px] mx-auto px-20 py-32 space-y-24">
+  <header>
+    <p class="text-caption-12 text-secondary uppercase tracking-wide">Postmortem · 2026-06-18</p>
+    <h1 class="text-headline-36 font-bold mt-2">Checkout 502s during the Friday promo</h1>
+  </header>
+
+  <!-- 1. Key-takeaway box (the 5-second summary) -->
+  <div class="rounded-medium bg-accent-weak border border-line-weak p-20">
+    <p class="text-caption-12 font-semibold text-accent-strong uppercase tracking-wide mb-10">TL;DR</p>
+    <ul class="space-y-8 text-body-14">
+      <li class="flex gap-8"><span class="w-6 h-6 mt-6 rounded-full bg-critical shrink-0"></span>A connection-pool exhaustion under promo load returned 502s for ~14 min.</li>
+      <li class="flex gap-8"><span class="w-6 h-6 mt-6 rounded-full bg-positive shrink-0"></span>Mitigated by raising the pool ceiling; no data loss.</li>
+      <li class="flex gap-8"><span class="w-6 h-6 mt-6 rounded-full bg-cautionary shrink-0"></span>Root fix (per-route limits + autoscale) lands next sprint.</li>
+    </ul>
+  </div>
+
+  <!-- 2. How it works / what happened — a diagram instead of a wall of text -->
+  <section>
+    <h2 class="text-title-24 font-bold mb-12">Request path</h2>
+    <div id="flow"></div>
+    <script>
+      CB.mermaid('#flow', `flowchart LR
+        U[User] --> LB[Load balancer] --> APP[Checkout svc] --> POOL[(DB pool)] --> DB[(Postgres)]`);
+    </script>
+  </section>
+
+  <!-- 3. What we found — the severity-coded findings list -->
+  <section>
+    <h2 class="text-title-24 font-bold mb-12">Findings</h2>
+    <div id="findings"></div>
+    <script>
+      CB.findings('#findings', [
+        { tone:'critical', title:'DB pool ceiling (20) too low for promo concurrency', where:'db.ts:31', note:'Requests queued past the 5s timeout → 502.' },
+        { tone:'warning',  title:'No per-route concurrency limit', where:'router.ts', note:'One slow route starved the whole pool.' },
+        { tone:'info',     title:'Alert fired 6 min late', where:'monitors/latency', note:'p95 threshold set too high.' },
+      ]);
+    </script>
+  </section>
+</main>
+```
+That's a complete report shape with **zero** KPI cards or trend bars: a takeaway box, a
+diagram, and findings. Add a `<details>` deep-dive, a timeline of the incident, or
+footnotes for sources from the sections above. Reach for KPI cards + a chart only when the
+report is genuinely metric-driven.

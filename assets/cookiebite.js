@@ -60,7 +60,8 @@
         fontSize: {
           'caption-12': ['12px', '16px'], 'body-14': ['14px', '20px'], 'body-16': ['16px', '24px'],
           'body-18': ['18px', '26px'], 'title-20': ['20px', '28px'], 'title-24': ['24px', '30px'],
-          'title-28': ['28px', '36px'], 'headline-36': ['36px', '44px'], 'headline-48': ['48px', '56px'],
+          // headline steps fluid-scale so a long H1 doesn't overflow on phones (headline-48-no-fluid-scale)
+          'title-28': ['28px', '36px'], 'headline-36': ['clamp(26px, 5.5vw, 36px)', '1.18'], 'headline-48': ['clamp(30px, 7vw, 48px)', '1.12'],
         },
       },
     },
@@ -126,18 +127,22 @@
       legend: { textStyle: { color: t.C_SECONDARY } },
       grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
-      xAxis: { axisLine: { lineStyle: { color: t.C_LINE } }, axisTick: { show: false }, axisLabel: { color: t.C_SECONDARY } },
+      // hideOverlap drops colliding category labels (long Korean product names / URLs)
+      // instead of letting them overprint; authors needing all labels pass axisLabel.rotate.
+      xAxis: { axisLine: { lineStyle: { color: t.C_LINE } }, axisTick: { show: false }, axisLabel: { color: t.C_SECONDARY, hideOverlap: true } },
       yAxis: { splitLine: { lineStyle: { color: t.C_LINE } }, axisLabel: { color: t.C_SECONDARY } },
     };
     syncThemeAliases();
   }
   CB.readThemeVars = readThemeVars;
 
-  /* CB.categoricalColors(n) -> [color×n]: n perceptually-spaced hues anchored on
-     the report accent, for multi-series charts that need more than the 4 baseChart
-     entries. Derives via HSL rotation around the accent's hue (resolved to rgb so
-     non-hex accents work too). n<=1 returns just the accent. Leaves baseChart's
-     default 4-entry palette untouched — existing 1-accent charts are unaffected. */
+  /* CB.categoricalColors(n) -> [color×n]: n on-theme colors from ONE accent family,
+     for multi-series charts that need more than the 4 baseChart entries. The skill's
+     thesis is "one accent, never the library's rainbow", so the palette is a BOUNDED
+     hue arc (±~50° around the accent) with modulated lightness — 4-6 series stay
+     recognizably one family instead of rotating the full 360° wheel. Derives via HSL
+     around the accent's hue (resolved to rgb so non-hex accents work too). n<=1
+     returns just the accent. Leaves baseChart's default 4-entry palette untouched. */
   function rgbToHsl(r, g, b) {
     r /= 255; g /= 255; b /= 255;
     var max = Math.max(r, g, b), min = Math.min(r, g, b), h = 0, s = 0, l = (max + min) / 2;
@@ -163,10 +168,50 @@
       if (m) { r = +m[1]; g = +m[2]; b = +m[3]; } else { r = 232; g = 85; b = 45; }
     }
     if (n <= 1) return [CB.theme.ACCENT || raw];
-    var hsl = rgbToHsl(r, g, b), baseH = hsl[0], s = Math.max(0.45, hsl[1]), l = Math.min(0.62, Math.max(0.42, hsl[2]));
+    var hsl = rgbToHsl(r, g, b), baseH = hsl[0], s = Math.max(0.45, hsl[1]), l0 = Math.min(0.62, Math.max(0.42, hsl[2]));
+    // bounded arc: sweep hue across a ±50° span centered on the accent, and ramp
+    // lightness across the same span, so the series read as one accent family
+    // (NOT a rainbow). For n=1 the single entry sits exactly on the accent hue.
+    var ARC = 50; // total half-spread in degrees
     var out = [];
     for (var i = 0; i < n; i++) {
-      out.push('hsl(' + Math.round((baseH + (360 / n) * i) % 360) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)');
+      var f = n === 1 ? 0 : (i / (n - 1)) - 0.5; // -0.5 .. +0.5 across the arc
+      var h = ((baseH + ARC * 2 * f) % 360 + 360) % 360;
+      var l = Math.min(0.66, Math.max(0.40, l0 + 0.10 * f)); // gentle L ramp, bounded
+      out.push('hsl(' + Math.round(h) + ',' + Math.round(s * 100) + '%,' + Math.round(l * 100) + '%)');
+    }
+    return out;
+  };
+
+  /* CB.ramp(n) -> [color×n]: n shades of ONE accent hue, light -> dark, for
+     SEQUENTIAL/ordered data (funnel steps, a stacked area of one metric across
+     segments, a heatmap visualMap). categoricalColors is for PEER series (sweeps
+     hue); ramp keeps the SAME hue and ramps lightness only, so an ordered series
+     reads as "more vs less", not "different things". Re-reads the live accent so
+     it follows dark re-theme. n<=1 returns just the accent. */
+  function accentHsl() {
+    var raw = CB.theme.ACCENT || '#E8552D', r, g, b;
+    if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) {
+      var h = raw.replace('#', '');
+      if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+      r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
+    } else {
+      var m = (cssColor('--accent', '#E8552D') || '').match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+      if (m) { r = +m[1]; g = +m[2]; b = +m[3]; } else { r = 232; g = 85; b = 45; }
+    }
+    return rgbToHsl(r, g, b);
+  }
+  CB.ramp = function (n) {
+    n = n || 1;
+    if (n <= 1) return [CB.theme.ACCENT || '#E8552D'];
+    var hsl = accentHsl(), baseH = Math.round(hsl[0]), s = Math.round(Math.max(0.42, hsl[1]) * 100);
+    // ramp lightness across a bounded band (dark ~38% -> light ~72%) on the accent's
+    // own hue+sat. i=0 is the DARKEST (heaviest emphasis — funnel top, peak density);
+    // later steps lighten. Bounded so neither end blows out to black/white.
+    var L_DARK = 0.38, L_LIGHT = 0.72, out = [];
+    for (var i = 0; i < n; i++) {
+      var l = L_DARK + (L_LIGHT - L_DARK) * (i / (n - 1));
+      out.push('hsl(' + baseH + ',' + s + '%,' + Math.round(l * 100) + '%)');
     }
     return out;
   };
@@ -225,6 +270,35 @@
   var charts = [];          // [{ instance, renderFn }]
   var themeCbs = [];        // bare onThemeChange callbacks
 
+  // prune registry entries whose DOM left the document (re-render replaced innerHTML
+  // and orphaned the old echarts instance) — dispose them so canvases/ResizeObservers
+  // are released and the registry self-heals instead of growing unbounded.
+  function pruneCharts() {
+    for (var i = charts.length - 1; i >= 0; i--) {
+      var inst = charts[i] && charts[i].instance;
+      var dom = inst && inst.getDom && inst.getDom();
+      if (!dom || !document.contains(dom)) {
+        try { if (inst && inst.dispose) inst.dispose(); } catch (e) {}
+        charts.splice(i, 1);
+      }
+    }
+  }
+
+  // CB.disposeIn(scope) — dispose+unregister any chart whose DOM lives inside `scope`,
+  // called BEFORE a helper replaces scope.innerHTML so re-running CB.chart/kpis/hydrate
+  // on the same target doesn't leak the previous echarts instance into charts[].
+  CB.disposeIn = function (scope) {
+    if (!scope) return;
+    for (var i = charts.length - 1; i >= 0; i--) {
+      var inst = charts[i] && charts[i].instance;
+      var dom = inst && inst.getDom && inst.getDom();
+      if (dom && (scope === dom || (scope.contains && scope.contains(dom)))) {
+        try { if (inst && inst.dispose) inst.dispose(); } catch (e) {}
+        charts.splice(i, 1);
+      }
+    }
+  };
+
   CB.registerChart = function (instance, renderFn) {
     charts.push({ instance: instance, renderFn: renderFn || null });
     return instance;
@@ -232,6 +306,7 @@
   CB.onThemeChange = function (cb) { if (typeof cb === 'function') themeCbs.push(cb); };
 
   function rethemeCharts() {
+    pruneCharts(); // drop stale/detached instances first so we don't re-theme dead canvases
     charts.forEach(function (c) {
       if (!c.instance) return;
       try {
@@ -267,6 +342,15 @@
     return '<i data-lucide="' + esc(name) + '" class="' + (cls || 'w-12 h-12') + '"></i>';
   }
 
+  /* shared empty-state affordance reused by kpis/findings/timeline/compare: a muted,
+     centered "no data" line so a legitimately-empty section reads as "nothing to show"
+     instead of a broken-looking blank box. Locale-aware; overridable via opts.emptyText. */
+  function emptyState(msg) {
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var text = msg != null ? msg : (ko ? '데이터 없음' : 'No data');
+    return '<div class="col-span-full text-center text-body-14 text-secondary py-24">' + esc(text) + '</div>';
+  }
+
   /* ==========================================================================
      FAST-PATH HELPER 1/11 — COOKIEBITE.pill / COOKIEBITE.callout (one block: both
      are string-returning tone composites). pill -> inline tone chip; callout ->
@@ -282,6 +366,22 @@
       ' text-caption-12 font-medium">' + ic + esc(label) + '</span>';
   };
 
+  /* COOKIEBITE.deltaBadge(text, {dir, tone, className?}) -> string
+     The standalone stat-delta badge (▲ +12% / ▼ -3%): an arrow + tone-colored short
+     token. Extracted from CB.kpis so the SAME canonical badge can drop into a Grid.js
+     formatter, a compare cell, or inline prose without re-hand-rolling the arrow/tone.
+     dir: 'up' | 'down' | (else flat '—' arrow). tone: any tone key (text color).
+     min-w-0+truncate so a too-long phrase clips inside the badge (with a title tooltip)
+     instead of overflowing. className adds layout context (CB.kpis passes 'mb-6'). */
+  CB.deltaBadge = function (text, opts) {
+    opts = opts || {};
+    var dt = tone(opts.tone);
+    var arrow = opts.dir === 'up' ? 'arrow-up-right' : opts.dir === 'down' ? 'arrow-down-right' : 'minus';
+    return '<span class="inline-flex items-center gap-2 text-caption-12 font-semibold min-w-0 max-w-full ' +
+      (opts.className ? esc(opts.className) + ' ' : '') + dt.text + '" title="' + esc(text) + '">' +
+      iconTag(arrow, 'w-16 h-16 shrink-0') + ' <span class="truncate">' + esc(text) + '</span></span>';
+  };
+
   /* COOKIEBITE.callout(html, {tone, icon?, title?}) -> string
      Left-accent-bar boxed insight. `html` is trusted author HTML (not escaped) so
      bold/links compose; `title` is escaped. */
@@ -294,6 +394,37 @@
     var titleHtml = opts.title ? '<b>' + esc(opts.title) + '</b> ' : '';
     return '<div class="flex gap-12 rounded-medium ' + t.tint + ' border-l-4 ' + borderTone + ' p-16">' +
       ic + '<p class="text-body-14">' + titleHtml + html + '</p></div>';
+  };
+
+  /* COOKIEBITE.takeaway(pointsOrHtml, {title?}) -> string
+     The prominent "Key takeaways / TL;DR" summary box prescribed for the 5-second rule —
+     distinct from Callout (a one-liner) by being MULTI-POINT and summary-positioned (top
+     of report). Accent-weak surface + accent-strong title so it reads as the headline.
+     pointsOrHtml: an ARRAY of bullets — each a plain string OR { tone, text } for a
+     tone-dotted point (2 wins + 1 risk) — OR a raw-HTML string (trusted, not escaped).
+     title overrides the locale default ('Key takeaways' / '핵심 요약'). */
+  CB.takeaway = function (pointsOrHtml, opts) {
+    opts = opts || {};
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var title = opts.title != null ? opts.title : (ko ? '핵심 요약' : 'Key takeaways');
+    var body;
+    if (Array.isArray(pointsOrHtml)) {
+      // tone-dotted bullets: a colored disc (reusing the tone dot vocabulary) + escaped text
+      body = '<ul class="space-y-8">' + pointsOrHtml.map(function (p) {
+        var txt = (p && typeof p === 'object') ? p.text : p;
+        var dotTone = (p && typeof p === 'object' && p.tone) ? p.tone : 'neutral';
+        var dot = TONE_DOT[dotTone] || 'bg-accent';
+        return '<li class="flex gap-8 text-body-14">' +
+          '<span class="mt-6 w-8 h-8 rounded-full shrink-0 ' + dot + '"></span>' +
+          '<span>' + esc(txt) + '</span></li>';
+      }).join('') + '</ul>';
+    } else {
+      // raw HTML escape hatch (trusted), for authors who need links/bold inline
+      body = '<div class="text-body-14 space-y-8">' + (pointsOrHtml || '') + '</div>';
+    }
+    return '<div class="rounded-medium bg-accent-weak border border-line-weak p-20">' +
+      '<p class="text-caption-12 font-semibold uppercase tracking-wide text-accent-strong mb-12">' + esc(title) + '</p>' +
+      body + '</div>';
   };
 
   /* ==========================================================================
@@ -322,22 +453,29 @@
         var data;
         try { data = JSON.parse(el.dataset.spark); } catch (e) { return; }
         var c = window.echarts.init(el);
+        // a 1-point series with symbol:'none'+smooth draws nothing visible — force a
+        // single end-dot so a lone data point still shows. multi-point keeps the clean
+        // no-symbol line.
+        var sparkSeries = function (d) {
+          var single = d.length <= 1;
+          return {
+            type: 'line', data: d, smooth: !single, symbol: single ? 'circle' : 'none',
+            symbolSize: single ? 6 : 4, showSymbol: single,
+            lineStyle: { width: 2, color: CB.theme.ACCENT },
+            itemStyle: { color: CB.theme.ACCENT },
+            areaStyle: { color: accentRgba(0.10) },
+          };
+        };
         c.setOption({
           grid: { left: 0, right: 0, top: 2, bottom: 2 },
           xAxis: { type: 'category', show: false, data: data.map(function (_, i) { return i; }) },
           yAxis: { type: 'value', show: false, scale: true },
-          series: [{
-            type: 'line', data: data, smooth: true, symbol: 'none',
-            lineStyle: { width: 2, color: CB.theme.ACCENT },
-            areaStyle: { color: accentRgba(0.10) },
-          }],
+          series: [sparkSeries(data)],
         });
         // sparks re-theme + resize through the registry; renderFn re-reads accent
         CB.registerChart(c, (function (chart, d) {
           return function () {
-            chart.setOption({
-              series: [{ type: 'line', data: d, smooth: true, symbol: 'none', lineStyle: { width: 2, color: CB.theme.ACCENT }, areaStyle: { color: accentRgba(0.10) } }],
-            });
+            chart.setOption({ series: [sparkSeries(d)] });
           };
         })(c, data));
       });
@@ -374,6 +512,11 @@
     var colsKey = opts.cols && COLS_MAP[opts.cols] ? opts.cols : autoCols((items || []).length);
     host.className = (host.className ? host.className + ' ' : '') + COLS_MAP[colsKey];
 
+    CB.disposeIn(host); // re-run on the same target: drop spark instances from the prior render
+
+    // empty: render a quiet "no data" line instead of a bare grid container
+    if (!(items || []).length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+
     host.innerHTML = (items || []).map(function (it) {
       // label (optionally a glossary term)
       var label = it.gloss
@@ -383,12 +526,19 @@
       // big number
       var pre = it.prefix != null ? it.prefix : '';
       var suf = it.suffix != null ? it.suffix : '';
+      // a NUMERIC string ('1234', '8.4') is almost always an upstream-formatted number
+      // the author still wants animated — coerce so CountUp fires instead of silently
+      // rendering the literal verbatim. Genuinely non-numeric strings ('Healthy', 'P1')
+      // fall through to the verbatim branch below.
+      var val = it.value;
+      if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val))) val = Number(val);
+
       var numHtml;
-      if (typeof it.value === 'string') {
+      if (typeof val === 'string') {
         // a STRING value renders VERBATIM (no CountUp) — for status/severity cards
         // ("Healthy", "P1") that aren't numbers. The number<->string fork only
         // changes the inner figure; delta/spark/card wrapper below are shared.
-        var verbatim = esc(pre) + esc(it.value);
+        var verbatim = esc(pre) + esc(val);
         numHtml = it.unit
           ? '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' + verbatim +
             '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
@@ -403,8 +553,8 @@
           var s = String(v); var dot = s.indexOf('.');
           return dot < 0 ? 0 : s.length - dot - 1;
         };
-        var dec = it.decimals != null ? it.decimals : (opts.decimals != null ? opts.decimals : inferDec(it.value));
-        var cuAttrs = 'data-countup="' + it.value + '"';
+        var dec = it.decimals != null ? it.decimals : (opts.decimals != null ? opts.decimals : inferDec(val));
+        var cuAttrs = 'data-countup="' + val + '"';
         if (!animate || it.decimals != null || opts.decimals != null || dec) cuAttrs += ' data-decimals="' + dec + '"';
         if (it.unit) {
           // long figures: keep number big, unit small, never wrap. A suffix (when
@@ -422,13 +572,15 @@
         }
       }
 
-      // delta badge — tone-colored, lucide arrow; null => '—' sentinel (never fake zero)
+      // delta badge — THREE-WAY: a truthy {dir,tone,text} object renders the badge;
+      // delta:null renders the '—' "no baseline" sentinel; delta OMITTED renders no
+      // badge at all. (delta:0 is falsy → treated as omitted, NOT a zero baseline — pass
+      // delta:null for an explicit baseline-less metric.) delta.text must be a SHORT
+      // token ('+3.9s'); for a narrative caption ('vs 0 baseline') use it.note instead.
       var deltaHtml;
       if (it.delta) {
-        var dt = tone(it.delta.tone);
-        var arrow = it.delta.dir === 'up' ? 'arrow-up-right' : it.delta.dir === 'down' ? 'arrow-down-right' : 'minus';
-        deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold whitespace-nowrap ' + dt.text + '">' +
-          iconTag(arrow, 'w-16 h-16') + ' ' + esc(it.delta.text) + '</span>';
+        // canonical badge via the shared CB.deltaBadge; mb-6 aligns it to the figure's baseline
+        deltaHtml = CB.deltaBadge(it.delta.text, { dir: it.delta.dir, tone: it.delta.tone, className: 'mb-6' });
       } else if (it.delta === null) {
         // explicit null => show the "no baseline" sentinel
         deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-secondary">—</span>';
@@ -441,10 +593,14 @@
         ? '<div class="h-32 mt-12" data-spark=\'' + JSON.stringify(it.spark) + '\'></div>'
         : '';
 
+      // note: the right home for baseline-free context ("vs 0 baseline", "provisional")
+      // that doesn't fit a short delta token — a small caption line under the number.
+      var note = it.note ? '<p class="text-caption-12 text-secondary mt-4">' + esc(it.note) + '</p>' : '';
+
       return '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
         '<p class="text-body-14 text-secondary">' + label + '</p>' +
         '<div class="flex items-end gap-8 mt-8">' + numHtml + deltaHtml + '</div>' +
-        spark + '</div>';
+        note + spark + '</div>';
     }).join('');
 
     CB.refreshIcons();
@@ -458,17 +614,27 @@
      ========================================================================== */
   var SEV_LABEL = { critical: 'Critical', warning: 'High', info: 'Medium', neutral: 'Low' };
   var SEV_LABEL_KO = { critical: '심각', warning: '높음', info: '보통', neutral: '낮음' };
+  // neutral/business vocabulary for opts.kind:'insights' — a dashboard's observations
+  // list ("success up 0.3%p") reads wrong as 'Medium' severity. Same tone colors +
+  // filter UI, just de-severitized chip/badge words.
+  var INSIGHT_LABEL = { critical: 'Action', warning: 'Watch', info: 'Note', neutral: 'Note' };
+  var INSIGHT_LABEL_KO = { critical: '조치', warning: '주의', info: '메모', neutral: '메모' };
   var SEV_RANK = { critical: 0, warning: 1, info: 2, neutral: 3 };
   // severity labels follow the report locale (Korean when REPORT_LOCALE.number
-  // starts with 'ko'); opts.sevLabels overrides the badge set, opts.chipLabels the
-  // chip set (incl. the 'all' key). A per-item f.label still wins over both.
-  function sevLabelSet(opts) {
+  // starts with 'ko'); opts.kind:'insights' swaps the incident-flavored severity
+  // ladder for a neutral business vocabulary. opts.sevLabels overrides the badge set,
+  // opts.chipLabels the chip set (incl. the 'all' key). A per-item f.label wins over all.
+  function baseLabels(opts) {
     var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    return Object.assign({}, ko ? SEV_LABEL_KO : SEV_LABEL, (opts && opts.sevLabels) || {});
+    if (opts && opts.kind === 'insights') return ko ? INSIGHT_LABEL_KO : INSIGHT_LABEL;
+    return ko ? SEV_LABEL_KO : SEV_LABEL;
+  }
+  function sevLabelSet(opts) {
+    return Object.assign({}, baseLabels(opts), (opts && opts.sevLabels) || {});
   }
   function chipLabelSet(opts) {
     var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
-    var base = Object.assign({ all: ko ? '전체' : 'All' }, ko ? SEV_LABEL_KO : SEV_LABEL);
+    var base = Object.assign({ all: ko ? '전체' : 'All' }, baseLabels(opts));
     return Object.assign(base, (opts && opts.chipLabels) || {});
   }
 
@@ -480,6 +646,9 @@
     var withSort = opts.sort !== false;
     var sevLabels = sevLabelSet(opts);
     var chipLabels = chipLabelSet(opts);
+
+    // empty: a quiet "no data" line instead of an empty bordered list
+    if (!(items || []).length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
 
     var list = (items || []).slice();
     var rank = function (t) { return SEV_RANK[t] == null ? 9 : SEV_RANK[t]; }; // critical=0 must not fall through ||
@@ -523,7 +692,9 @@
     }).join(',') + ']';
 
     var filterRow = withFilter
-      ? '<div class="flex gap-6 mb-12 text-caption-12">' +
+      // flex-wrap so a 5-10 chip row (PSP/status/region…) wraps at phone width instead
+      // of running off the right edge and making the WHOLE page horizontally scroll.
+      ? '<div class="flex flex-wrap gap-6 mb-12 text-caption-12">' +
         '<template x-for="c in ' + chipDefs + '" :key="c.tone">' +
         '<button @click="sev=c.tone" :class="sev===c.tone ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
         'class="px-10 py-4 rounded-small" x-text="c.label"></button></template></div>'
@@ -542,30 +713,46 @@
      Alpine x-for vertical timeline (incident-postmortem pattern). kind -> tone
      via an OPEN, overridable map (never a closed enum). Detail via x-collapse.
      ========================================================================== */
-  var DEFAULT_TONE_MAP = { start: 'info', cause: 'critical', action: 'warning', resolved: 'success' };
+  // open, overridable kind->tone map. 'detect'/'diagnose'/'observe'/'investigate'
+  // map to neutral/info so analysis steps in a postmortem don't render alarm-red as
+  // 'cause' — a real timeline has neutral investigation milestones between failure
+  // and fix. Authors still override via opts.toneMap.
+  var DEFAULT_TONE_MAP = {
+    start: 'info', cause: 'critical', action: 'warning', resolved: 'success',
+    detect: 'info', diagnose: 'neutral', diagnostic: 'neutral', investigate: 'neutral', investigation: 'neutral', observe: 'neutral',
+  };
   var TONE_DOT = { neutral: 'bg-secondary', info: 'bg-informative', success: 'bg-positive', warning: 'bg-cautionary', critical: 'bg-critical' };
   var TONE_DEFAULT_ICON = { neutral: 'circle', info: 'info', success: 'check', warning: 'alert-triangle', critical: 'octagon-x' };
+  // per-kind icon defaults for investigation steps (search/activity read as analysis,
+  // not failure). Falls through to the tone icon for any kind not listed here.
+  var KIND_DEFAULT_ICON = { detect: 'activity', diagnose: 'search', diagnostic: 'search', investigate: 'search', investigation: 'search', observe: 'eye' };
+  var tlSeq = 0;
 
   CB.timeline = function (target, items, opts) {
     var host = resolveTarget(target);
     if (!host) return;
     opts = opts || {};
+    if (!host.id) host.id = 'cbTl' + (++tlSeq); // stable scope for aria-controls ids
     var toneMap = Object.assign({}, DEFAULT_TONE_MAP, opts.toneMap || {});
     var collapse = opts.collapse !== false;
+
+    // empty: a quiet "no data" line instead of an empty spine
+    if (!(items || []).length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
 
     var rows = (items || []).map(function (it, i) {
       var toneName = toneMap[it.kind] || (it.kind && tone(it.kind) !== TONE.neutral ? it.kind : 'neutral');
       var dot = TONE_DOT[toneName] || TONE_DOT.neutral;
-      var icon = it.icon || TONE_DEFAULT_ICON[toneName] || 'circle';
+      var icon = it.icon || KIND_DEFAULT_ICON[it.kind] || TONE_DEFAULT_ICON[toneName] || 'circle';
       var t = tone(toneName);
       var hasDetail = !!it.detail;
+      var detailId = host.id + '-d' + i;
       var detailBlock = hasDetail
         ? (collapse
-          ? '<div x-show="open' + i + '"' + ' x-collapse class="mt-6 text-body-14 text-secondary">' + esc(it.detail) + '</div>'
+          ? '<div id="' + detailId + '" x-show="open' + i + '"' + ' x-collapse class="mt-6 text-body-14 text-secondary">' + esc(it.detail) + '</div>'
           : '<div class="mt-6 text-body-14 text-secondary">' + esc(it.detail) + '</div>')
         : '';
       var titleRow = hasDetail && collapse
-        ? '<button @click="open' + i + '=!open' + i + '" class="flex items-center gap-6 text-left">' +
+        ? '<button @click="open' + i + '=!open' + i + '" :aria-expanded="open' + i + '" aria-controls="' + detailId + '" class="flex items-center gap-6 text-left">' +
           '<span class="text-body-16 font-semibold">' + esc(it.title) + '</span>' +
           '<span class="text-caption-12 text-secondary" x-text="open' + i + ' ? \'−\' : \'+\'"></span></button>'
         : '<p class="text-body-16 font-semibold">' + esc(it.title) + '</p>';
@@ -667,16 +854,38 @@
       var id = 'cbmmd' + (mmdSeq++);
       return mermaid.render(id, definition).then(function (res) {
         host.innerHTML = res.svg;
-        // let the SVG scale to the container instead of its intrinsic width
+        // host scrolls horizontally so a wide LR flowchart on a phone scrolls instead of
+        // shrinking every label to ~6px (the narrow-viewport illegibility footgun).
+        host.style.overflowX = 'auto';
         var svg = host.querySelector('svg');
-        if (svg) { svg.removeAttribute('width'); svg.style.maxWidth = '100%'; svg.style.height = 'auto'; }
+        if (svg) {
+          // intrinsic px width Mermaid sized the diagram at (viewBox width when present)
+          var vb = svg.viewBox && svg.viewBox.baseVal;
+          var intrinsic = vb && vb.width ? vb.width : (parseFloat(svg.getAttribute('width')) || 0);
+          svg.removeAttribute('width');
+          svg.style.height = 'auto';
+          // only scale-to-fit when the diagram actually fits the container; when it's
+          // wider, keep its intrinsic width so it stays legible and the host scrolls.
+          if (intrinsic && intrinsic > host.clientWidth) {
+            svg.style.width = Math.round(intrinsic) + 'px';
+            svg.style.maxWidth = 'none';
+          } else {
+            svg.style.maxWidth = '100%';
+          }
+        }
         if (res.bindFunctions) res.bindFunctions(host);
       });
     }
 
     loader.then(function (mermaid) {
       render(mermaid);
-      CB.onThemeChange(function () { render(mermaid); }); // re-render with dark palette on toggle
+      // register the dark-toggle re-render ONCE per host — re-running CB.mermaid on the
+      // same target (edited definition, tab reveal) must not stack N stale closures
+      // that all redraw into this one container on every toggle.
+      if (!host.dataset.cbMermaidThemed) {
+        host.dataset.cbMermaidThemed = '1';
+        CB.onThemeChange(function () { render(mermaid); }); // re-render with dark palette on toggle
+      }
     }).catch(function (e) {
       console.warn('[cookiebite] COOKIEBITE.mermaid failed', e);
       if (opts.onError) host.innerHTML = opts.onError;
@@ -774,6 +983,35 @@
 
     // pills inside Grid.js need their lucide icons drawn after render
     grid.config.store.subscribe(function () { CB.refreshIcons(); });
+
+    // opt-in CSV export: Grid.js already holds the raw rows, so serialize columns +
+    // config.rows to a CSV the reader can pull into a spreadsheet (interactions.md §13's
+    // "always end an editable artifact with a way out"). A pill/status cell ({label,…})
+    // serializes to its label; a quote/comma/newline is RFC-4180 quote-escaped.
+    if (config.csv) {
+      var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+      var headerNames = (config.columns || []).map(function (col) { return typeof col === 'string' ? col : (col.name || ''); });
+      var csvCell = function (v) {
+        if (v && typeof v === 'object' && v.label != null) v = v.label;
+        var s = v == null ? '' : String(v);
+        return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      };
+      var toCsv = function () {
+        var lines = [headerNames.map(csvCell).join(',')];
+        rows.forEach(function (r) { lines.push((Array.isArray(r) ? r : [r]).map(csvCell).join(',')); });
+        return lines.join('\r\n');
+      };
+      var bar = document.createElement('div');
+      bar.className = 'flex justify-end mb-8';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'text-caption-12 text-secondary hover:text-primary';
+      btn.textContent = ko ? 'CSV 내보내기' : 'Export CSV';
+      btn.addEventListener('click', function () { CB.download((config.csvName || 'table') + '.csv', toCsv(), 'text/csv;charset=utf-8'); });
+      bar.appendChild(btn);
+      host.parentNode ? host.parentNode.insertBefore(bar, host) : host.insertBefore(bar, host.firstChild);
+    }
+
     CB.refreshIcons();
     return grid;
   };
@@ -826,8 +1064,14 @@
     if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.chart needs echarts.'); return null; }
     config = config || {};
     var height = config.height || 300;
+    // ariaLabel becomes BOTH the SR label and the fallback data-table caption — the bare
+    // word 'chart' is meaningless to a screen-reader user, so nudge the author instead of
+    // shipping it silently.
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.chart: pass ariaLabel describing what the chart shows — it becomes the screen-reader label and the data-table caption.');
     var aria = config.ariaLabel || 'chart';
     var cid = 'cbChart' + (++chartSeq);
+
+    CB.disposeIn(host); // re-run on the same target: dispose the prior chart instance
 
     // build the §10 view-toggle scaffold (matches the template trend section)
     var hasTable = !!(config.table && config.table.columns);
@@ -857,11 +1101,21 @@
     // single-quoted literals: JSON.stringify's double quotes would terminate the
     // double-quoted x-text attribute and blank the label.
     var sqLabel = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
-    var toggleBtn = hasTable
-      ? '<div class="flex justify-end mb-8"><button @click="table=!table" :aria-pressed="table" ' +
+    var toggleBtnInner = hasTable
+      ? '<button @click="table=!table" :aria-pressed="table" ' +
         'class="text-caption-12 text-secondary hover:text-primary" x-text="table ? ' +
-        sqLabel(tl.chart) + ' : ' + sqLabel(tl.table) + '"></button></div>'
+        sqLabel(tl.chart) + ' : ' + sqLabel(tl.table) + '"></button>'
       : '';
+    // opt-in PNG export: a small button next to the view-toggle. cid is unique so it
+    // wires to THIS chart's instance via CB.exportPNG (registered below).
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var pngLabel = ko ? 'PNG 저장' : 'Save PNG';
+    var pngBtnInner = config.exportable
+      ? '<button type="button" data-cb-png="' + cid + '" class="text-caption-12 text-secondary hover:text-primary">' + esc(pngLabel) + '</button>'
+      : '';
+    // share one justify-end bar between the toggle + PNG buttons (gap-12 between them)
+    var barInner = toggleBtnInner + pngBtnInner;
+    var toggleBtn = barInner ? '<div class="flex justify-end gap-12 mb-8">' + barInner + '</div>' : '';
 
     host.innerHTML = caption +
       '<div' + (hasTable ? ' x-data="{ table:false }"' : '') + '>' + toggleBtn +
@@ -869,6 +1123,11 @@
       '<div ' + (hasTable ? 'x-show="!table"' : '') + '><div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + height + 'px"></div></div>' +
       (hasTable ? tableHtml : '') +
       '</div></div>';
+
+    if (config.exportable) {
+      var pngBtn = host.querySelector('[data-cb-png="' + cid + '"]');
+      if (pngBtn) pngBtn.addEventListener('click', function () { CB.exportPNG('#' + cid, (config.exportName || aria || 'chart') + '.png'); });
+    }
 
     var el = host.querySelector('#' + cid);
     var inst = window.echarts.init(el);
@@ -892,6 +1151,247 @@
       ? config.render
       : function (chart) { chart.setOption(deepMerge(CB.baseChart, lastOption), true); };
     CB.registerChart(inst, renderFn);
+
+    CB.refreshIcons();
+    return inst;
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER 7a — COOKIEBITE.funnel(target, { steps, caption?, ariaLabel? })
+     Themed ECharts funnel for conversion/drop-off (visitor->signup->paid, checkout
+     step drop-off). The value-add the model keeps fumbling: a SINGLE-HUE accent ramp
+     (CB.ramp, never a rainbow), auto step-to-step + overall conversion % labels, and
+     INSIDE labels so they never clip at narrow widths (the no-funnel-helper footgun).
+     Registers for dark re-theme; ships a data-table + aria fallback like CB.chart.
+       steps: [{ label, value }] (descending). caption -> muted line above; ariaLabel
+       -> SR label + data-table caption.
+     ========================================================================== */
+  var funnelSeq = 0;
+
+  CB.funnel = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.funnel needs echarts.'); return null; }
+    config = config || {};
+    var steps = (config.steps || []).filter(function (s) { return s && s.value != null; });
+    var aria = config.ariaLabel || 'conversion funnel';
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.funnel: pass ariaLabel describing the funnel — it becomes the screen-reader label and the data-table caption.');
+
+    CB.disposeIn(host);
+
+    // empty: a quiet "no data" line instead of a broken-looking empty chart
+    if (!steps.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null; }
+
+    var height = config.height || 320;
+    var cid = 'cbFunnel' + (++funnelSeq);
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    host.innerHTML = caption +
+      '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
+      '<div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + height + 'px"></div>' +
+      '</div>';
+
+    var el = host.querySelector('#' + cid);
+    var inst = window.echarts.init(el);
+    var top = steps[0].value || 0; // overall-conversion denominator (first/top step)
+
+    // option re-reads CB.ramp/CB.baseChart live so a dark toggle re-themes the ramp.
+    function option() {
+      var colors = CB.ramp(steps.length);
+      var data = steps.map(function (s, i) {
+        // label shows the step name + step-to-step conversion vs the PREVIOUS step
+        var prev = i === 0 ? null : (steps[i - 1].value || 0);
+        var pct = prev ? Math.round((s.value / prev) * 1000) / 10 : null;
+        var name = s.label + (pct != null ? ' · ' + pct + '%' : '');
+        return { value: s.value, name: name, itemStyle: { color: colors[i] } };
+      });
+      var overall = top ? Math.round((steps[steps.length - 1].value / top) * 1000) / 10 : null;
+      return {
+        textStyle: { fontFamily: CB.theme.FONT },
+        tooltip: { trigger: 'item', formatter: '{b}: {c}' },
+        // overall conversion as a subtitle so the headline number is always visible
+        title: overall != null ? {
+          text: (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '전체 전환율 ' : 'Overall ') + overall + '%',
+          left: 'center', bottom: 0, textStyle: { color: CB.theme.C_SECONDARY, fontSize: 12, fontWeight: 'normal', fontFamily: CB.theme.FONT },
+        } : undefined,
+        series: [{
+          type: 'funnel', top: 12, bottom: 28, left: '8%', right: '8%',
+          minSize: '24%', sort: 'descending', gap: 2,
+          // INSIDE labels never clip at narrow widths (the outside-label footgun)
+          label: { show: true, position: 'inside', color: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT },
+          labelLine: { show: false },
+          itemStyle: { borderColor: CB.theme.C_LINE, borderWidth: 1 },
+          data: data,
+        }],
+      };
+    }
+    inst.setOption(option(), true);
+    CB.registerChart(inst, function (chart) { chart.setOption(option(), true); });
+
+    // a11y data-table alternative (vanilla toggle, same as a hand chart gets)
+    CB.dataTableToggle(el, {
+      ariaLabel: aria,
+      columns: [config.stepHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '단계' : 'Step'), config.valueHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '값' : 'Value'), '%'],
+      rows: steps.map(function (s, i) {
+        var prev = i === 0 ? null : (steps[i - 1].value || 0);
+        var pct = i === 0 ? '100%' : (prev ? (Math.round((s.value / prev) * 1000) / 10) + '%' : '—');
+        return [s.label, CB.nf.format(s.value), pct];
+      }),
+    });
+
+    CB.refreshIcons();
+    return inst;
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER 7b — COOKIEBITE.gauge(target, { value, max?, label?, unit?, target?, tone? })
+     A bounded single metric (SLA 99.2% vs 99.9%, sprint 18/24, budget burn 67%, OKR
+     progress) reads far better as a ring than a bare number — SKILL.md recommends it.
+     This is a PURE CSS conic-gradient ring (NO chart lib): themes via var(--accent) so
+     it is dark-aware with ZERO registration and immune to the 0×0-in-hidden-tab footgun
+     that bites canvas gauges. Center value label; optional target tick; optional tone
+     overrides the accent fill (status:'critical' etc).
+       value/max -> fraction. label -> caption under the ring. unit -> appended to the
+       center figure (e.g. '%'). target -> a tick mark at that value. tone -> semantic.
+     ========================================================================== */
+  var GAUGE_FILL = { neutral: 'var(--accent)', info: 'var(--c-informative)', success: 'var(--c-positive)', warning: 'var(--c-cautionary)', critical: 'var(--c-critical)' };
+
+  CB.gauge = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var max = config.max != null ? config.max : 100;
+    var raw = config.value;
+
+    // empty/invalid: a quiet "no data" line instead of an empty ring
+    if (raw == null || !isFinite(Number(raw)) || !(max > 0)) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    var value = Number(raw);
+    var frac = Math.max(0, Math.min(1, value / max)); // clamp into 0..1
+    var deg = Math.round(frac * 360);
+    var fill = (config.tone && GAUGE_FILL[config.tone]) || 'var(--accent)';
+    // the ring: a conic-gradient fill on a track, masked to a ring by an inner surface
+    // disc. All colors are CSS vars -> follows dark re-theme with no JS registration.
+    var size = config.size || 160;
+    var thickness = config.thickness || 16;
+
+    // center figure: value (+ unit). A %-style gauge shows the value as-authored.
+    var unit = config.unit != null ? config.unit : '';
+    var center = '<div class="absolute inset-0 flex flex-col items-center justify-center">' +
+      '<span class="text-title-28 font-bold nums leading-none">' + esc(CB.nf.format(value)) + esc(unit) + '</span>' +
+      (config.sub ? '<span class="text-caption-12 text-secondary mt-2">' + esc(config.sub) + '</span>' : '') +
+      '</div>';
+
+    // optional target tick: a short radial mark at the target fraction, drawn as a
+    // rotated thin bar pinned to the top of the ring.
+    var tick = '';
+    if (config.target != null && isFinite(Number(config.target)) && max > 0) {
+      var tdeg = Math.round(Math.max(0, Math.min(1, Number(config.target) / max)) * 360);
+      tick = '<div class="absolute left-1/2 top-0 origin-bottom" ' +
+        'style="height:' + (size / 2) + 'px;transform:translateX(-50%) rotate(' + tdeg + 'deg);">' +
+        '<span class="block w-2 bg-primary rounded-full" style="height:' + (thickness + 4) + 'px;"></span></div>';
+    }
+
+    var labelHtml = config.label
+      ? '<p class="text-body-14 text-secondary mt-12 text-center">' + esc(config.label) + '</p>'
+      : '';
+
+    // role=img + aria-label so the ring is announced as a single value, not silent decoration
+    var aria = config.ariaLabel || ((config.label ? config.label + ': ' : '') + CB.nf.format(value) + unit + (config.target != null ? ' (target ' + CB.nf.format(Number(config.target)) + unit + ')' : ''));
+
+    host.innerHTML =
+      '<div class="flex flex-col items-center">' +
+      '<div role="img" aria-label="' + esc(aria) + '" class="relative" style="width:' + size + 'px;height:' + size + 'px;">' +
+      // track + conic fill
+      '<div class="absolute inset-0 rounded-full" style="background:conic-gradient(' + fill + ' ' + deg + 'deg, var(--c-disabled-bg) ' + deg + 'deg);"></div>' +
+      // inner disc punches the center out, leaving a ring of `thickness`
+      '<div class="absolute rounded-full bg-surface" style="inset:' + thickness + 'px;"></div>' +
+      tick + center +
+      '</div>' + labelHtml +
+      '</div>';
+
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER 7c — COOKIEBITE.heatmap(target, { data, caption?, ariaLabel?, max? })
+     GitHub-style CALENDAR heatmap for daily-density data (commits/day, incidents/day,
+     active users/day) — common in retros/postmortems where "when" matters. ECharts
+     calendar + heatmap with a SINGLE-HUE accent visualMap ramp (low opacity -> accent),
+     so it stays on-theme. Registers for dark; ships a data-table + aria fallback.
+       data: [{ date:'YYYY-MM-DD', value }]. max overrides the auto visualMap top.
+       caption -> muted line above; ariaLabel -> SR label + data-table caption.
+     ========================================================================== */
+  var heatmapSeq = 0;
+
+  CB.heatmap = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.heatmap needs echarts.'); return null; }
+    config = config || {};
+    var data = (config.data || []).filter(function (d) { return d && d.date && d.value != null; });
+    var aria = config.ariaLabel || 'activity calendar heatmap';
+    if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.heatmap: pass ariaLabel describing the data — it becomes the screen-reader label and the data-table caption.');
+
+    CB.disposeIn(host);
+
+    // empty: a quiet "no data" line instead of a blank calendar
+    if (!data.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null; }
+
+    var height = config.height || 200;
+    var cid = 'cbHeat' + (++heatmapSeq);
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    host.innerHTML = caption +
+      '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
+      '<div id="' + cid + '" role="img" aria-label="' + esc(aria) + '" style="height:' + height + 'px"></div>' +
+      '</div>';
+
+    // calendar RANGE: the year span the data covers (ECharts wants the year(s))
+    var years = data.map(function (d) { return d.date.slice(0, 4); });
+    var range = years[0] === years[years.length - 1] ? years[0] : [years[0], years[years.length - 1]];
+    var maxVal = config.max != null ? config.max : data.reduce(function (m, d) { return Math.max(m, d.value); }, 0) || 1;
+
+    var el = host.querySelector('#' + cid);
+    var inst = window.echarts.init(el);
+
+    // option re-reads accent live so a dark toggle re-themes the ramp + neutral cells.
+    function option() {
+      return {
+        textStyle: { fontFamily: CB.theme.FONT },
+        tooltip: { formatter: function (p) { return p.value[0] + ': ' + CB.nf.format(p.value[1]); } },
+        // single-hue accent ramp: faint accent for low -> full accent for high
+        visualMap: {
+          min: 0, max: maxVal, calculable: true, orient: 'horizontal', left: 'center', bottom: 0,
+          inRange: { color: [accentRgba(0.12), CB.theme.ACCENT] },
+          textStyle: { color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT },
+        },
+        calendar: {
+          top: 24, left: 24, right: 12, cellSize: ['auto', 14], range: range,
+          itemStyle: { color: cssColor('--c-disabled-bg', '#F4F4F5'), borderColor: CB.theme.C_LINE, borderWidth: 1 },
+          splitLine: { lineStyle: { color: CB.theme.C_LINE } },
+          dayLabel: { color: CB.theme.C_SECONDARY }, monthLabel: { color: CB.theme.C_SECONDARY },
+          yearLabel: { show: false },
+        },
+        series: [{
+          type: 'heatmap', coordinateSystem: 'calendar',
+          data: data.map(function (d) { return [d.date, d.value]; }),
+        }],
+      };
+    }
+    inst.setOption(option(), true);
+    CB.registerChart(inst, function (chart) { chart.setOption(option(), true); });
+
+    // a11y data-table alternative (vanilla toggle, same as a hand chart gets)
+    CB.dataTableToggle(el, {
+      ariaLabel: aria,
+      columns: [config.dateHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '날짜' : 'Date'), config.valueHeader || (window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number) ? '값' : 'Value')],
+      rows: data.map(function (d) { return [d.date, CB.nf.format(d.value)]; }),
+    });
 
     CB.refreshIcons();
     return inst;
@@ -948,13 +1448,15 @@
 
   /* ==========================================================================
      FAST-PATH HELPER 9/11 — COOKIEBITE.compare(target, { rows, options, recommendation? })
-     The decision/comparison report type (interactions.md §12). Columns are the
-     `options`; rows align BY CONSTRUCTION — you pass `rows` once as labels and each
-     option supplies its cells positionally (values[i] lands on rows[i]). A cell is a
-     plain string OR { label, tone } (rendered via CB.pill). The recommended option's
-     column gets an accent ring + a small badge. Collapses to stacked cards below sm.
-     Optional `recommendation` renders as a CB.callout below the grid. Emits the same
-     markup §12 teaches.
+     The decision/comparison report type (interactions.md §12). Two accepted shapes:
+       (a) OPTION-MAJOR: rows = ['Cost','Speed'], options:[{name,values:[c0,c1]}] —
+           each option carries its own column; values[i] lands on rows[i].
+       (b) ROW-MAJOR (the intuitive shape): rows:[{label, cells:[c0,c1]}], options:
+           [{name}] — a row owns its cells; cell j belongs to options[j]. Detected
+           when rows[0] is an object with a `cells` array, then transposed to (a).
+     A cell is a plain string OR { label, tone } (rendered via CB.pill). The
+     recommended option's column gets an accent ring + a small badge. Collapses to
+     stacked cards below sm. Optional `recommendation` renders as a CB.callout below.
      ========================================================================== */
   CB.compare = function (target, config) {
     var host = resolveTarget(target);
@@ -965,12 +1467,42 @@
     var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
     var recLabel = ko ? '추천' : 'Recommended';
 
+    // ROW-MAJOR shape: transpose rows:[{label, cells}] into the option-major form so
+    // the rest of the helper is unchanged. cell j (or cell.text) -> options[j].values[i].
+    if (rows.length && rows[0] && typeof rows[0] === 'object' && Array.isArray(rows[0].cells)) {
+      options = options.map(function (opt, j) {
+        return Object.assign({}, opt, {
+          values: rows.map(function (r) {
+            var c = (r.cells || [])[j];
+            // accept { text, tone } (the natural row-major keys) as a synonym for the
+            // pill cell { label, tone } — map text -> label so the tone still renders.
+            if (c && typeof c === 'object' && c.text != null && c.label == null) {
+              return Object.assign({}, c, { label: c.text });
+            }
+            return c;
+          }),
+        });
+      });
+      rows = rows.map(function (r) { return r.label; });
+    } else {
+      // option-major: warn on the classic mistake of a values column not matching the
+      // row count (silently renders blank/extra <dd>s otherwise).
+      options.forEach(function (opt) {
+        if (opt && Array.isArray(opt.values) && rows.length && opt.values.length !== rows.length) {
+          console.warn('[cookiebite] COOKIEBITE.compare: option "' + (opt.name || '?') + '" has ' + opt.values.length + ' values but there are ' + rows.length + ' rows — cells will misalign. Pass one value per row (or use the row-major rows:[{label,cells:[…]}] shape).');
+        }
+      });
+    }
+
+    // empty: a quiet "no data" line instead of empty cards
+    if (!options.length || !rows.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
     var cards = options.map(function (opt) {
       var values = opt.values || [];
       // recommended column: accent ring + badge (matches §12's ring-2 ring-accent)
       var ring = opt.recommended ? ' ring-2 ring-accent' : '';
       var badge = opt.recommended
-        ? '<span class="text-caption-12 text-accent font-semibold">' + esc(recLabel) + '</span>'
+        ? '<span class="text-caption-12 text-accent-strong font-semibold">' + esc(recLabel) + '</span>'
         : '';
       // one <dt>/<dd> per row, same order in every column so they line up
       var dl = rows.map(function (label, i) {
@@ -992,6 +1524,86 @@
       ? '<div class="mt-16">' + CB.callout(config.recommendation, { tone: 'info', icon: null }) + '</div>'
       : '';
     host.innerHTML = grid + rec;
+
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     FAST-PATH HELPER 9a — COOKIEBITE.cardGrid(target, { items, caption? })
+     A faceted, filterable card grid (surveys filtered by segment, roadmaps by
+     quarter/team, research by method). Builds a chip row from the UNION of all item
+     tags; clicking chips AND-combines (a card shows only if it carries EVERY active
+     tag), with a live "showing N of M" count. The chip row WRAPS (flex-wrap) so a
+     wide facet set never runs off the right edge at phone width.
+       items: [{ title, body?, tags?:[], meta? }]. tags drive the facet chips; body is
+       trusted HTML; meta is a small muted line. Alpine-driven (x-data/x-show), so the
+       filtering is live with no JS the author writes.
+     ========================================================================== */
+  CB.cardGrid = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var items = config.items || [];
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+
+    var captionText = config.captionHtml != null ? config.captionHtml : (config.caption != null ? esc(config.caption) : '');
+    var caption = (config.captionHtml != null || config.caption != null)
+      ? '<p class="text-body-14 text-secondary mb-12 prose-measure">' + captionText + '</p>'
+      : '';
+
+    // empty: a quiet "no data" line instead of an empty grid
+    if (!items.length) { host.innerHTML = caption + emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    // union of tags, in first-seen order, for the facet chip row
+    var allTags = [];
+    items.forEach(function (it) {
+      (it.tags || []).forEach(function (tg) { if (allTags.indexOf(tg) < 0) allTags.push(tg); });
+    });
+
+    // single-quoted JS literals inside the double-quoted Alpine attrs (mirrors CB.findings)
+    var sq = function (s) { return "'" + String(s).replace(/'/g, "\\'") + "'"; };
+
+    var cards = items.map(function (it) {
+      var itemTags = it.tags || [];
+      // x-show: every ACTIVE facet must be present in this card's tags (AND-combine)
+      var tagsLit = '[' + itemTags.map(sq).join(',') + ']';
+      var show = ' x-show="active.length===0 || active.every(t => ' + tagsLit + '.includes(t))"';
+      var tagChips = itemTags.length
+        ? '<div class="flex flex-wrap gap-4 mt-12">' + itemTags.map(function (tg) {
+            return '<span class="px-8 py-2 rounded-xxs bg-disabled-bg text-secondary text-caption-12">' + esc(tg) + '</span>';
+          }).join('') + '</div>'
+        : '';
+      var body = it.body ? '<div class="text-body-14 text-secondary mt-8">' + it.body + '</div>' : '';
+      var meta = it.meta ? '<p class="text-caption-12 text-secondary mt-8">' + esc(it.meta) + '</p>' : '';
+      return '<div' + show + ' class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
+        '<p class="text-body-16 font-semibold">' + esc(it.title) + '</p>' + body + meta + tagChips + '</div>';
+    }).join('');
+
+    // facet chip row — flex-wrap so a wide facet set never overflows the page on mobile.
+    // toggling a chip adds/removes it from `active`; 'all' clears the filter.
+    var allLabel = ko ? '전체' : 'All';
+    var chips = '<button @click="active=[]" :class="active.length===0 ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
+      'class="px-10 py-4 rounded-small">' + esc(allLabel) + '</button>' +
+      allTags.map(function (tg) {
+        return '<button @click="toggle(' + sq(tg) + ')" :class="active.includes(' + sq(tg) + ') ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
+          'class="px-10 py-4 rounded-small">' + esc(tg) + '</button>';
+      }).join('');
+    var chipRow = '<div class="flex flex-wrap gap-6 mb-12 text-caption-12">' + chips + '</div>';
+
+    // live "showing N of M" count, recomputed by Alpine from the active facets.
+    // SINGLE-quoted nested array literal (NOT JSON.stringify) — double quotes would
+    // terminate the double-quoted x-text attr and blank the count (same footgun as findings).
+    var ofWord = ko ? ' / ' : ' of ';
+    var tagMatrix = '[' + items.map(function (it) {
+      return '[' + (it.tags || []).map(sq).join(',') + ']';
+    }).join(',') + ']';
+    var count = '<p class="text-caption-12 text-secondary mb-12" x-text="(active.length===0 ? ' + items.length + ' : ' +
+      tagMatrix + '.filter(tags => active.every(t => tags.includes(t))).length) + ' + sq(ofWord + items.length) + '"></p>';
+
+    var grid = '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-16">' + cards + '</div>';
+    host.innerHTML = caption +
+      '<div x-data="{ active: [], toggle(t){ const i=this.active.indexOf(t); i<0 ? this.active.push(t) : this.active.splice(i,1); } }">' +
+      chipRow + count + grid + '</div>';
 
     CB.refreshIcons();
   };
@@ -1022,7 +1634,7 @@
       return '<button type="button" role="tab" id="' + tabId + '" aria-controls="' + panelId + '" ' +
         'aria-selected="' + (sel ? 'true' : 'false') + '" tabindex="' + (sel ? '0' : '-1') + '" ' +
         'class="px-12 py-8 text-body-14 font-medium border-b-2 -mb-px transition-colors ' +
-        (sel ? 'border-accent text-accent' : 'border-transparent text-secondary hover:text-primary') + '">' +
+        (sel ? 'border-accent text-accent-strong' : 'border-transparent text-secondary hover:text-primary') + '">' +
         esc(it.label) + '</button>';
     }).join('');
     var panels = items.map(function (it, i) {
@@ -1067,7 +1679,7 @@
         b.setAttribute('aria-selected', on ? 'true' : 'false');
         b.tabIndex = on ? 0 : -1;
         b.classList.toggle('border-accent', on);
-        b.classList.toggle('text-accent', on);
+        b.classList.toggle('text-accent-strong', on); // accent-as-TEXT -> strong for AA
         b.classList.toggle('border-transparent', !on);
         b.classList.toggle('text-secondary', !on);
       });
@@ -1178,6 +1790,28 @@
     a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   };
 
+  /* COOKIEBITE.exportPNG(chartSelector, filename?) — download a registered chart as a
+     PNG. Resolves the echarts instance whose DOM matches chartSelector (the chart's
+     own #id or any ancestor passed to CB.chart) from the charts[] registry, then uses
+     getDataURL with the current surface as the background so the PNG isn't transparent
+     on a dark page. The artifact is meant to be Slacked/pasted into a deck — this is the
+     one share format the readers most want. */
+  CB.exportPNG = function (chartSelector, filename) {
+    var el = resolveTarget(chartSelector);
+    if (!el) return;
+    var match = null;
+    for (var i = 0; i < charts.length; i++) {
+      var inst = charts[i] && charts[i].instance;
+      var dom = inst && inst.getDom && inst.getDom();
+      if (dom && (dom === el || el === dom || (el.contains && el.contains(dom)))) { match = inst; break; }
+    }
+    if (!match) { console.warn('[cookiebite] COOKIEBITE.exportPNG: no registered chart found for selector', chartSelector); return; }
+    var url = match.getDataURL({ pixelRatio: 2, backgroundColor: cssColor('--c-surface', '#FFFFFF') });
+    var a = document.createElement('a');
+    a.href = url; a.download = filename || 'chart.png';
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+
   /* ==========================================================================
      TOC active-section highlight (IntersectionObserver). Auto-wires whatever
      #toc a + main section[id] exist — the model only authors the <ul>.
@@ -1186,17 +1820,61 @@
   function initToc() {
     var links = [].slice.call(document.querySelectorAll('#toc a'));
     if (!links.length) return;
+    // respect prefers-reduced-motion: the css sets html{scroll-behavior:smooth}
+    // unconditionally, so kill the animated TOC scroll here for users who opted out.
+    if (!CB.MOTION_OK) document.documentElement.style.scrollBehavior = 'auto';
+
+    // ---- mobile section nav: the sticky TOC is `hidden lg:block`, so below lg there is
+    // NO wayfinding for a long report read on a phone. Build a compact "On this page"
+    // <select> (shown only below lg) from the same TOC links; selecting jumps to the
+    // section and the observer keeps it in sync with the scroll position.
+    var mobileSelect = buildMobileSectionNav(links);
+
     var setActive = function (id) {
       links.forEach(function (a) {
         var on = a.getAttribute('href') === '#' + id;
-        a.classList.toggle('text-accent', on); a.classList.toggle('bg-accent-weak', on);
+        // accent-as-TEXT on a light surface must use --accent-strong for AA contrast
+        a.classList.toggle('text-accent-strong', on); a.classList.toggle('bg-accent-weak', on);
         a.classList.toggle('font-semibold', on); a.classList.toggle('text-secondary', !on);
       });
+      if (mobileSelect && mobileSelect.value !== '#' + id) mobileSelect.value = '#' + id;
     };
     var obs = new IntersectionObserver(function (es) {
       es.forEach(function (e) { if (e.isIntersecting) setActive(e.target.id); });
     }, { rootMargin: '-35% 0px -60% 0px' });
     document.querySelectorAll('main section[id]').forEach(function (s) { obs.observe(s); });
+  }
+
+  // Build the compact below-lg "On this page" dropdown from the TOC links. Returns the
+  // <select> (so initToc can keep its value synced to the active section) or null.
+  function buildMobileSectionNav(links) {
+    if (document.getElementById('cbMobileNav')) return null;
+    var ko = window.REPORT_LOCALE && /^ko/i.test(window.REPORT_LOCALE.number);
+    var opts = links.map(function (a) {
+      var href = a.getAttribute('href') || '';
+      return '<option value="' + esc(href) + '">' + esc((a.textContent || '').trim()) + '</option>';
+    }).join('');
+    if (!opts) return null;
+    var nav = document.createElement('nav');
+    nav.id = 'cbMobileNav';
+    nav.setAttribute('aria-label', ko ? '섹션 이동' : 'Section navigation');
+    // sticky strip, only below lg (the TOC's breakpoint); pr-56 leaves room for the
+    // fixed top-right theme toggle so they never overlap.
+    nav.className = 'lg:hidden sticky top-0 z-40 bg-bg/90 backdrop-blur border-b border-line-weak py-8 pr-56';
+    nav.innerHTML =
+      '<label class="sr-only" for="cbMobileNavSel">' + (ko ? '이 페이지에서' : 'On this page') + '</label>' +
+      '<select id="cbMobileNavSel" class="w-full bg-surface border border-line-weak rounded-small text-body-14 text-secondary px-12 py-8">' +
+      '<option value="" disabled>' + (ko ? '이 페이지에서…' : 'On this page…') + '</option>' +
+      opts + '</select>';
+    var main = document.querySelector('main');
+    if (!main || !main.parentNode) return null;
+    main.parentNode.insertBefore(nav, main);
+    var sel = nav.querySelector('select');
+    sel.addEventListener('change', function () {
+      var t = sel.value && document.querySelector(sel.value);
+      if (t) t.scrollIntoView({ behavior: CB.MOTION_OK ? 'smooth' : 'auto', block: 'start' });
+    });
+    return sel;
   }
 
   /* ==========================================================================
@@ -1216,6 +1894,17 @@
     btn.className = 'fixed top-16 right-16 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition';
     btn.innerHTML = '<i data-lucide="moon" class="w-20 h-20"></i>';
     document.body.appendChild(btn);
+    // On a phone the report column runs edge-to-edge, so the fixed top-right button would
+    // float over the first content block (KPI numbers, first chart, a table header). Reserve
+    // a clear top strip below sm so the toggle never covers content; desktop is untouched.
+    if (!document.getElementById('cb-toggle-clearance')) {
+      var st = document.createElement('style');
+      st.id = 'cb-toggle-clearance';
+      // target the report's outer wrapper (template: body > div.max-w-[1400px]) and a bare
+      // <main> as a fallback, so the first content block clears the 16+40px toggle on phones.
+      st.textContent = '@media (max-width:639px){body > div[class*="max-w-"], body > main{padding-top:64px}}';
+      document.head.appendChild(st);
+    }
     return btn;
   }
 
@@ -1339,16 +2028,40 @@
      ONE auto-init on DOMContentLoaded. Safe: echarts/alpine(defer)/lucide/tippy
      are parsed by now (head load order guarantees it).
      ========================================================================== */
+  // load-order self-check: the px spacing scale (w-12 -> 12px) only applies if the
+  // Tailwind CDN scanned AFTER window.tailwind.config was set (i.e. cookiebite.js BEFORE
+  // cdn.tailwindcss.com). If a w-12 probe resolves to ~48px (default rem scale) the order
+  // was swapped — icons render 4x and layouts collapse, so surface a precise diagnostic.
+  function checkLoadOrder() {
+    var probe = document.createElement('div');
+    probe.className = 'w-12';
+    probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+    document.body.appendChild(probe);
+    var w = probe.getBoundingClientRect().width;
+    document.body.removeChild(probe);
+    if (w > 20) console.error('[cookiebite] custom spacing scale not applied (w-12 = ' + Math.round(w) + 'px, expected ~12px). Load cdn.tailwindcss.com BEFORE cookiebite.js so the Play CDN reads window.tailwind.config — icons/layout are broken until you do.');
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
     if (window.lucide) window.lucide.createIcons();
+    checkLoadOrder();
     CB.hydrate(document);   // wire any [data-countup]/[data-spark] authored in raw HTML
     initToc();
     initTheme();
     initGlossary();
     initCredit();
-    // resize every registered chart instance (sparks, fast-path + escape-hatch charts)
+    // resize every registered chart instance (sparks, fast-path + escape-hatch charts).
+    // coalesce a burst of resize events into ONE trailing rAF (same pattern CB.tabs
+    // uses) so a continuous window drag / mobile URL-bar reflow doesn't fire a
+    // layout+canvas redraw per chart per tick.
+    var resizeRaf = 0;
     window.addEventListener('resize', function () {
-      charts.forEach(function (c) { if (c.instance) { try { c.instance.resize(); } catch (e) {} } });
+      if (resizeRaf) return;
+      resizeRaf = requestAnimationFrame(function () {
+        resizeRaf = 0;
+        pruneCharts(); // self-heal: drop instances orphaned by a re-render
+        charts.forEach(function (c) { if (c.instance) { try { c.instance.resize(); } catch (e) {} } });
+      });
     });
   });
 })();

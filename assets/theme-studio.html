@@ -97,12 +97,21 @@
           <span class="text-[11px] text-faint" data-i18n="presets_hint">click to apply · then tweak any token</span>
         </div>
         <div class="grid grid-cols-2 gap-2" id="preset-row"></div>
+        <p class="mt-10 text-[11px] text-faint leading-relaxed" data-i18n="presets_note">A preset is just quick tokens. Most brand presets also have a full design spec — ask the agent to read <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]">design-packs/&lt;brand&gt;/DESIGN.md</code> for deep fidelity.</p>
       </div>
 
       <!-- accent -->
       <div class="bg-white rounded-lg border border-hair shadow-card p-16">
         <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="accent">Accent</h2>
         <div class="space-y-10" id="accent-group"></div>
+        <!-- live WCAG contrast for the two real use-sites: accent number on bg, white pill text on accent -->
+        <div id="contrast-row" class="mt-12 grid grid-cols-2 gap-8"></div>
+        <!-- dark-accent rows: only shown when a near-black accent auto-generates accentDark -->
+        <div id="dark-accent-block" class="mt-12 pt-12 border-t border-hairsoft hidden">
+          <div class="text-[11px] font-semibold uppercase tracking-wide text-faint mb-2" data-i18n="accent_dark">Dark mode accent</div>
+          <p class="text-[11px] text-faint leading-relaxed mb-10" data-i18n="accent_dark_hint">Your near-black accent vanishes on a dark surface, so these auto-derive for dark mode. Edit to override.</p>
+          <div class="space-y-10" id="dark-accent-group"></div>
+        </div>
         <p class="mt-10 text-[11px] text-faint leading-relaxed">
           <span data-i18n="accent_hint">Strong &amp; weak auto-derive from the base accent. Edit them to override.</span>
           <button id="btn-rederive" class="underline hover:text-ink" data-i18n="rederive">Re-derive</button>
@@ -144,10 +153,19 @@
         <div class="grid grid-cols-2 gap-10">
           <div>
             <label class="block text-[12px] text-sub mb-4" data-i18n="loc_number">Number format</label>
+            <!-- locales match apply-theme.py LOCALE_TO_LANG so studio output round-trips to a correct <html lang> -->
             <select id="loc-number" class="w-full h-[34px] px-8 rounded-xs border border-hair text-[13px] bg-white">
               <option value="en-US">en-US</option>
+              <option value="en-GB">en-GB</option>
               <option value="ko-KR">ko-KR</option>
               <option value="ja-JP">ja-JP</option>
+              <option value="zh-CN">zh-CN</option>
+              <option value="zh-TW">zh-TW</option>
+              <option value="fr-FR">fr-FR</option>
+              <option value="de-DE">de-DE</option>
+              <option value="es-ES">es-ES</option>
+              <option value="pt-BR">pt-BR</option>
+              <option value="it-IT">it-IT</option>
             </select>
           </div>
           <div>
@@ -232,11 +250,18 @@
     <section class="lg:sticky lg:top-[84px]">
       <div class="flex items-center justify-between mb-10">
         <span class="text-[12px] font-semibold uppercase tracking-wide text-faint" data-i18n="live_preview">Live preview</span>
-        <span id="toast" class="text-[12px] font-medium text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+        <div class="flex items-center gap-10">
+          <!-- light/dark preview toggle — flips data-theme on the preview root only -->
+          <div id="mode-toggle" class="flex items-center gap-2 rounded-xs border border-hair p-2 bg-wash" role="group" aria-label="Preview mode">
+            <button data-mode="light" class="mode-btn lang-btn h-[26px] px-10 rounded-[6px] text-[12px] font-semibold transition is-active" data-i18n="mode_light">Light</button>
+            <button data-mode="dark" class="mode-btn lang-btn h-[26px] px-10 rounded-[6px] text-[12px] font-semibold transition" data-i18n="mode_dark">Dark</button>
+          </div>
+          <span id="toast" class="text-[12px] font-medium text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+        </div>
       </div>
 
       <!-- the preview reads exclusively from CSS variables -->
-      <div class="preview-root rounded-lg border overflow-hidden shadow-pop"
+      <div id="preview-root" class="preview-root rounded-lg border overflow-hidden shadow-pop" data-theme="light"
            style="background:var(--c-bg); border-color:var(--c-line-weak); color:var(--c-primary)">
         <div class="p-24 md:p-28">
 
@@ -433,6 +458,18 @@ function luminance(hex){ const {r,g,b}=toRGB(hex); return (0.299*r + 0.587*g + 0
 // a near-black accent vanishes on the dark surface, so it needs a dark-mode override:
 // derive a light accentDark (a near-white tint) and a dark accentOnDark ink.
 function isNearBlack(hex){ return luminance(hex) < 0.18; }
+// WCAG relative luminance (sRGB-linearized) + contrast ratio, for the AA badges.
+// (luminance() above is a perceptual luma for near-black detection, not WCAG.)
+function relLuminance(hex){
+  const {r,g,b} = toRGB(hex);
+  const lin = v => { v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  return 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);
+}
+function contrastRatio(fg, bg){
+  const a = relLuminance(fg), b = relLuminance(bg);
+  const hi = Math.max(a,b), lo = Math.min(a,b);
+  return (hi + 0.05) / (lo + 0.05);
+}
 
 /* ============================================================
    State
@@ -473,29 +510,78 @@ function applyTheme(){
   // A near-black accent vanishes on the dark surface, so accentDark (when present)
   // overrides --accent / --accent-strong only under html[data-theme="dark"].
   applyAccentDark(theme.colors.accentDark, theme.colors.accentOnDark);
+  syncDarkAccentRows();
 
   // accent-colored chrome bits that aren't CSS-var driven
   document.querySelectorAll("[style*='var(--accent)']").forEach(()=>{}); // (already var-driven)
 
   window.REPORT_LOCALE = { ...theme.locale };
   renderPreview();
+  renderContrast();
   renderJSON();
   markActivePreset();
   persist();
 }
 
+/* Live WCAG AA feedback for the two places accent is used AS TEXT in a report:
+   (1) accent-colored KPI numbers on --c-bg, (2) white pill/button text on --accent.
+   Numbers are big/bold so 3.0 (large-text AA) is the floor; small pill text needs 4.5. */
+function renderContrast(){
+  const row = document.getElementById("contrast-row");
+  if(!row) return;
+  const c = theme.colors;
+  const sites = [
+    { label: t("contrast_accent_on_bg"), fg: c.accent, bg: c.bg, min: 3.0 },   // big KPI numbers
+    { label: t("contrast_on_accent"),    fg: c.accentOn, bg: c.accent, min: 4.5 }, // small pill text
+  ];
+  row.innerHTML = sites.map(s=>{
+    const ratio = contrastRatio(s.fg, s.bg);
+    const pass = ratio >= s.min;
+    const chip = pass
+      ? `<span class="px-6 py-2 rounded text-[10px] font-bold text-white" style="background:var(--c-positive)">AA ✓</span>`
+      : `<span class="px-6 py-2 rounded text-[10px] font-bold text-white" style="background:var(--c-critical)">${t("contrast_fail")}</span>`;
+    return `<div class="rounded-xs border border-hair p-8">
+      <div class="text-[10px] text-faint leading-tight mb-4">${s.label}</div>
+      <div class="flex items-center justify-between gap-6">
+        <span class="text-[13px] font-bold nums" style="color:${pass?'#18181B':'var(--c-critical)'}">${ratio.toFixed(2)}:1</span>
+        ${chip}
+      </div>
+    </div>`;
+  }).join("");
+}
+
 function persist(){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(theme)); }catch(e){} }
 
-/* Inject (or clear) the dark-mode accent override so the preview honors accentDark
-   exactly as the exported THEME block does: html[data-theme="dark"]{ --accent }.
-   --accent-on must flip too (else accent-filled text vanishes on the light dark-accent);
-   accentOnDark defaults to a dark ink. */
+/* Flip the preview root between light and dark (the dark layer is injected by
+   applyAccentDark). Editor chrome is unaffected since the override is .preview-root scoped. */
+function setPreviewMode(mode){
+  const root = document.getElementById("preview-root");
+  if(!root) return;
+  root.setAttribute("data-theme", mode === "dark" ? "dark" : "light");
+  document.querySelectorAll("#mode-toggle .mode-btn").forEach(btn=>{
+    btn.classList.toggle("is-active", btn.dataset.mode === mode);
+  });
+}
+
+/* Inject the dark-mode layer the PREVIEW renders under data-theme="dark".
+   Scoped to .preview-root so it dark-mode-previews without touching editor chrome.
+   It mirrors the runtime: the same dark neutral/semantic palette cookiebite.css
+   ships PLUS the accentDark override (when present) — so an author can see, in dark,
+   exactly what their report will look like. The exported CSS (buildCSS) keeps the
+   html[data-theme="dark"] contract; this preview layer is separate. */
 function applyAccentDark(accentDark, accentOnDark){
   let el = document.getElementById("accent-dark-override");
-  if(!accentDark){ if(el) el.textContent = ""; return; }
   if(!el){ el = document.createElement("style"); el.id = "accent-dark-override"; document.head.appendChild(el); }
-  const on = accentOnDark || "#111111";
-  el.textContent = `html[data-theme="dark"]{ --accent:${accentDark}; --accent-strong:${accentDark}; --accent-on:${on}; }`;
+  // dark neutral + semantic palette, identical to cookiebite.css html[data-theme="dark"]
+  const base = `--accent-weak:color-mix(in srgb, var(--accent) 22%, #16161a);
+    --c-bg:#101013; --c-surface:#1a1a1f; --c-primary:#F1F1F4; --c-secondary:#AEAEB6;
+    --c-disabled:#6E6E78; --c-placeholder:#5A5A63; --c-line:#3A3A42; --c-line-weak:#2A2A30; --c-disabled-bg:#26262C;
+    --c-critical:#F2555A; --c-cautionary:#F5C544; --c-positive:#4FBB60; --c-informative:#4DA3FF;`;
+  // accentDark (light tint for near-black accents) flips --accent / --accent-on in dark
+  const accentOverride = accentDark
+    ? ` --accent:${accentDark}; --accent-strong:${accentDark}; --accent-on:${accentOnDark || "#111111"};`
+    : "";
+  el.textContent = `.preview-root[data-theme="dark"]{ ${base}${accentOverride} }`;
 }
 
 /* ============================================================
@@ -619,6 +705,29 @@ function colorRow(key, label){
   return wrap;
 }
 
+/* Editable row for accentDark / accentOnDark — separate from colorRow because these
+   keys live in theme.colors but not in the COLOR_KEYS export-var table. */
+function darkAccentRow(key, varLabel){
+  const wrap = document.createElement("div");
+  wrap.className = "flex items-center gap-10";
+  wrap.innerHTML = `
+    <input type="color" class="swatch" data-darkcolor="${key}" />
+    <div class="min-w-0 flex-1">
+      <div class="text-[12px] text-sub leading-tight">${varLabel}</div>
+    </div>
+    <input type="text" class="hexin h-[30px] px-8 rounded-xs border border-hair text-[12px] nums uppercase" data-darkhex="${key}" />`;
+  wrap.querySelector("input[data-darkcolor]").addEventListener("input", e=>{
+    setDarkAccent(key, clampHex(e.target.value) || "#000000");
+  });
+  wrap.querySelector("input[data-darkhex]").addEventListener("change", e=>{
+    const hex = clampHex(e.target.value);
+    if(!hex){ syncInputsFromTheme(); return; } // revert invalid
+    setDarkAccent(key, hex);
+  });
+  return wrap;
+}
+function setDarkAccent(key, hex){ theme.colors[key] = hex; syncInputsFromTheme(); applyTheme(); }
+
 function buildControls(){
   // preset gallery
   const prow = document.getElementById("preset-row");
@@ -654,6 +763,14 @@ function buildControls(){
   ["accent","accentStrong","accentWeak","accentOn"].forEach(k=>{
     const label = COLOR_KEYS.find(x=>x[0]===k)[2];
     ag.appendChild(colorRow(k, label));
+  });
+
+  // dark-accent rows (accentDark / accentOnDark) — built once, shown only when present.
+  // These keys aren't in COLOR_KEYS, so they use a self-contained varLabel + handler.
+  const dag = document.getElementById("dark-accent-group");
+  dag.innerHTML = "";
+  [["accentDark","--accent (dark)"],["accentOnDark","--accent-on (dark)"]].forEach(([k,varLabel])=>{
+    dag.appendChild(darkAccentRow(k, varLabel));
   });
 
   // neutral group
@@ -710,6 +827,11 @@ function buildControls(){
   document.getElementById("loc-symbol").addEventListener("input", e=>{ theme.locale.symbol=e.target.value; applyTheme(); });
   document.getElementById("loc-bigunits").addEventListener("change", e=>{ theme.locale.bigUnits=e.target.checked; applyTheme(); });
 
+  // preview light/dark toggle — flips data-theme on the preview root only
+  document.querySelectorAll("#mode-toggle .mode-btn").forEach(btn=>{
+    btn.addEventListener("click", ()=> setPreviewMode(btn.dataset.mode));
+  });
+
   // re-derive strong/weak from accent
   document.getElementById("btn-rederive").addEventListener("click", ()=>{
     theme.colors.accentStrong = deriveStrong(theme.colors.accent);
@@ -765,6 +887,22 @@ function syncFontInputs(){
   sel.value = known ? theme.font.family : "__custom";
   document.getElementById("font-name").value = known ? "" : (theme.font.family||"");
   document.getElementById("font-url").value = theme.font.url || "";
+}
+/* Show the dark-accent rows only when a dark accent exists (near-black accent),
+   and mirror the auto-derived / hand-edited values into their inputs. */
+function syncDarkAccentRows(){
+  const block = document.getElementById("dark-accent-block");
+  if(!block) return;
+  const has = !!theme.colors.accentDark;
+  block.classList.toggle("hidden", !has);
+  if(!has) return;
+  const map = { accentDark: theme.colors.accentDark, accentOnDark: theme.colors.accentOnDark || "#111111" };
+  for(const [key,hex] of Object.entries(map)){
+    const cInp = document.querySelector(`input[data-darkcolor="${key}"]`);
+    const hInp = document.querySelector(`input[data-darkhex="${key}"]`);
+    if(cInp) cInp.value = clampHex(hex) || "#000000";
+    if(hInp) hInp.value = hex;
+  }
 }
 function syncInputsFromTheme(){
   for(const [key] of COLOR_KEYS){
@@ -828,9 +966,15 @@ const STRINGS = {
     copy_css_tip: "Copy a paste-ready <link>+<style>+<script> block for your report's THEME section",
     download_json_tip: "Download the raw theme.json token file",
     presets: "Presets", presets_hint: "click to apply · then tweak any token",
+    presets_note: 'A preset is just quick tokens. Most brand presets also have a full design spec — ask the agent to read <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]">design-packs/&lt;brand&gt;/DESIGN.md</code> for deep fidelity.',
     accent: "Accent",
     accent_hint: "Strong & weak auto-derive from the base accent. Edit them to override.",
     rederive: "Re-derive",
+    contrast_accent_on_bg: "Accent text on bg",
+    contrast_on_accent: "On-accent text on fill",
+    contrast_fail: "AA fail",
+    accent_dark: "Dark mode accent",
+    accent_dark_hint: "Your near-black accent vanishes on a dark surface, so these auto-derive for dark mode. Edit to override.",
     font: "Font", font_family: "Family",
     font_custom_name: "Custom name (optional)", font_custom_url: "Custom stylesheet URL (optional)",
     neutrals: "Neutrals", semantic: "Semantic",
@@ -853,6 +997,7 @@ const STRINGS = {
     copy_css_hint: 'Manual fallback: paste this <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;link&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;style&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;script&gt;</code> block straight into the report\'s THEME block.',
     agent_prompt_intro: "Use this design theme for my report — apply it as the report's THEME block (font, accent, neutrals, semantic colors, locale). If you're creating a new report, build it with this theme.",
     readonly: "live · read-only", live_preview: "Live preview",
+    mode_light: "Light", mode_dark: "Dark",
     // toasts
     t_css_copied: "CSS copied!",
     t_prompt_copied: "Copied ✓", t_json: "theme.json downloaded",
@@ -865,9 +1010,15 @@ const STRINGS = {
     copy_css_tip: "리포트 THEME 영역에 바로 붙여넣을 <link>+<style>+<script> 블록을 복사해요",
     download_json_tip: "원본 theme.json 토큰 파일을 내려받아요",
     presets: "프리셋", presets_hint: "눌러서 적용 · 이후 토큰 자유롭게 조정",
+    presets_note: '프리셋은 빠른 토큰 묶음일 뿐이에요. 대부분의 브랜드 프리셋에는 전체 디자인 스펙도 있어요 — 더 정밀하게 재현하려면 에이전트에게 <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[11px]">design-packs/&lt;brand&gt;/DESIGN.md</code>를 읽어달라고 하세요.',
     accent: "강조색",
     accent_hint: "Strong · weak는 기본 강조색에서 자동으로 계산돼요. 직접 바꾸면 덮어써요.",
     rederive: "다시 계산",
+    contrast_accent_on_bg: "배경 위 강조색 글자",
+    contrast_on_accent: "강조색 위 on-accent 글자",
+    contrast_fail: "AA 미달",
+    accent_dark: "다크 모드 강조색",
+    accent_dark_hint: "거의 검은 강조색은 어두운 배경에서 안 보여서 다크 모드용으로 자동 계산돼요. 직접 바꾸면 덮어써요.",
     font: "폰트", font_family: "글꼴",
     font_custom_name: "직접 입력 (선택)", font_custom_url: "스타일시트 URL 직접 입력 (선택)",
     neutrals: "중립색", semantic: "의미색",
@@ -890,6 +1041,7 @@ const STRINGS = {
     copy_css_hint: '수동 대안: 이 <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;link&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;style&gt;</code> + <code class="px-4 py-2 rounded bg-hairsoft text-ink text-[12px]">&lt;script&gt;</code> 블록을 리포트 THEME 블록에 직접 붙여넣어요.',
     agent_prompt_intro: "이 디자인 테마를 내 리포트에 적용해줘 — 리포트의 THEME 블록(폰트·강조색·중립색·시맨틱·로케일)을 이 토큰으로 설정해줘. 새 리포트를 만드는 거면 이 테마로 만들어줘.",
     readonly: "실시간 · 읽기 전용", live_preview: "실시간 미리보기",
+    mode_light: "라이트", mode_dark: "다크",
     // toasts
     t_css_copied: "CSS 복사됨!",
     t_prompt_copied: "복사됨 ✓", t_json: "theme.json 내려받음",
@@ -939,7 +1091,7 @@ function setLang(l, persist){
   lang = STRINGS[l] ? l : FALLBACK_LANG;
   document.documentElement.lang = lang;
   // text content (plain) and innerHTML (rich, contains markup) keys
-  const richKeys = new Set(["theme_name_hint","step3","step4","download_json_hint","copy_css_hint"]);
+  const richKeys = new Set(["presets_note","theme_name_hint","step3","step4","download_json_hint","copy_css_hint"]);
   document.querySelectorAll("[data-i18n]").forEach(el=>{
     const key = el.getAttribute("data-i18n");
     const val = t(key);
@@ -956,6 +1108,8 @@ function setLang(l, persist){
   });
   // re-render dynamic name spans that live inside rich strings
   renderThemeNameSpans();
+  // contrast badge labels are i18n but rendered outside [data-i18n], re-render them
+  if(theme) renderContrast();
   // persist only on explicit user override, so the browser-language default
   // keeps applying on later visits until the user actually picks a language
   if(persist){ try{ localStorage.setItem(LANG_KEY, lang); }catch(e){} }

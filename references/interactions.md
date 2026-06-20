@@ -15,7 +15,8 @@ or re-feed a chart. Great for "by PSP", "by status", "by period".
 ```html
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
 <div x-data="{ seg:'all' }">
-  <div class="flex gap-8">
+  <!-- MUST wrap (or scroll) — never a bare `flex gap-8` row, see rule below -->
+  <div class="flex flex-wrap gap-8">
     <template x-for="s in ['all','stripe','paypal','toss']">
       <button @click="seg=s"
         :class="seg===s ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
@@ -28,6 +29,21 @@ or re-feed a chart. Great for "by PSP", "by status", "by period".
 ```
 Re-theme a chart on filter change by calling `chart.setOption({...})` inside an
 `x-effect` or a `@click` handler.
+
+> **RULE: a chip / segment / facet row MUST wrap or scroll — never a bare `flex` row.**
+> Real reports filter by PSP / status / region / channel — 5–10 chips. A bare `flex gap-8`
+> row has no wrap and no overflow container, so it runs off the right edge AND makes the
+> **whole page** horizontally scrollable at phone width (390px), which then squeezes every
+> other column (findings text wraps one char per line). The verify script flags this as a
+> page-level overflow break. Two fixes:
+> - **Wrap** (default — let chips flow to a second line): `class="flex flex-wrap gap-8"`.
+> - **Scroll as a contained strip** (keep them on one line, swipeable) when wrapping looks
+>   messy: `class="flex gap-8 overflow-x-auto -mx-20 px-20 snap-x"` — the negative margin +
+>   padding bleeds the strip to the screen edge so it reads as scrollable, and the overflow
+>   is contained to the strip, not the page.
+>
+> This applies to **every** chip row in this file (the findings filter, the faceted card
+> grid, prompt chips) and to `CB.findings`/`CB.cardGrid`, which bake in the wrap.
 
 ## 2. Toggle the metric / view a chart shows
 A small switch that flips a chart between, e.g., 금액 ↔ 건수, 누적 ↔ 일별, 절대값 ↔
@@ -61,6 +77,11 @@ ECharts ships interactions you should turn ON rather than build:
   chart.on('click', p => chart.setOption(detailOptionFor(p.name)));
   ```
 Always `chart.resize()` on `window.resize`.
+
+**On touch, ECharts tooltips already work — a tap shows the tooltip and moves the axis
+pointer.** You don't need to build a separate mobile path or over-engineer a tap handler;
+the chart hover/tooltip degrades gracefully to tap on its own. (This is unlike the glossary
+tooltip in §11, which needs an explicit tap trigger — see there.)
 
 **A fast-path `CB.chart` you later mutate via `setOption` (a filter, a metric toggle,
 a drilldown) must keep that reader state across a dark toggle.** The dark toggle re-runs
@@ -119,6 +140,20 @@ the column they care about. Three things decide whether it actually *reads* well
 </script>
 ```
 Override Grid.js accent via CSS: `.gridjs th{ color:#222 } .gridjs-currentPage{ background:var(--accent) }`.
+
+**Wide tables on mobile — hint that hidden columns exist.** A 6+-column table scrolls
+*inside* its `.gridjs-wrapper` on a phone (good — it doesn't break the page), but the
+reader sees a clean right edge and no signal that 4 more columns are hidden, so they never
+find the data. Help them discover it:
+- **Put the 3–4 most important columns first** so the visible window carries the headline;
+  push the long-tail columns right.
+- **Add a right-edge scroll fade** so the cut-off reads as scrollable, not as the end:
+  ```css
+  /* fades the right edge of the internal scroll container; vanishes at scroll end */
+  .gridjs-wrapper{ -webkit-mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent); mask-image:linear-gradient(to right,#000 calc(100% - 24px),transparent); }
+  ```
+- For a **very** wide table, consider a stacked/card layout below `sm` (one card per row,
+  label: value pairs) instead of a horizontal scroll the reader might miss.
 
 ## 5. Expandable detail rows / accordions (Alpine)
 Keep the page scannable; let the reader open the detail they want. Good for action
@@ -208,6 +243,25 @@ slider that recomputes a number/chart live makes the report genuinely useful.
 For long reports, a sticky top bar or side rail that highlights the current section
 (IntersectionObserver) helps orientation. Keep it quiet (Gray text, accent on active).
 
+**Don't let all wayfinding vanish on mobile.** The template's side TOC is
+`hidden lg:block` — below `lg` (1024px) it's `display:none` with nothing in its place, so a
+long postmortem/exec report read on a phone (a common case for a shareable single-file
+report) becomes top-to-bottom scroll with no jump-to and no progress. Give narrow viewports
+*some* nav:
+- **A thin sticky progress bar with the current section name** (cheapest, always-visible):
+  ```html
+  <div class="lg:hidden sticky top-0 z-20 bg-bg/90 backdrop-blur border-b border-line-weak px-16 py-8 text-caption-12 text-secondary">
+    <span x-data x-text="$store.nav?.current || '개요'"></span>
+  </div>
+  ```
+  Update `$store.nav.current` from the same IntersectionObserver that drives the desktop
+  TOC highlight (observe `main section[id]`).
+- **Or a compact "On this page" dropdown/sheet** shown only `lg:hidden`, listing the same
+  `section[id]` headings as `<a href="#id">` jump links.
+- At minimum, if you ship a TOC, **reuse its section list for a mobile `<details>` jump
+  menu** rather than hiding it outright. `CB.sectionNav()` (when present) auto-builds this
+  from the headings the runtime already observes.
+
 ## 10. Chart data-table toggle (accessibility + exact values)
 A canvas/SVG chart is invisible to screen readers and hides exact figures. Offer a
 "표로 보기" toggle that reveals the same data as a real `<table>` — it doubles as the
@@ -261,9 +315,15 @@ without the runtime):
       data-tippy-content="CSRF (Cross-Site Request Forgery) tricks your browser into making requests to a site you're logged into. A CSRF token prevents it by requiring a secret only the real site knows.">CSRF</span>
 
 <script>
-  tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus' });
+  // include 'click' so a TAP opens the definition on touch — mouseenter+focus alone
+  // doesn't reliably fire on a phone, leaving a dotted-underline term you can't define.
+  tippy('.gloss', { theme:'report', maxWidth:300, allowHTML:false, trigger:'mouseenter focus click' });
 </script>
 ```
+**Glossary terms must be tap-to-reveal on touch.** Add `'click'` to the Tippy `trigger`
+(`'mouseenter focus click'`) so a phone reader can tap the term — a desktop reader still
+gets hover/focus, and the runtime's `CB.glossary` already wires this for you. (Chart
+tooltips don't need this — ECharts handles tap natively, §3/§10.)
 
 **Define-once auto-linker** (scales better — keep definitions in one map, tag the
 regions to scan with `data-glossary`, and it wraps the first occurrence of each term):
@@ -292,7 +352,7 @@ regions to scan with `data-glossary`, and it wraps the first occurrence of each 
       }
     });
   });
-  tippy('.gloss', { theme:'report', maxWidth:300, trigger:'mouseenter focus' });
+  tippy('.gloss', { theme:'report', maxWidth:300, trigger:'mouseenter focus click' });  // 'click' = tap-to-reveal on touch
 </script>
 ```
 
@@ -471,6 +531,42 @@ not just prose. This is the report-side mirror of the Diff component
 ```
 Wrap the payload in a ```` ```diff ```` fence so it pastes back to the agent as an
 applyable patch. The reader edits `after` (via inputs / reorder); the export reflects it.
+
+## 15. Async data fetch — loading skeleton + error state
+A report is normally **static** — the data is baked in at authoring time, which is the
+common case and needs none of this. But occasionally you wire a report to a **live
+endpoint** (fetch the latest metrics, then render). Then you must handle the two states a
+synchronous helper never sees: *loading* and *failed*. Don't leave a blank box — a fetch
+that errors with no message is undiagnosable.
+
+```html
+<div id="panel"></div>
+<script>
+  const host = document.getElementById('panel');
+  // 1. loading — a shimmer skeleton so the box isn't empty while the request is in flight
+  host.innerHTML = `<div class="space-y-12 animate-pulse">
+    ${'<div class="h-20 rounded-small bg-disabled-bg"></div>'.repeat(3)}
+  </div>`;
+
+  fetch('/api/metrics')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(data => {
+      host.innerHTML = '';                       // clear the skeleton
+      CB.kpis(host, data.kpis);                  // render the real content
+    })
+    .catch(err => {
+      // 2. error — a visible, tone:critical tile, NEVER a silent blank
+      host.innerHTML = CB.callout(
+        '데이터를 불러오지 못했습니다: ' + err.message,
+        { tone:'critical', title:'로드 실패' });
+    });
+</script>
+```
+Key rules: show the skeleton **before** the request, swap to content on success, and on
+failure render a `Callout` (tone `critical`) with the actual error — a thrown render that
+swallows to an empty box leaves the reader (and you) with no clue what broke. The same
+applies inside `CB.tabs` panels: if a panel's `render` can throw, wrap it and surface the
+error rather than letting the panel go blank.
 
 ## How much is enough?
 - A **data dashboard**: aim for filters/segment toggle + at least one chart with

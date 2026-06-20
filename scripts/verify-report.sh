@@ -95,9 +95,28 @@ capture(){
     return false;
   };
   var real = wide.filter(el => !el.closest('.gridjs-wrapper, .gridjs-container, .gridjs') && !selfScrolls(el));
+  // Custom-scale guard: the whole design system remaps Tailwind's w-12/w-16 to 12px/16px
+  // (icon + spacing scale), which only takes if window.tailwind.config was assigned BEFORE
+  // the Play CDN scanned. If cookiebite.js loads first (or a tool reorders <head>), the
+  // config is ignored and w-12 falls back to the default 48px rem scale — every Lucide icon
+  // renders 4x and flex layouts collapse. Measure a throwaway w-12: ~12px means the custom
+  // scale applied; ~48px means the load-order contract was violated. Also count visibly
+  // oversized rendered icons (svg/[data-lucide] taller than 32px) as a corroborating signal.
+  var probe = document.createElement('div');
+  probe.className = 'w-12';
+  probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
+  document.body.appendChild(probe);
+  var w12 = probe.getBoundingClientRect().width;
+  probe.remove();
+  var customScaleApplied = w12 > 0 && w12 < 24; // 12px expected; 48px = broken
+  var oversizedIcons = Array.from(document.querySelectorAll('svg[data-lucide], [data-lucide] > svg, .lucide'))
+    .filter(el => el.getBoundingClientRect().height > 32).length;
   return JSON.stringify({
     innerWidth: window.innerWidth,
     pageHeight: document.body.scrollHeight,
+    customScaleApplied: customScaleApplied, // false => cookiebite.js loaded before the Tailwind CDN
+    oversizedIcons: oversizedIcons,          // >0 corroborates a broken custom scale
+    w12px: Math.round(w12),
     horizontalOverflow: document.documentElement.scrollWidth > window.innerWidth + 2, // PRIMARY layout-break signal
     overflowers: real.slice(0, 12)
       .map(el => el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')),
@@ -244,5 +263,8 @@ echo "checks-*.json: 'horizontalOverflow' is the primary layout-break signal. 'o
 echo "now excludes Grid.js internal nodes; 'tableScrollsInternally:true' just means a wide"
 echo "table scrolls inside its own wrapper (fine). 'consoleErrorCount'/'consoleErrors' surface"
 echo "console.error() calls + uncaught page exceptions — any non-zero count is worth a look."
+echo "'customScaleApplied:false' (or 'oversizedIcons'>0) means cookiebite.js loaded BEFORE the"
+echo "Tailwind CDN, so the 12px icon/spacing scale was ignored (giant icons, collapsed layout) —"
+echo "fix the <head> order: load cdn.tailwindcss.com before cookiebite.js."
 echo "desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."
