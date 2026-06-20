@@ -63,7 +63,9 @@ hold both:
 
 1. **Graphic over textual.** Whenever a point can be a chart, a stat card, a
    timeline, a diagram, a progress ring, or a comparison table instead of a
-   paragraph, make it the visual. Lead with the headline number. Let the reader
+   paragraph, make it the visual. Lead with the headline number — an exec one-pager
+   should open with one oversized hero figure via `COOKIEBITE.bigNumber` (the single
+   number the reader must leave with), not a wall of KPI cards. Let the reader
    *see* the story. Long prose is the fallback, not the default.
    **The most-missed case is structure described in words** — "A calls B, which
    verifies with C, then returns to A", "request flows through gateway → auth →
@@ -223,7 +225,14 @@ prebuilt Tailwind CSS, which is out of scope.
    - **Localize `<html lang>`** (template.html:23, the `<!-- /COOKIEBITE:LANG -->` line —
      outside the named slots so it's easy to miss): set it to the report's language (`en`
      for an English report, etc.). `apply-theme.py` rewrites it from the preset locale, but
-     a hand-edited report must set it by hand.
+     a hand-edited report must set it by hand. For a non-Korean report, the full hand-edit
+     localize checklist is: (a) `<html lang>`; (b) the **`window.REPORT_LOCALE`** block in
+     HEAD-THEME (`number`/`currency`/`symbol`/`bigUnits` — drives thousands separators,
+     currency, and `만/억` vs `K/M/B`, and the auto data-table / "min read" / chart-toggle
+     labels key off `REPORT_LOCALE.number`, so an `en` report needs `number:'en-US'` or those
+     stay Korean); and (c) the hand-authored copy not under a slot — the **`목차`/TOC heading**
+     (→ "Contents") and any other UI words you typed. Applying a preset sets `REPORT_LOCALE`
+     for you; a from-scratch English report must set it by hand.
    - When you replace the demo `SECTIONS`/`REPORT-SCRIPT` wholesale (Quickstart step 4),
      **delete each removed section's matching script block too**: the report script calls
      `CB.chart`/`CB.table`/etc. against the section's host id, and those **throw on a
@@ -262,7 +271,9 @@ correct — don't add controls.
   findings, and tabbed or filtered sections when there are peer views.
 - **Explainer** (how something works, a concept, a feature walkthrough): a TL;DR box
   up top, collapsible sections so the reader controls depth, tabbed code samples where
-  relevant, and glossary tooltips on jargon. **An explainer without a single diagram is
+  relevant (`COOKIEBITE.code` for a syntax-highlighted card, `COOKIEBITE.codeTabs` for the
+  same thing in N languages/steps — both on-theme + dark-aware, no rainbow), and glossary
+  tooltips on jargon. **An explainer without a single diagram is
   a red flag** — these reports live or die on diagrams. For any sequence, relationship,
   or decision, draw it: `COOKIEBITE.mermaid` (sequence diagram for "who calls whom",
   flowchart for branching logic, state diagram for lifecycles, ER for data shapes) is
@@ -276,10 +287,12 @@ correct — don't add controls.
   and end with a recommendation. See `references/interactions.md` §12.
 - **Code review / change report** (explain a PR, an incident fix, an audit): lead with a
   **severity-coded findings list** (sorted worst-first), show the change as a **diff
-  view**, explain non-obvious logic as **pseudocode/annotated code**, and — when the
-  report proposes next steps — let the reader assemble them via a **prompt editor** or
-  **copy-as-diff** export. All six live in `references/components.md`; the editing pieces
-  are `references/interactions.md` §14.
+  view** (`COOKIEBITE.diff`), explain non-obvious logic as **pseudocode/annotated code**
+  (`COOKIEBITE.pseudocode`) and show real source as a **syntax-highlighted card**
+  (`COOKIEBITE.code` / `codeTabs`), and — when the report proposes next steps — let the
+  reader assemble them via a **prompt editor** or **copy-as-diff** export. All live in
+  `references/components.md` / `helpers.md`; the editing pieces are
+  `references/interactions.md` §14.
 
 Don't manufacture interactions for data that has nothing to explore — a three-number
 summary doesn't need a data grid. Match depth to the data. But when there's real
@@ -536,9 +549,10 @@ already filled with links.)
 | `COOKIEBITE.bigNumber(target, { value, label?, delta?, spark?, … })` | one oversized hero number (CountUp; a non-numeric string renders verbatim); reuses `deltaBadge` + spark; built-in empty-state | `components.md` "Stat / KPI card" |
 | `COOKIEBITE.steps(target, items[{label, status, detail?}], opts?)` | connected progress stepper (horizontal on sm+, vertical below); `done`→success check, `current`→accent ring, `pending`→hollow; `sr-only` status label per node | `helpers.md` (CB.steps) |
 | `COOKIEBITE.leaderboard(target, items[{label, value, deltaRank?, tone?}], opts?)` | numbered rows with value-proportional accent bars, right-aligned `tabular-nums` value, optional rank-change arrow; built-in empty-state | — |
-| `COOKIEBITE.cellBar / cellHeat / cellSpark(opts?)` | **Grid.js column-`formatter` factories** — attach as a column's `formatter` in `CB.table`: an inline accent bar / accent-tint heat chip / `data-spark` sparkline (cell = `number[]`) | `helpers.md` (Grid.js formatters) |
+| `COOKIEBITE.cellBar / cellHeat / cellSpark / cellMoney(opts?)` | **Grid.js column-`formatter` factories** — attach as a column's `formatter` in `CB.table`: an inline accent bar / accent-tint heat chip / `data-spark` sparkline (cell = `number[]`) / `cellMoney({currency?,symbol?,decimals?})` formats a money column (locale-defaulted) while keeping the raw number so sort stays numeric + `tabular-nums` | `helpers.md` (Grid.js formatters) |
 | `COOKIEBITE.diff(target, { lines, filename?, … })` | escaped diff view with `+`/`−` gutter + dual old/new line numbers | `components.md` "Diff view" |
 | `COOKIEBITE.pseudocode(target, codeOrLines, opts?)` | escaped annotated-code / pseudocode block with numbered gutter + inline notes | `components.md` "Pseudocode" |
+| `COOKIEBITE.code(target, { code, lang?, filename?, lineNumbers? })` / `COOKIEBITE.codeTabs(target, panels, opts?)` | real syntax-highlighted source card (on-theme `.hljs` tokens, dark-aware, line numbers); `codeTabs` = the same thing in N languages/steps as a tabbed block. **Needs the highlight.js HEAD-LIBS tag.** For a +/− change use `diff`; for annotated logic use `pseudocode` | `helpers.md` (CB.code/codeTabs) |
 | `COOKIEBITE.matrix(target, { rows, cols, data, … })` | generic rows×cols×value grid-heatmap (cohort/retention/confusion), single-hue accent ramp; `heatmap` stays calendar-only | `helpers.md` (CB.matrix) |
 | `COOKIEBITE.actionItems(target, items[{title, owner?, due?, priority?, body?}], opts?)` | priority-pill action list + owner/due meta + collapsible `<details>` body + optional copy-as-markdown | `components.md` "Checklist / todo" |
 | `COOKIEBITE.shapes.{dumbbell,slope,lollipop,rangeDot,histogram,stackedBar}(cfg)` | **pure ECharts-`option` builders** (pass to `CB.chart`) — dumbbell/slope (two-point change), lollipop/rangeDot (ranking/range), histogram (distribution), stackedBar (composition) | `libraries.md` "which chart-shape builder when" + `helpers.md` |
@@ -553,6 +567,7 @@ already filled with links.)
 | `COOKIEBITE.search(opts?)` | **opt-in** sticky search bar filtering/dimming `[data-searchable]` regions with `<mark>` highlight | `helpers.md` (CB.search) |
 | `COOKIEBITE.densityToggle()` / `COOKIEBITE.permalinks(opts?)` | **opt-in** chrome: a compact-density toggle (`html[data-density]`, localStorage) / hover `#` section permalinks (copy section URL) | — |
 | `COOKIEBITE.print()` / `COOKIEBITE.audit()` | `print()` forces light + expands `<details>`/tab panels then `window.print()`; `audit()` is a dev-only DOM a11y/contrast audit (also `?audit=1`) | — |
+| `COOKIEBITE.applyLook(look?)` | projects the **Look** knobs (density/radius/elevation/surface/border/palette-mode/heading-font/measure/page-bg/header/semantic-preset/dark-tint) onto `html data-*` + `:root` vars; auto-runs at init from `window.REPORT_LOOK` (call manually only to re-apply after changing it) — orthogonal to color, every knob defaults to today's look | `design-system.md` "The Look system" + `helpers.md` (CB.applyLook) |
 | `COOKIEBITE.treemap / sankey / gantt(target, config)` | **full-render** heavy charts (build card + ECharts + data-table; **don't** wrap in `CB.chart`): treemap (value→lightness hierarchy, flat-by-parent or nested), sankey (single-hue opacity-gradient flow, narrow→vertical), gantt (date-axis lanes + progress fill + today line). Each **warns if `ariaLabel` omitted** | `helpers.md` (Wave B heavy charts) + `libraries.md` "which chart when" |
 | `COOKIEBITE.shapes.{boxplot,densityArea,marimekko}(cfg)` + `shapes.fiveNum(values)` | **pure ECharts-`option` builders** (pass to `CB.chart`): boxplot (per-group five-number boxes; `fiveNum` exposed for the table rows), densityArea (KDE curve / `ridgeline` stack), marimekko (column-width = weight × stacked-100% segments; `narrow` → stacked-bar fallback) | `helpers.md` (distribution & composition builders) + `libraries.md` |
 | `COOKIEBITE.toc(target, opts?)` | builds the `.cb-toc` sidebar from `main section[id]` + h2/h3, renders into the canonical `#toc`, re-runs `initToc()`'s observer + mobile nav; numbered/nested/progress; **NO-OP over a hand-authored `#toc`** with links (`force:true` overrides) | `interactions.md` §9 + `components.md` (TOC enrichment) |

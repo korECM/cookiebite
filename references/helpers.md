@@ -41,6 +41,11 @@ opts: {
 `prefix`/`suffix` render at the **big** number size; `unit` renders **small + secondary**.
 Omit `delta` entirely when no KPI has a baseline (a row of `—` reads as stray underscores).
 
+**`delta.text` is a short TOKEN, not a phrase (F11).** It renders inside a pill beside an
+arrow, so keep it to ~6–8 chars (`"+2.1%p"`, `"−4"`, `"3× ↑"`); a longer phrase like
+`"up 2.1%p vs last week"` clips/wraps and breaks the card. Put any narrative in the item
+**`note`** field (a small caption under the number), which is sized for a sentence.
+
 ## `CB.findings(target, items, opts?)` — severity-coded findings list
 
 ```text
@@ -116,8 +121,12 @@ config: {
 }
 ```
 Mutate later via `inst.__cbUpdate(option)` (NOT bare `setOption`) so reader filters
-survive a dark toggle. Inside the option use resolved colors (`CB.accentRgba`,
-`CB.theme.ACCENT`), never `var(--*)`/`color-mix` (renders black on canvas).
+survive a dark toggle. **Capture the returned instance** (`var c = CB.chart(...)`) and
+update through `c.__cbUpdate(option)` — that's the handle for a filter-chip row, not a
+`window` global. Worked example (chip row → captured instance) in `interactions.md §1`;
+the cross-slot variant (control in SECTIONS, chart in REPORT-SCRIPT) is §2. Inside the
+option use resolved colors (`CB.accentRgba`, `CB.theme.ACCENT`), never
+`var(--*)`/`color-mix` (renders black on canvas).
 
 ## `CB.compare(target, config)` — comparison / decision grid
 
@@ -163,6 +172,19 @@ uncollided at any scale, so filling the width no longer means "huge colliding la
 Still keep participant counts and label lengths reasonable: a 12-actor sequence fits but
 renders tiny — split it or use a flowchart.
 
+**Line breaks in a node/note label (F14):** use `<br/>`, **not** `\n`. `\n` inside a
+Mermaid label is unreliable across diagram types; `<br/>` is the canonical break and works
+everywhere (`A["First line<br/>second line"]`). The runtime now also auto-converts a
+literal `\n` to `<br/>` as a safety net, but author `<br/>` so the source is portable.
+
+**Two+ diagrams on one page — watch the upscale (F15):** because a small diagram is scaled
+**UP** to the ~760px cap (above), a compact 3-node flowchart placed beside a naturally wide
+one can look oversized — the small one fills to 760px while the wide one renders at its own
+larger intrinsic size, so they read at mismatched scales. To keep a set visually consistent,
+either give them **similar node counts / intrinsic widths**, or lay the small one out **`LR`**
+(left-to-right) so it's wider and lands nearer the others' scale. The cap is per-diagram, so
+it won't equalize them for you.
+
 ## `CB.pill(label, opts?) -> string` / `CB.callout(html, opts?) -> string`
 
 ```text
@@ -177,12 +199,31 @@ CB.callout(html, { tone?, icon?, title? }) // `html` is trusted; `title` escaped
 ### `CB.takeaway(pointsOrHtml, opts?) -> string` — TL;DR / key-takeaways box
 
 ```text
-pointsOrHtml,       // array of bullet strings  OR  a raw HTML string
+pointsOrHtml,       // an ARRAY of bullets  OR  a raw HTML string (trusted, not escaped)
 opts: { title? }    // box heading (default a localized "Key takeaways")
 ```
 Returns a prominent summary box: accent-weak surface, accent-strong title. Put it at the
 top of an explainer/exec report. Distinct from `CB.callout` by being multi-point and
 summary-positioned. See `components.md` (Key-takeaway box) for usage.
+
+**Per-bullet escaping (the F01 gotcha — mirrors `CB.pseudocode`'s rule).** In the array
+form, each bullet may be one of three shapes:
+- `'a string'` → **escaped** (literal text; HTML tags render as text).
+- `{ tone?, text }` → **escaped** text, with a tone-colored dot (`info`/`success`/`warning`/
+  `critical`/`neutral`; default `neutral`). Use for "2 wins + 1 risk" colored discs.
+- `{ html }` → **TRUSTED** (rendered verbatim) — the only form that lets inline `<b>`/`<a>`/
+  `<span>` survive. `html` wins if both `html` and `text` are present.
+
+So to bold a word or add a link **inside** a bullet, use `{ html }`; a plain string or
+`{ text }` will show the tags literally. Example:
+```js
+CB.takeaway([
+  'Latency p95 dropped 38% after the cache rollout',          // escaped
+  { tone:'warning', text:'One region still above SLO' },      // escaped + amber dot
+  { html:'Full write-up in <a href="#rca">the RCA</a>' },     // trusted HTML
+]);
+```
+(The non-array form — passing a single raw HTML string — is trusted wholesale.)
 
 ### `CB.funnel(target, config)` — themed conversion funnel
 
@@ -338,6 +379,15 @@ Runs the glossary linker + Tippy within `scope`; works from **inside** a
 assignment). Idempotent — re-running only links newly-added terms. Needs the Tippy CDN
 tags. See `interactions.md` §11.
 
+**The linker matches keys as exact phrases in body text, on first occurrence (F16):** each
+`map` key is found as a literal phrase the first time it appears in the prose and wrapped in
+the `.gloss` tooltip term automatically. So **just pass plain terms and write normal prose —
+do NOT pre-author `<span class="gloss">…</span>` wrappers** around the term yourself. A
+hand-written `.gloss` span is treated as already-linked and **suppresses** the tooltip (the
+linker skips text already inside a `.gloss`), so you get the underline with no definition.
+Keys are matched verbatim, so include the exact surface form readers will see (e.g. both
+`"idempotency key"` and an acronym if both appear).
+
 ### `CB.dataTableToggle(chartTarget, config)` — data-table alt for a HAND chart
 
 ```text
@@ -458,13 +508,27 @@ CB.cellHeat({ max?=100, format?(v) })  // accent-tint chip; opacity scales with 
                                        //   (accentRgba 0.10..0.60)
 CB.cellSpark({ width?=80, height?=24 })// cell is a number[] -> a data-spark element wired
                                        //   by CB.table's post-render hydrate
+CB.cellMoney({ currency?, symbol?, decimals? })  // format a numeric cell as money
+                                       //   (currency/symbol/decimals default to REPORT_LOCALE);
+                                       //   keeps the RAW number so sort stays numeric + tabular-nums
 ```
 ```js
 CB.table('#t', { columns: [ 'PSP',
   { name:'Trend', formatter: CB.cellBar({ max: 100 }) },
   { name:'Heat',  formatter: CB.cellHeat({ max: 100 }) },
-  { name:'7d',    formatter: CB.cellSpark() } ], rows });
+  { name:'7d',    formatter: CB.cellSpark() },
+  { name:'MRR',   formatter: CB.cellMoney({ currency:'USD' }) } ], rows });  // F18
 ```
+**Money columns (F18).** For a currency column, use **`CB.cellMoney({ currency?, symbol?,
+decimals? })`** — it formats each numeric cell as money (defaults pulled from
+`REPORT_LOCALE`, so `₩`/`$`/`만`-`억` follow the report locale) **while keeping the cell's
+raw number**, so Grid.js still sorts numerically and the column keeps `tabular-nums`
+alignment. This is the right tradeoff vs the two raw-number paths: listing the column in
+`numericCols` gives grouped raw numbers (`72,000`) with correct sort but **no currency
+symbol**; pre-formatting the cell to a string (`'$72,000'`) shows the symbol but **sorts
+lexically** (so `$9` &gt; `$72,000`) and loses `tabular-nums`. `CB.cellMoney` gives you the
+symbol *and* numeric sort. Pass `symbol`/`decimals` to override the locale (e.g. a USD
+column in a ko-KR report: `CB.cellMoney({ currency:'USD', symbol:'$', decimals:0 })`).
 
 ### i18n: `CB.t`, `CB.locale`, `CB.i18n` (F42)
 

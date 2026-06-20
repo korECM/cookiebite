@@ -117,7 +117,10 @@ def is_valid_color(value: object) -> bool:
 
 
 def _luminance(hex_color: str) -> float | None:
-    """Relative luminance (0..1) of a #rgb/#rrggbb color, or None if not a hex color."""
+    """Perceptual luma (0..1) of a #rgb/#rrggbb color, or None if not a hex color.
+    MUST match the studio's luminance() (theme-studio.html): a straight 0.299/0.587/0.114
+    weighted average over 0-255 channels, NO sRGB linearization — so the CLI's near-black
+    warning and the studio's isNearBlack() agree on which accents trip the threshold."""
     v = hex_color.strip().lstrip("#")
     if len(v) in (3, 4):
         v = "".join(c * 2 for c in v[:3])
@@ -126,14 +129,11 @@ def _luminance(hex_color: str) -> float | None:
     else:
         return None
     try:
-        r, g, b = (int(v[i:i + 2], 16) / 255 for i in (0, 2, 4))
+        r, g, b = (int(v[i:i + 2], 16) for i in (0, 2, 4))
     except ValueError:
         return None
 
-    def lin(c: float) -> float:
-        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
-
-    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255
 
 
 def validate_preset(preset: object) -> list[str]:
@@ -387,12 +387,15 @@ def build_block(preset: dict) -> str:
     # accent-on must flip too, else accent-filled text (which sits on --accent) goes
     # invisible: a near-black accent's --accent-on is white, but the dark accent is
     # light, so the override re-pins --accent-on to a dark ink (accentOnDark, default
-    # #111111).
+    # #111111). --accent-text must also re-pin to the (now light) brand accent: a preset's
+    # light-mode accentText is tuned for the light surface and goes low-contrast on the dark
+    # one, so the hero figure (which uses --accent-text) needs the dark accent here too.
     accent_dark = colors.get("accentDark")
     accent_on_dark = colors.get("accentOnDark", "#111111")
     dark_override = (
         f'  html[data-theme="dark"]{{ --accent: {accent_dark}; '
-        f"--accent-strong: {accent_dark}; --accent-on: {accent_on_dark}; }}\n"
+        f"--accent-strong: {accent_dark}; --accent-on: {accent_on_dark}; "
+        f"--accent-text: var(--accent); }}\n"
         if accent_dark
         else ""
     )
@@ -505,8 +508,12 @@ def main() -> int:
     if "look" in preset:
         preset["look"] = clean_look
 
-    with open(args.html, encoding="utf-8") as f:
-        html = f.read()
+    try:
+        with open(args.html, encoding="utf-8") as f:
+            html = f.read()
+    except (FileNotFoundError, IsADirectoryError, UnicodeDecodeError):
+        print(f"error: report '{args.html}' not found / not readable", file=sys.stderr)
+        return 1
 
     matches = BLOCK_RE.findall(html)
     if len(matches) != 1:

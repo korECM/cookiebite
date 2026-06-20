@@ -30,6 +30,42 @@ or re-feed a chart. Great for "by PSP", "by status", "by period".
 Re-theme a chart on filter change by calling `chart.setOption({...})` inside an
 `x-effect` or a `@click` handler.
 
+**Worked example — a filter-chip row driving a captured `CB.chart` (F10).** The
+prescribed dashboard interaction is: a chip row picks a segment, and a chart re-feeds
+to match. **Capture the instance `CB.chart` returns and push updates through its
+`__cbUpdate`** — don't bare-`setOption`, and don't reach for a `window` global when the
+chip row and the chart host sit in the *same* scope/script. (Use the `window` bridge in
+§2 only across the SECTIONS↔REPORT-SCRIPT slot boundary.) `__cbUpdate` re-applies your
+option *over the live `baseChart` theme*, so the reader's selection survives a dark
+re-theme — a bare `setOption` would drop the merge and the filter on the next toggle.
+
+```html
+<section id="revenue" x-data="{ region:'all' }">
+  <!-- wrap-or-scroll chip row (the §1 RULE) -->
+  <div class="flex flex-wrap gap-8 mb-16">
+    <template x-for="r in ['all','apac','emea','amer']" :key="r">
+      <button @click="region=r; window.dispatchEvent(new CustomEvent('revfilter',{detail:r}))"
+        :class="region===r ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
+        class="px-12 py-6 rounded-small text-body-14" x-text="r.toUpperCase()"></button>
+    </template>
+  </div>
+  <div id="revChart" style="height:320px"></div>
+</section>
+```
+```js
+// REPORT-SCRIPT: capture the returned instance — this is the handle, not a global chart var
+var rev = CB.chart('#revChart', { ariaLabel:'Revenue by region', option:{ /* … */ } });
+var BY_REGION = { all: allData, apac: apacData, emea: emeaData, amer: amerData };
+window.addEventListener('revfilter', function (e) {
+  rev.__cbUpdate({ series: [{ data: BY_REGION[e.detail] }] });  // merges over baseChart; dark-safe
+});
+```
+When the chip row and the `CB.chart` call genuinely live in one Alpine `x-data` scope,
+you can skip the event and call `rev.__cbUpdate(...)` directly from the handler; the event
+above just decouples the SECTIONS markup from the REPORT-SCRIPT instance without a named
+`window.__fooUpdate` global. Either way the load-bearing rule is the same: **hold the
+instance `CB.chart` returns and update through `__cbUpdate`.**
+
 > **RULE: a chip / segment / facet row MUST wrap or scroll — never a bare `flex` row.**
 > Real reports filter by PSP / status / region / channel — 5–10 chips. A bare `flex gap-8`
 > row has no wrap and no overflow container, so it runs off the right edge AND makes the

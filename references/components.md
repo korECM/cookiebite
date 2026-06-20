@@ -292,8 +292,14 @@ The title uses **`text-accent-strong`** (accent-as-text on a light surface needs
 stronger token for AA contrast), while the surface stays `bg-accent-weak`. Dot the bullets
 with tone colors and **pair with a word** if the dot carries meaning — a bare green dot
 fails the color-alone rule. **Runtime fast path — `CB.takeaway(pointsOrHtml, { title? })`**
-returns this box as a string (pass an array of bullet strings or raw HTML); see
-`helpers.md`.
+returns this box as a string; see `helpers.md`.
+
+**Escaping note (F01) — the hand-built `<pre>`/`<li>` markup above is raw and trusted, so
+the inline bold/links you write here render as authored. The `CB.takeaway` array form does
+NOT mirror that: a plain-string or `{ tone, text }` bullet is HTML-**escaped**, so `<b>`/`<a>`
+inside it show as literal tags. To keep inline bold/links via the helper, use the per-bullet
+`{ html }` form (trusted) — `['plain (escaped)', {tone, text} (escaped+dot), {html} (trusted)]`.
+Full per-bullet contract + example in `helpers.md` (CB.takeaway).**
 
 ## Faceted card grid (filter a collection by 1–2 facets)
 

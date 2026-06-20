@@ -16,10 +16,12 @@
   assets/theme-studio.html and paste its "Copy CSS" output, or run
   scripts/apply-theme.py).
 -->
-<!-- COOKIEBITE:LANG — for a non-Korean report you MUST localize 2 things by hand:
+<!-- COOKIEBITE:LANG — for a non-Korean report you MUST localize 3 things by hand:
      (1) this html lang below (en for English, etc. — affects screen-reader pronunciation
-     + hyphenation), and (2) the '목차' TOC heading in COOKIEBITE:TOC (→ "Contents"/etc.).
-     apply-theme.py rewrites lang from the preset locale; the TOC heading is always manual. -->
+     + hyphenation), (2) the '목차' TOC heading in COOKIEBITE:TOC (→ "Contents"/etc.), and
+     (3) window.REPORT_LOCALE below (the ko-KR/₩ default formats numbers/money + toggle
+     labels in Korean — set number/currency/symbol for your locale).
+     apply-theme.py rewrites lang + REPORT_LOCALE from the preset; the TOC heading is manual. -->
 <html lang="ko"><!-- /COOKIEBITE:LANG -->
 <head>
 <meta charset="utf-8" />

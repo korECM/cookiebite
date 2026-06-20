@@ -802,7 +802,10 @@
       // rendering the literal verbatim. Genuinely non-numeric strings ('Healthy', 'P1')
       // fall through to the verbatim branch below.
       var val = it.value;
-      if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val))) val = Number(val);
+      // F22 — a ZERO-PADDED numeric string ('007', '08') is an identifier-style value
+      // (ticket #, code) where the leading zeros are meaningful; coercing to Number drops
+      // them. Skip the coercion for /^0\d/ (no decimal point) so it renders verbatim.
+      if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val)) && !/^0\d/.test(val.trim())) val = Number(val);
 
       var numHtml;
       if (typeof val === 'string') {
@@ -987,7 +990,7 @@
       // of running off the right edge and making the WHOLE page horizontally scroll.
       ? '<div class="flex flex-wrap gap-6 mb-12 text-caption-12">' +
         '<template x-for="c in ' + chipDefs + '" :key="c.tone">' +
-        '<button @click="sev=c.tone" :class="sev===c.tone ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
+        '<button @click="sev=c.tone" :aria-pressed="sev===c.tone" :class="sev===c.tone ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
         'class="px-10 py-4 rounded-small" x-text="c.label"></button></template></div>'
       : '';
 
@@ -1144,6 +1147,11 @@
     var host = resolveTarget(target);
     if (!host) return;
     opts = opts || {};
+    // F14 — a LITERAL backslash-n inside a label renders verbatim; the obvious instinct
+    // is that it's a line break. The two-char sequence \n has no other meaning in mermaid
+    // source, so convert it to mermaid's <br/> line-break. (htmlLabels:true is on, so
+    // <br/> works in flowchart/state node + edge labels and sequence notes.)
+    if (typeof definition === 'string') definition = definition.replace(/\\n/g, '<br/>');
     host.setAttribute('role', 'img');
     if (opts.aria) host.setAttribute('aria-label', opts.aria);
     var loader = (window.__cbMermaid = window.__cbMermaid || import(MERMAID_URL).then(function (m) {
@@ -1344,6 +1352,14 @@
       };
       var bar = document.createElement('div');
       bar.className = 'flex justify-end mb-8';
+      // F20 — the bar is a SIBLING in host.parentNode, not inside host.innerHTML, so a
+      // re-render of the table leaves the OLD bar behind (duplicate Export-CSV rows pile
+      // up). Give it a stable id and remove any prior one before inserting.
+      if (host.id) {
+        bar.id = host.id + '-csvbar';
+        var prevBar = document.getElementById(bar.id);
+        if (prevBar && prevBar.parentNode) prevBar.parentNode.removeChild(prevBar);
+      }
       var btn = document.createElement('button');
       btn.type = 'button';
       btn.className = 'text-caption-12 text-secondary hover:text-primary';
@@ -1480,7 +1496,7 @@
     // parses it — safe + correct). Backslashes are doubled so a trailing \ can't escape.
     var sqLabel = function (s) { return esc("'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"); };
     var toggleBtnInner = hasTable
-      ? '<button @click="table=!table" :aria-pressed="table" ' +
+      ? '<button @click="table=!table" :aria-pressed="table" data-cb-table-toggle="' + cid + '" ' +
         'class="text-caption-12 text-secondary hover:text-primary" x-text="table ? ' +
         sqLabel(tl.chart) + ' : ' + sqLabel(tl.table) + '"></button>'
       : '';
@@ -1504,6 +1520,37 @@
     if (config.exportable) {
       var pngBtn = host.querySelector('[data-cb-png="' + cid + '"]');
       if (pngBtn) pngBtn.addEventListener('click', function () { CB.exportPNG('#' + cid, (config.exportName || aria || 'chart') + '.png'); });
+    }
+
+    // F05 — when Alpine is absent the x-show/x-cloak toggle never runs, so the
+    // auto data-table stays display:none forever (a11y dead end). Wire a VANILLA
+    // fallback that mirrors CB.dataTableToggle: a plain button flips inline display
+    // on the chart wrapper and the table wrapper. (With Alpine present, Alpine owns
+    // the x-show binding and this branch is skipped.)
+    if (hasTable && !window.Alpine) {
+      var vToggleBtn = host.querySelector('[data-cb-table-toggle="' + cid + '"]');
+      // the chart wrapper is the [x-show="!table"] div; the table is [x-show="table"]
+      var chartWrap = host.querySelector('[x-show="!table"]');
+      var tableWrap = host.querySelector('[x-show="table"]');
+      if (vToggleBtn && chartWrap && tableWrap) {
+        // the table div carries x-cloak; the CSS rule [x-cloak]{display:none !important}
+        // would beat our inline display when we try to SHOW it, so drop the attribute
+        // now that a vanilla toggle owns its visibility.
+        tableWrap.removeAttribute('x-cloak');
+        chartWrap.style.display = '';
+        tableWrap.style.display = 'none';
+        var tlV = toggleLabels(config);
+        vToggleBtn.textContent = tlV.table;
+        vToggleBtn.setAttribute('aria-pressed', 'false');
+        var showingTableV = false;
+        vToggleBtn.addEventListener('click', function () {
+          showingTableV = !showingTableV;
+          chartWrap.style.display = showingTableV ? 'none' : '';
+          tableWrap.style.display = showingTableV ? '' : 'none';
+          vToggleBtn.textContent = showingTableV ? tlV.chart : tlV.table;
+          vToggleBtn.setAttribute('aria-pressed', showingTableV ? 'true' : 'false');
+        });
+      }
     }
 
     var el = host.querySelector('#' + cid);
@@ -1636,11 +1683,16 @@
       var vsPrev = t('vsPrev');
       var accentOn = cssColor('--accent-on', '#fff');
       var darkInk = cssColor('--c-primary', '#18181B');
+      // F13 — at narrow widths the inside label spills past the trapezoid (sliced by
+      // the slanted edges onto white). Below ~420px shrink the label font and DROP the
+      // '· N% vs prev' qualifier (it stays in the tooltip + data-table). Desktop unchanged.
+      var narrow = (el.clientWidth || host.clientWidth || 600) < 420;
+      var labelFs = narrow ? 11 : 12;
       var data = steps.map(function (s, i) {
         // label shows the step name + step-to-step conversion vs the PREVIOUS step
         var prev = i === 0 ? null : (steps[i - 1].value || 0);
         var pct = prev ? Math.round((s.value / prev) * 1000) / 10 : null;
-        var name = s.label + (pct != null ? ' · ' + pct + '%' + vsPrev : '');
+        var name = s.label + (!narrow && pct != null ? ' · ' + pct + '%' + vsPrev : '');
         // per-slice label ink by the FILL luminance: the ramp lightens toward the bottom, so
         // white-on-(light slice) fails at 390px. Pick dark ink once the fill is light enough.
         var ink = inkOn(colors[i], accentOn, darkInk);
@@ -1659,7 +1711,7 @@
           type: 'funnel', top: 12, bottom: 28, left: '8%', right: '8%',
           minSize: '24%', sort: 'descending', gap: 2,
           // INSIDE labels never clip at narrow widths (the outside-label footgun)
-          label: { show: true, position: 'inside', color: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT },
+          label: { show: true, position: 'inside', color: cssColor('--accent-on', '#fff'), fontFamily: CB.theme.FONT, fontSize: labelFs },
           labelLine: { show: false },
           itemStyle: { borderColor: CB.theme.C_LINE, borderWidth: 1 },
           data: data,
@@ -1905,16 +1957,31 @@
     var flat = (Array.isArray(config.nodes) ? config.nodes : []).filter(function (n) { return n && n.name; });
     // a flat node with `children` is already nested — pass through untouched.
     if (flat.length && flat[0].children) return flat;
-    var byName = {}, roots = [];
-    flat.forEach(function (n) { byName[n.name] = { name: n.name, value: n.value, children: [] }; });
-    flat.forEach(function (n) {
-      var node = byName[n.name];
-      if (n.parent != null && byName[n.parent]) byName[n.parent].children.push(node);
+    // build nodes keyed by ARRAY INDEX so two flat nodes sharing a name both survive.
+    // parent is resolved by id (if present) else by name; a name map only assists that
+    // lookup and warns on collision rather than silently overwriting.
+    var nodes = flat.map(function (n) { return { name: n.name, value: n.value, children: [] }; });
+    var byId = {}, byName = {}, roots = [];
+    flat.forEach(function (n, i) {
+      if (n.id != null) byId[n.id] = nodes[i];
+      if (Object.prototype.hasOwnProperty.call(byName, n.name)) console.warn('[cookiebite] COOKIEBITE.treemap: duplicate node name "' + n.name + '" — parent-by-name is ambiguous; add an `id`/`parent` id to disambiguate.');
+      else byName[n.name] = nodes[i];
+    });
+    flat.forEach(function (n, i) {
+      var node = nodes[i];
+      var parent = (n.parent != null && byId[n.parent]) || (n.parent != null && byName[n.parent]) || null;
+      if (parent) parent.children.push(node);
       else roots.push(node);
     });
-    // drop empty children arrays so leaves are clean leaves (value-colored)
+    // drop empty children arrays so leaves are clean leaves (value-colored); and DROP a
+    // branch node's own value so ECharts sums it from the children — otherwise a parent
+    // authored with value:0 (or a wrong total) renders as a 0-size tile and the whole
+    // branch disappears (a common footgun: a parent that only groups its children).
     (function strip(arr) {
-      arr.forEach(function (n) { if (n.children && n.children.length) strip(n.children); else delete n.children; });
+      arr.forEach(function (n) {
+        if (n.children && n.children.length) { delete n.value; strip(n.children); }
+        else delete n.children;
+      });
     })(roots);
     return roots;
   }
@@ -2415,9 +2482,12 @@
       var values = opt.values || [];
       // recommended column: accent ring + badge (matches §12's ring-2 ring-accent)
       var ring = opt.recommended ? ' ring-2 ring-accent' : '';
-      var badge = opt.recommended
+      // F12 — render the badge in a FIXED-HEIGHT zone present in EVERY column (empty
+      // when not recommended) so the <h3>+<dl> below start at the same y across columns.
+      // The recommended column no longer pushes its rows down ~1 line.
+      var badge = '<div class="h-20 mb-4">' + (opt.recommended
         ? '<span class="text-caption-12 text-accent-strong font-semibold">' + esc(recLabel) + '</span>'
-        : '';
+        : '') + '</div>';
       // one <dt>/<dd> per row, same order in every column so they line up
       var dl = rows.map(function (label, i) {
         var cell = values[i];
@@ -2427,7 +2497,7 @@
         return '<div><dt class="text-secondary">' + esc(label) + '</dt><dd>' + dd + '</dd></div>';
       }).join('');
       return '<div class="bg-surface border border-line-weak rounded-medium p-20' + ring + '">' +
-        '<h3 class="text-title-20 font-bold">' + esc(opt.name) + '</h3>' + badge +
+        badge + '<h3 class="text-title-20 font-bold">' + esc(opt.name) + '</h3>' +
         '<dl class="mt-12 space-y-8 text-body-14">' + dl + '</dl></div>';
     }).join('');
 
@@ -2499,10 +2569,12 @@
     // facet chip row — flex-wrap so a wide facet set never overflows the page on mobile.
     // toggling a chip adds/removes it from `active`; 'all' clears the filter.
     var allLabel = t('all');
-    var chips = '<button @click="active=[]" :class="active.length===0 ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
+    // F21 — :aria-pressed conveys selected state to AT (background color alone isn't
+    // enough), matching the chart/table toggles. 'all' is pressed when no facet is active.
+    var chips = '<button @click="active=[]" :aria-pressed="active.length===0" :class="active.length===0 ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
       'class="px-10 py-4 rounded-small">' + esc(allLabel) + '</button>' +
       allTags.map(function (tg) {
-        return '<button @click="toggle(' + sq(tg) + ')" :class="active.includes(' + sq(tg) + ') ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
+        return '<button @click="toggle(' + sq(tg) + ')" :aria-pressed="active.includes(' + sq(tg) + ')" :class="active.includes(' + sq(tg) + ') ? \'bg-accent text-accent-on\' : \'bg-disabled-bg text-secondary\'" ' +
           'class="px-10 py-4 rounded-small">' + esc(tg) + '</button>';
       }).join('');
     var chipRow = '<div class="flex flex-wrap gap-6 mb-12 text-caption-12">' + chips + '</div>';
@@ -2514,13 +2586,21 @@
     var tagMatrix = '[' + items.map(function (it) {
       return '[' + (it.tags || []).map(sq).join(',') + ']';
     }).join(',') + ']';
+    // F19 — without Alpine the x-text never runs and the count renders EMPTY. Seed the
+    // element with a STATIC "M of M" fallback as real text content so it's never blank;
+    // Alpine (when present) overwrites it live on the first tick.
+    var staticCount = esc(items.length + (ofWord + items.length));
     var count = '<p class="text-caption-12 text-secondary mb-12" x-text="(active.length===0 ? ' + items.length + ' : ' +
-      tagMatrix + '.filter(tags => active.every(t => tags.includes(t))).length) + ' + sq(ofWord + items.length) + '"></p>';
+      tagMatrix + '.filter(tags => active.every(t => tags.includes(t))).length) + ' + sq(ofWord + items.length) + '">' + staticCount + '</p>';
 
     var grid = '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-16">' + cards + '</div>';
     host.innerHTML = caption +
       '<div x-data="{ active: [], toggle(t){ const i=this.active.indexOf(t); i<0 ? this.active.push(t) : this.active.splice(i,1); } }">' +
       chipRow + count + grid + '</div>';
+
+    // F19 — chips are dead without Alpine; warn so the author loads it (the static count
+    // fallback above still keeps the element from rendering blank).
+    if (!window.Alpine) console.warn('[cookiebite] COOKIEBITE.cardGrid: Alpine.js is absent — facet chips are inert and the count is static. Load Alpine for live filtering.');
 
     CB.refreshIcons();
   };
@@ -3620,7 +3700,9 @@
     var pre = config.prefix != null ? config.prefix : '';
     var suf = config.suffix != null ? config.suffix : '';
     var val = config.value;
-    if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val))) val = Number(val);
+    // F22 — a ZERO-PADDED numeric string ('007', '08') keeps its leading zeros (they're
+    // meaningful: ticket #, code), so skip the Number coercion for /^0\d/ (no decimal).
+    if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val)) && !/^0\d/.test(val.trim())) val = Number(val);
 
     var unitSpan = config.unit ? '<span class="text-title-24 text-secondary font-semibold">' + esc(config.unit) + '</span>' : '';
     var numHtml;
@@ -3816,6 +3898,44 @@
       var w = opts.width || 80, h = opts.height || 24;
       return window.gridjs.html(
         '<div style="width:' + w + 'px;height:' + h + 'px;display:inline-block" data-spark=\'' + esc(JSON.stringify(cell)) + '\'></div>'
+      );
+    };
+  };
+
+  /* CB.cellMoney({ currency?, symbol?, decimals? }) -> function(cell) -> gridjs.html
+     Renders a numeric cell as locale-grouped currency (symbol + thousands grouping),
+     right-aligned with tabular-nums. The underlying NUMERIC cell is untouched, so the
+     column still SORTS numerically (Grid.js sorts the raw data, not the rendered HTML).
+       symbol   — currency glyph to prepend (default L.symbol, e.g. '$'/'₩').
+       currency — ISO code; when set, Intl currency formatting drives both glyph + grouping
+                  (overrides `symbol`). decimals defaults to 2 in this mode.
+       decimals — fraction digits for the grouped number (default 0 in symbol mode). */
+  CB.cellMoney = function (opts) {
+    opts = opts || {};
+    var useIntl = opts.currency != null;
+    var fmt;
+    if (useIntl) {
+      var dec = opts.decimals != null ? opts.decimals : 2;
+      try {
+        var cf = new Intl.NumberFormat(L.number, { style: 'currency', currency: opts.currency, minimumFractionDigits: dec, maximumFractionDigits: dec });
+        fmt = function (v) { return cf.format(v); };
+      } catch (e) { useIntl = false; }
+    }
+    if (!useIntl) {
+      var sym = opts.symbol != null ? opts.symbol : L.symbol;
+      var nfm;
+      if (opts.decimals != null) {
+        try { nfm = new Intl.NumberFormat(L.number, { minimumFractionDigits: opts.decimals, maximumFractionDigits: opts.decimals }); }
+        catch (e2) { nfm = CB.nf; }
+      } else { nfm = CB.nf; }
+      fmt = function (v) { return sym + nfm.format(v); };
+    }
+    return function (cell) {
+      var v = +cell;
+      if (cell == null || cell === '' || !isFinite(v)) return cell;
+      // numeric cell stays numeric (Grid.js sorts the raw data); only the RENDER is money.
+      return window.gridjs.html(
+        '<span class="nums tabular-nums" style="display:block;text-align:right;">' + esc(fmt(v)) + '</span>'
       );
     };
   };

@@ -40,6 +40,7 @@
    a dark-preferring first-load user gets correct overrides before initTheme flips. */
 html[data-theme="dark"]{
   --accent-weak: color-mix(in srgb, var(--accent) 22%, #16161a);
+  --accent-text: var(--accent);
   --c-bg:#101013;  --c-surface:#1a1a1f;  --c-primary:#F1F1F4;  --c-secondary:#AEAEB6;
   --c-disabled:#6E6E78;  --c-placeholder:#5A5A63;  --c-line:#3A3A42;  --c-line-weak:#2A2A30;  --c-disabled-bg:#26262C;
   /* nudge semantic hues brighter so they read on a dark surface */
@@ -229,7 +230,7 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
 .cb-lead{ font-size:18px; line-height:26px; font-weight:400; color:var(--c-secondary); max-width:var(--measure-prose,58ch); margin-bottom:24px; text-wrap:pretty; }
 /* dropped initial — first letter only, accent-strong, sits 2 lines tall. Guarded
    so an empty lead doesn't render a stray glyph; float keeps text wrapping around. */
-.cb-lead.dropcap::first-letter{ float:left; font-size:3.1em; line-height:.82; font-weight:700; color:var(--accent-strong); padding:.02em .08em 0 0; margin-top:.02em; }
+.cb-lead--dropcap::first-letter{ float:left; font-size:3.1em; line-height:.82; font-weight:700; color:var(--accent-strong); padding:.02em .08em 0 0; margin-top:.02em; }
 
 /* --- .cb-prose — a measured long-form text block --------------------------- */
 .cb-prose{ max-width:var(--measure-prose,68ch); color:var(--c-primary); }
