@@ -161,3 +161,20 @@ chart.setOption({
 
 Use resolved colors (`accentRgba`/`theme.ACCENT`), not `var(--*)`/`color-mix` strings —
 those render black inside the canvas (see the chart-color caveat above).
+
+**One-call fast path — `COOKIEBITE.ramp(n)`** returns `n` on-theme colors from a single
+accent hue (varying L/S, bounded), light → dark, re-reading the live accent so it follows
+the dark toggle. Use it for **ordered / sequential** data — funnel slices, a stacked
+single-metric series, an ordered bar set, a choropleth — where each step should read as the
+same family getting darker:
+```js
+const colors = CB.ramp(steps.length);              // ['…','…',…] light -> dark
+chart.setOption({ series:[{ type:'bar', data: steps.map((v,i)=>({ value:v, itemStyle:{ color:colors[i] } })) }] });
+```
+**Pick by relationship: `CB.categoricalColors(n)` for PEER series** (regions, vendors,
+plans — distinct but on-theme; now a bounded hue arc around the accent, not the full
+rainbow wheel) **vs. `CB.ramp(n)` for ORDERED series** (a sequence/magnitude). Misusing the
+categorical palette for ordered data is the most common "silently worse" chart. The
+`accentRgba` opacity-step approach above still works for a quick hand-rolled ramp; `CB.ramp`
+is the named one-call version. The new `CB.funnel` / `CB.heatmap` helpers (`helpers.md`)
+already ramp internally.

@@ -16,9 +16,11 @@
   assets/theme-studio.html and paste its "Copy CSS" output, or run
   scripts/apply-theme.py).
 -->
-<!-- localize lang to the report's language (en for English, etc.); apply-theme.py
-     rewrites it from the preset locale. -->
-<html lang="ko">
+<!-- COOKIEBITE:LANG — for a non-Korean report you MUST localize 2 things by hand:
+     (1) this html lang below (en for English, etc. — affects screen-reader pronunciation
+     + hyphenation), and (2) the '목차' TOC heading in COOKIEBITE:TOC (→ "Contents"/etc.).
+     apply-theme.py rewrites lang from the preset locale; the TOC heading is always manual. -->
+<html lang="ko"><!-- /COOKIEBITE:LANG -->
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -75,7 +77,8 @@
 </head>
 <body class="bg-bg text-primary">
 <!-- light/dark toggle is injected by the runtime if absent; charts re-theme via the registry -->
-<div class="mx-auto max-w-[1400px] px-24">
+<!-- responsive gutter: phones reclaim ~16px (charts/tables need it), wide screens breathe -->
+<div class="mx-auto max-w-[1400px] px-16 sm:px-24 lg:px-40">
   <!-- flex-row-reverse puts the TOC on the RIGHT while keeping it first in DOM order -->
   <div class="flex flex-row-reverse gap-40">
 
@@ -83,7 +86,7 @@
     <nav class="hidden lg:block w-[190px] shrink-0">
       <div class="sticky top-24 py-40">
         <!-- COOKIEBITE:TOC -->
-        <p class="text-caption-12 text-text-disabled mb-12 pl-12">목차</p>
+        <p class="text-caption-12 text-text-disabled mb-12 pl-12">목차</p><!-- localize me for non-Korean reports → "Contents" / etc. -->
         <ul id="toc" class="space-y-2 text-body-14">
           <!-- one <li> per section id; the runtime auto-wires the active-section observer -->
           <li><a href="#summary"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">개요</a></li>
@@ -115,6 +118,14 @@
 
       <!-- COOKIEBITE:SECTIONS -->
 
+      <!-- ⚠ KEEP IN LOCKSTEP: each section here is paired with a block in
+           COOKIEBITE:REPORT-SCRIPT by id string only (e.g. id="trend" ↔ CB.chart('#trendChart')).
+           DELETE a section → DELETE its matching script block (and vice-versa). A leftover
+           fast-path call (CB.kpis/findings/timeline/table/chart) silently no-ops on the
+           missing host so the section just vanishes with no error — easy to ship by accident;
+           a leftover ESCAPE-HATCH call (raw getElementById/innerHTML) instead THROWS. -->
+
+
       <!-- ===== FAST PATH: KPI grid via COOKIEBITE.kpis (host filled by the report script) ===== -->
       <section id="summary" class="scroll-mt-24 mb-56">
         <div class="flex items-center gap-8 mb-20">
@@ -122,6 +133,9 @@
           <h2 class="text-title-24 font-bold">핵심 지표</h2>
         </div>
         <div id="kpiGrid"></div>
+        <!-- Building a bespoke card row instead of COOKIEBITE.kpis? Copy this responsive
+             grid so it doesn't collapse to one column / overflow on tablets:
+             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-16"> …cards… </div> -->
       </section>
 
       <!-- ===== FAST PATH: chart wrapper via COOKIEBITE.chart (option hand-written) ===== -->

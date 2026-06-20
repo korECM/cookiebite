@@ -52,6 +52,20 @@ LOCALE_TO_LANG = {
 }
 LANG_ATTR_RE = re.compile(r'(<html\b[^>]*\blang=")([^"]*)(")', re.IGNORECASE)
 
+# html lang -> the TOC heading word baked into template.html's COOKIEBITE:TOC slot.
+# The template ships the Korean "목차"; when a non-Korean preset is applied we swap it
+# so an en/ja/… report doesn't carry a lone Korean word in its most prominent nav element.
+TOC_HEADING = {
+    "ko": "목차", "en": "Contents", "ja": "目次", "zh": "目录",
+    "fr": "Sommaire", "de": "Inhalt", "es": "Contenido",
+    "pt": "Sumário", "it": "Indice",
+}
+# Match the hard-coded "목차" heading <p> inside the COOKIEBITE:TOC slot (anchored to the
+# slot comment so we never touch a "목차" that happens to appear in report content).
+TOC_HEADING_RE = re.compile(
+    r"(<!-- COOKIEBITE:TOC -->\s*<p\b[^>]*>)목차(</p>)", re.DOTALL
+)
+
 
 def validate_preset(preset: object) -> list[str]:
     """Return a list of human-readable problems with the preset, empty if valid."""
@@ -172,6 +186,17 @@ def apply_lang(html: str, preset: dict) -> str:
     return LANG_ATTR_RE.sub(rf"\g<1>{lang}\g<3>", html, count=1)
 
 
+def apply_toc_heading(html: str, preset: dict) -> str:
+    """Localize the hard-coded Korean '목차' TOC heading to the preset's language, so a
+    non-Korean preset doesn't leave a lone Korean word in the most prominent nav element."""
+    number = (preset.get("locale") or {}).get("number")
+    lang = LOCALE_TO_LANG.get(number or "")
+    heading = TOC_HEADING.get(lang or "")
+    if not heading or heading == "목차":
+        return html  # Korean (or unmapped) locale: leave the template default untouched
+    return TOC_HEADING_RE.sub(rf"\g<1>{heading}\g<2>", html, count=1)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Apply a theme preset to a report.")
     ap.add_argument("preset", help="preset name (e.g. 'neutral') or path to a preset JSON")
@@ -186,6 +211,9 @@ def main() -> int:
     except FileNotFoundError:
         print(f"error: preset '{args.preset}' not found.", file=sys.stderr)
         print(f"  available presets: {available_presets()}", file=sys.stderr)
+        return 1
+    except json.JSONDecodeError as e:
+        print(f"error: preset '{args.preset}' is not valid JSON: {e}", file=sys.stderr)
         return 1
 
     problems = validate_preset(preset)
@@ -207,6 +235,7 @@ def main() -> int:
 
     out_html = BLOCK_RE.sub(lambda _: build_block(preset), html, count=1)
     out_html = apply_lang(out_html, preset)
+    out_html = apply_toc_heading(out_html, preset)
     out_path = args.out or args.html
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(out_html)

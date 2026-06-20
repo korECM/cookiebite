@@ -59,6 +59,18 @@ checklist re-encodes the must-pass items as checkboxes.
   sections; let whitespace separate groups instead of borders everywhere.
 - **Hierarchy is shallow and obvious.** One headline, clear section titles, then
   content. Don't nest headings deeply — console-style reports read fast.
+  - **Heading → token mapping** (so prose-heavy reports get a real hierarchy without
+    inventing classes): page title `headline-36`, h2 section `title-24`, h3 sub-section
+    `title-20` (or `body-18 font-semibold` for a quieter step), body `body-16`/`body-14`.
+    **There is no `title-16`** — the scale jumps `body-18` (18px) → `title-20` (20px) → `title-24`,
+    and `text-title-16` is **not a generated class**, so it **silently no-ops** (renders as
+    default body text, no error, no visible change). If you reach for an h3 step below
+    `title-20`, use `body-18 font-semibold`; never guess a token like `text-title-16`.
+- **Accent-as-text needs the strong token (AA contrast).** `--accent` is tuned for
+  *fills/dots/borders*, not text on a light surface — accent text on white can fail the
+  WCAG AA contrast ratio. When the accent is the **text** color (a takeaway-box title, a
+  footnote ref, a "Recommended" label), use **`text-accent-strong`** / `var(--accent-strong)`;
+  keep plain `--accent` for the fill, dot, or border beside it.
 - **Define jargon inline when the audience is mixed.** If a technical report will be
   read by non-experts too (execs, other teams), mark technical terms with a dotted
   underline + a hover/focus tooltip giving a plain-language definition (glossary
