@@ -74,6 +74,34 @@ TOC_HEADING_RE = re.compile(
 HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 BAD_COLOR_CHARS_RE = re.compile(r"[;{}\"'\n]")
 
+# ---- LOOK SYSTEM (optional theme.json "look":{} object) ----------------------------
+# The runtime carrier is window.REPORT_LOOK = { ... }, read once at init via CB.applyLook,
+# which sets the html data-* attributes + inline :root vars. apply-theme.py mirrors that:
+# it emits REPORT_LOOK (so the runtime owns the wiring) AND the small set of inline :root
+# vars / window.PALETTE_MODE / heading-font <link> that must be present at FIRST PAINT.
+# Absent look === none of this is emitted (output byte-identical to today).
+#
+# Enumerated knobs map to a fixed set of allowed values (keeps the emitted markup safe —
+# a stray value can't inject CSS); free-scalar knobs are validated for type/shape only.
+LOOK_ENUM = {
+    "density": ("compact", "comfortable", "spacious"),
+    "elevation": ("flat", "soft", "sharp", "bordered"),
+    "surface": ("card", "flat", "outlined"),
+    "borderStyle": ("solid", "dashed"),
+    "paletteMode": ("mono", "analogous", "categorical", "sequential"),
+    "bg": ("plain", "wash", "pattern"),
+    "header": ("standard", "banded", "bordered"),
+    "semanticPreset": ("classic", "muted", "vivid", "colorblind-safe"),
+    "darkTint": ("neutral", "warm", "cool", "accent"),
+}
+# free scalars: radiusScale (number), borderW (number, px), measureProse (CSS length token),
+# measurePage (CSS length token), headingFont ({family,url?,fallback?}).
+# A CSS length token we can safely emit into a `--var:VALUE;` rule (e.g. 68ch, 1400px,
+# clamp(...)). Same safety bar as a non-hex color: no rule-breaking characters.
+def _is_safe_css_token(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip()) and \
+        BAD_COLOR_CHARS_RE.search(value) is None
+
 
 def is_valid_color(value: object) -> bool:
     """True if value is a CSS color we can safely emit into a `--var:VALUE;` rule."""
@@ -150,6 +178,99 @@ def validate_preset(preset: object) -> list[str]:
     return problems
 
 
+def validate_look(look: object) -> list[str]:
+    """Return a list of problems with the optional preset['look'] object, empty if valid
+    or absent. A present-but-broken look fails loudly (rather than silently emitting junk)."""
+    problems: list[str] = []
+    if look is None:
+        return problems
+    if not isinstance(look, dict):
+        return ["'look' is not a JSON object"]
+    for key, allowed in LOOK_ENUM.items():
+        if key in look and look[key] is not None and look[key] not in allowed:
+            problems.append(
+                f"look.{key} must be one of {allowed}, got {look[key]!r}")
+    for key in ("radiusScale", "borderW"):
+        if key in look and look[key] is not None and not isinstance(
+                look[key], (int, float)) or isinstance(look.get(key), bool):
+            problems.append(f"look.{key} must be a number, got {look.get(key)!r}")
+    for key in ("measureProse", "measurePage"):
+        if key in look and look[key] is not None and not _is_safe_css_token(look[key]):
+            problems.append(
+                f"look.{key} must be a safe CSS length token, got {look.get(key)!r}")
+    hf = look.get("headingFont")
+    if hf is not None:
+        if not isinstance(hf, dict):
+            problems.append("look.headingFont must be an object")
+        else:
+            if "family" not in hf or not isinstance(hf.get("family"), str) \
+                    or not hf["family"].strip():
+                problems.append("look.headingFont.family is required (non-empty string)")
+            if "url" in hf and hf["url"] is not None and (
+                    not isinstance(hf["url"], str) or '"' in hf["url"]):
+                problems.append("look.headingFont.url must be a quote-safe string")
+            if "fallback" in hf and hf["fallback"] is not None \
+                    and not _is_safe_css_token(hf["fallback"]):
+                problems.append("look.headingFont.fallback must be a safe CSS token")
+    return problems
+
+
+def build_look(look: dict) -> tuple[str, str, str]:
+    """Build the three look fragments for an emitted THEME block:
+      (link_html, root_vars, runtime_script)
+    - link_html:    a heading-font <link> if look.headingFont.url is given, else ''.
+    - root_vars:    extra :root CSS vars (--radius-scale/--border-w/--border-style/
+                    --font-heading/--measure-prose/--measure-page/--dark-tint via REPORT_LOOK
+                    is runtime-owned; the FIRST-PAINT-critical vars are inlined here).
+    - runtime_script: window.REPORT_LOOK = {...} (+ window.PALETTE_MODE) the runtime reads.
+    All empty when `look` is empty/absent (caller emits nothing extra → byte-identical)."""
+    if not look:
+        return "", "", ""
+
+    # (1) heading-font <link> (only if a url is given). family interpolation happens in the
+    # runtime via REPORT_LOOK; here we only emit the stylesheet link so the font is fetched
+    # at first paint. url is validated quote-safe in validate_look.
+    hf = look.get("headingFont") or {}
+    link_html = (
+        f'<link rel="stylesheet" href="{hf["url"]}" />\n'
+        if isinstance(hf, dict) and hf.get("url") else ""
+    )
+
+    # (2) extra :root vars that must be correct at FIRST PAINT (before the runtime's
+    # CB.applyLook runs). We emit a numeric/length subset; the runtime fills the rest
+    # (data-* attrs, --font-heading from headingFont.family, etc.) from REPORT_LOOK.
+    var_lines: list[str] = []
+    if isinstance(look.get("radiusScale"), (int, float)) \
+            and not isinstance(look.get("radiusScale"), bool):
+        var_lines.append(f"--radius-scale:{look['radiusScale']};")
+    if isinstance(look.get("borderW"), (int, float)) \
+            and not isinstance(look.get("borderW"), bool):
+        var_lines.append(f"--border-w:{look['borderW']}px;")
+    if look.get("borderStyle"):
+        var_lines.append(f"--border-style:{look['borderStyle']};")
+    if look.get("measureProse"):
+        var_lines.append(f"--measure-prose:{look['measureProse']};")
+    if look.get("measurePage"):
+        var_lines.append(f"--measure-page:{look['measurePage']};")
+    root_vars = ("    " + "  ".join(var_lines) + "\n") if var_lines else ""
+
+    # (3) the runtime look carrier. JSON is valid JS and only contains values we've
+    # validated (enums from a fixed allow-list, numbers, quote-safe strings), so json.dumps
+    # is safe inside a <script> body. We pass the whole validated look through verbatim so
+    # the runtime is the single source of truth for applying it (data-* attrs + vars).
+    # window.PALETTE_MODE is emitted separately too, because CB.categoricalColors reads the
+    # global directly (the contract names it explicitly).
+    look_json = json.dumps(look)
+    palette = look.get("paletteMode")
+    palette_line = (
+        f" window.PALETTE_MODE = {json.dumps(palette)};" if palette else ""
+    )
+    runtime_script = (
+        f"<script>window.REPORT_LOOK = {look_json};{palette_line}</script>\n"
+    )
+    return link_html, root_vars, runtime_script
+
+
 def build_block(preset: dict) -> str:
     font = preset["font"]
     # The family is interpolated inside a single-quoted CSS string ('…'), so any apostrophe
@@ -193,6 +314,10 @@ def build_block(preset: dict) -> str:
         else ""
     )
 
+    # OPTIONAL look system. Absent/empty look → all three fragments are '' → the emitted
+    # block is byte-identical to the pre-look output (no extra link/vars/script).
+    look_link, look_vars, look_script = build_look(preset.get("look") or {})
+
     # Emit INSIDE the COOKIEBITE:HEAD-THEME wrapper and keep the FOUC-proof / first-paint
     # guidance comment, so re-applying a preset to an already-themed report is stable.
     return (
@@ -202,16 +327,19 @@ def build_block(preset: dict) -> str:
         f"     Kept INLINE + synchronous so the correct accent+neutrals apply at "
         f"first paint (FOUC-proof). -->\n"
         f'<link rel="stylesheet" href="{font["url"]}" />\n'
+        f"{look_link}"
         f"<style>\n"
         f"  :root{{\n"
         f"    --font-family:'{family}',{fallback};\n"
         f"    {accent}\n"
         f"    {neutrals}\n"
         f"    {semantic}\n"
+        f"{look_vars}"
         f"  }}\n"
         f"{dark_override}"
         f"</style>\n"
         f"<script>window.REPORT_LOCALE = {locale};</script>\n"
+        f"{look_script}"
         f"<!-- end THEME -->\n"
         f"<!-- /COOKIEBITE:HEAD-THEME -->"
     )
@@ -278,6 +406,7 @@ def main() -> int:
         return 1
 
     problems = validate_preset(preset)
+    problems += validate_look(preset.get("look"))
     if problems:
         print(f"error: preset '{args.preset}' is missing required fields:",
               file=sys.stderr)

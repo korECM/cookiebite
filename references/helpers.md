@@ -561,3 +561,292 @@ CB.print()   // forces light, expands <details> + tab panels, window.print(), re
 CB.audit()   // dev-only DOM audit (chart a11y, color-only tone, img alt, WCAG token
              //   contrast); console.warns + a #cbAuditBadge. Off unless called or ?audit=1.
 ```
+
+---
+
+## New chart-shape builders (`CB.shapes.*`) + threshold/annotate
+
+These extend the `CB.shapes.*` family above. Each builder returns a plain ECharts
+`option` — **pass it to `CB.chart`** (which themes, registers for dark, and adds the
+a11y scaffold); they don't render on their own. `CB.threshold`/`CB.annotate` are
+**transformers**, not builders — see below. For *which* shape fits *which* data, see
+`libraries.md` ("which chart when").
+
+### `CB.shapes.dumbbell(config) -> option` — FROM→TO change per row
+
+```text
+config: {
+  rows:    [ { label, from, to }, … ],   // one horizontal row per item
+  series?: [fromName, toName],           // legend/label names for the two endpoints
+  showDelta?,       // true -> tone the Δ label only when it crosses `threshold`
+  sortBy?,          // 'delta' | 'to' | null (author order)
+  threshold?,       // delta crossing point for showDelta toning (default 0)
+}
+```
+Horizontal two-dot connector per row. Suggested **height ≈ 32px·rows + 64** (e.g.
+320–420px). Pair with a four-column table so the toggle shows the numbers:
+`table: { columns:[labelHdr, fromName, toName, 'Δ'], rows: rows.map(r=>[r.label, r.from, r.to, r.to-r.from]) }`.
+Use for "before vs after" across many items (the per-row companion to `CB.shapes.slope`).
+
+### `CB.shapes.stackedBar(config) -> option` — horizontal composition
+
+```text
+config: {
+  categories: string[],                  // one bar per category
+  series:     [ { name, data:number[] }, … ],  // each adds a stacked segment
+  mode?,            // 'stack' (absolute) | 'percent' (100%-normalized)
+  horizontal?,      // default true
+  peer?,            // false -> CB.ramp tiers (ordered parts); true -> CB.categoricalColors (peer parts)
+}
+```
+**`peer` picks the palette by relationship:** `false` (default) ramps one accent hue
+for **ordered** parts (tiers/buckets); `true` uses `categoricalColors` for **peer**
+parts (vendors/regions). Height ≈ **36px·categories + legend** (e.g. 280–480px). Table:
+`{ columns:['', ...series.map(s=>s.name)], rows: categories.map((c,i)=>[c, ...series.map(s=>s.data[i])]) }`.
+
+### `CB.shapes.histogram(config) -> option` — distribution
+
+```text
+config: {
+  values: number[],                      // the raw sample
+  bins?,            // 'auto' (Freedman-Diaconis, Sturges fallback) | a fixed bin count
+  showMean?,        // default true -> a mean markLine
+}
+```
+Vertical frequency histogram; the runtime bins the values for you. Simplest table is the
+raw values `{ columns:['value'], rows: values.map(v=>[v]) }` (or table the derived
+bin/count pairs). Height ≈ 280–360px. The one shape for "what's the spread/shape" — see
+`libraries.md` (distribution → histogram).
+
+### `CB.shapes.rangeDot(config) -> option` — min–max capsule + value dot
+
+```text
+config: {
+  rows: [ { label, low, high, value, band?:[q1, q3] }, … ],
+  unit?,            // appended to value labels
+}
+```
+Per row: a low→high capsule with a current-value dot, plus an optional inner p25–p75
+`band`. Height ≈ **30px·rows + 24**. Table:
+`{ columns:[labelHdr,'low','high','value'], rows: rows.map(r=>[r.label,r.low,r.high,r.value]) }`.
+Use for "where does each item sit in its range" (SLO bands, score ranges).
+
+### `CB.shapes.lollipop(config) -> option` — stem + end-dot ranking
+
+```text
+config: {
+  rows:     [ { label, value, tone? }, … ],
+  baseline?,        // a number -> turns it into a deviation chart (stems from the baseline)
+  sort?,            // 'desc' | 'asc' | null (author order)
+  horizontal?,      // default true
+}
+```
+A lighter-weight bar: the value label is always present. `baseline` makes it a
+deviation chart (above/below a reference). Height ≈ **30px·rows + 24**. Table:
+`{ columns:[labelHdr,'value'], rows: rows.map(r=>[r.label,r.value]) }`. Use for a
+ranking where a full bar is too heavy.
+
+### `CB.shapes.slope(config) -> option` — two-axis slope / bump
+
+```text
+config: {
+  items:      [ { label, from, to }, … ],
+  left?,            // left-axis caption (default 'before')
+  right?,           // right-axis caption (default 'after')
+  mode?,            // 'value' (default) | 'rank' (position by rank, 1 at top)
+  highlight?,       // string[] of labels to render solid-accent; others muted
+}
+```
+Two columns of points joined by lines — the "two-point change for many series" chart
+(`CB.shapes.dumbbell` is the per-row companion). `highlight[]` labels render solid
+accent, the rest muted. `mode:'rank'` positions by rank. Height ≈ 320–460px (the builder
+reserves wide left/right grid pad for the end labels). Table:
+`{ columns:[labelHdr, left, right], rows: items.map(i=>[i.label,i.from,i.to]) }`.
+
+### `CB.threshold(option, config) -> option` — reference line/band transformer
+
+```text
+CB.threshold(option, {
+  value,            // the reference value
+  label?,           // line label
+  tone?,            // 'neutral'|'critical'|'danger'|'warning'|'success'|'info'|… (themed)
+  band?:[lo, hi],   // optional -> also adds a tinted markArea band
+  axis?,            // 'y' (default, horizontal rule on a value-y chart) | 'x' (vertical rule)
+}) -> option
+```
+A **pure transformer** (not a `CB.shapes.*` builder): it merges a themed reference
+`markLine` (+ optional band `markArea`) onto an **author-written** option via a hidden
+carrier series, then you pass the result to `CB.chart` with your own `table`/`ariaLabel`
+(the threshold adds **no** table columns). **Stackable** — call it twice for two lines.
+`axis:'y'` = a horizontal rule (value-on-y chart); `axis:'x'` = a vertical rule
+(horizontal-bar / value-on-x chart). The lighter, declarative alternative to hand-rolling
+a `markLine` (see `components.md` "Annotated chart markers").
+
+### `CB.annotate(chartSel, points)` — post-init annotation pins (C19)
+
+```text
+points: [ { coord:[x, y], text, tone?, symbolSize? }, … ]
+```
+A post-init annotation layer on a **registered** chart (a `CB.chart` host or its
+`#cbChartN`): accent teardrop pins + labels on a `--c-surface` plate with a hairline
+leader. Token-resolved at apply time **and** re-applied via the chart's registered
+`renderFn`, so a dark toggle re-themes them; each note is appended to the chart's
+data-table alt so it isn't canvas-only. `coord` is in data space. Use it to call out
+specific points (a peak, an incident) after the chart exists — vs. `CB.threshold` for a
+whole-axis reference line.
+
+---
+
+## Palette mode (`categoricalColors` / `ramp` `opts.mode`)
+
+`CB.categoricalColors(n, opts?)` and `CB.ramp(n, opts?)` now take an optional second
+arg. **Backward-compatible: existing 1-arg calls are byte-for-byte unchanged.**
+
+```text
+CB.categoricalColors(n, { mode? }) -> string[]   // peer series (regions/vendors/plans)
+CB.ramp(n, { mode? })             -> string[]    // ordered/sequential series
+  mode: 'analogous' | 'mono' | 'categorical' | 'sequential'
+  // resolution order: opts.mode > window.PALETTE_MODE > 'analogous'
+```
+- **`categoricalColors`** — `'analogous'` (default) is EXACTLY today's bounded-arc
+  output; `'mono'`/`'categorical'` widen/narrow the hue spread.
+- **`ramp`** — default/`'analogous'`/`'mono'`/`'categorical'` = today's exact dark→light
+  band; `'sequential'` = a perceptually-even **light→dark** ramp (`i=0` lightest).
+- Both re-read the **live accent**, so a dark re-theme is free; `n<=1` returns `[accent]`.
+
+Set the mode globally via `window.PALETTE_MODE` (or `REPORT_LOOK.paletteMode`, which
+`CB.applyLook` writes); a per-call `opts.mode` overrides it. Absent === `'analogous'` ===
+today. See `design-system.md` (Look system) for the theme.json `look.paletteMode` knob.
+
+---
+
+## Editorial / inline / annotation helpers (C05–C18)
+
+String-returning helpers compose into `innerHTML`; target-rendering ones render into a
+host. All emit shared `.cb-*` contract classes (styled by `cookiebite.css`) and re-theme
+(incl. dark) automatically. See `components.md` (Editorial components) for when-to-use +
+the tone contract.
+
+### `CB.lead(htmlOrText, opts?) -> string` — standfirst / leading paragraph
+
+```text
+htmlOrText,         // TRUSTED author HTML (inline bold/links compose)
+opts: {
+  measure?,         // false -> opt the paragraph OUT of the prose measure (full-bleed .cb-bleed)
+  dropcap?,         // true -> initial drop-cap (.cb-lead--dropcap)
+}
+```
+A `.cb-lead` standfirst (larger, looser than body) for the opening paragraph of a section
+or report. CSS owns the size/leading.
+
+### Callout family: `CB.note / tip / warning / danger / example(html, opts?)` + `CB.quote(html, opts?)`
+
+```text
+CB.note(html, { title? })     // tone info    — kicker 'NOTE',    icon info
+CB.tip(html, { title? })      // tone success  — kicker 'TIP',     icon lightbulb
+CB.warning(html, { title? })  // tone warning  — kicker 'WARNING', icon alert-triangle
+CB.danger(html, { title? })   // tone critical — kicker 'DANGER',  icon octagon-x
+CB.example(html, { title? })  // tone neutral  — kicker 'EXAMPLE', icon code
+CB.quote(html, { cite? })     // a <blockquote> .cb-quote; cite -> trailing <cite> (escaped)
+```
+Each returns a `.cb-callout` with a **locale-aware text kicker** (via `CB.t`) + a tone
+Lucide icon + the trusted body. `opts.title` overrides the kicker text. These are the
+admonition variants of the original `CB.callout` (which is untouched) — reach for the
+named variant when the box has a fixed role (a warning, a tip).
+
+### `CB.figure(target, config)` — wrap a chart/figure with a numbered caption
+
+```text
+config: {
+  number?,          // 'auto' (CSS-counter 'Fig. N') | a number (literal label) | false (no eyebrow)
+  title,            // figcaption title (escaped)
+  note?,            // secondary caption tier
+  source?,          // provenance tier (text-disabled)
+}
+```
+Wraps the host node **in place** inside a `<figure class="cb-figure">` with an optional
+`Fig. N` eyebrow + a tiered `<figcaption>`. Pairs with a chart's existing aria/data-table
+(the chart host stays the figure content). **Idempotent** — a re-run re-captions rather
+than double-wrapping. Default `number` is `'auto'`.
+
+### `CB.statusDot(tone, label, opts?) -> string` — labelled status dot
+
+```text
+CB.statusDot(toneName, label, { pulse?, size? })
+  toneName,         // neutral | info | success | warning | critical (CSS owns the color-mix)
+  label,            // REQUIRED text label — never color-alone
+  pulse?,           // true -> a single slow ring (gated on prefers-reduced-motion)
+  size?,            // dot diameter in px (default ~8px from CSS)
+```
+A filled tone dot + a **required** text label. The only inline knob is `size`; the dot
+color is owned by CSS via the modifier class. Use for a live status indicator (a service
+state, a build health).
+
+### `CB.whatChanged(target, items, opts?)` — value-diff block
+
+```text
+item: {
+  label,            // the row's name
+  from,             // old value (rendered struck, --c-disabled)
+  to,               // new value (--c-primary)
+  tone?,            // colors the Δ badge + arrow (default neutral)
+  delta?,           // badge text; auto-built from a numeric from→to when omitted
+}
+opts: { title?, emptyText? }
+```
+A 'value diff' block (`.cb-whatchanged`): per row, `old → new` with an aligned arrow and a
+`CB.deltaBadge` Δ. Numerics use `tabular-nums`; rows stack below `sm`. Use for a small
+config/metric before↔after (the textual sibling of `CB.shapes.dumbbell`).
+
+### `CB.epigraph(html, opts?) -> string` / `CB.pullquote(html) -> string` — quotations
+
+```text
+CB.epigraph(html, { cite? })  // small italic OPENING quotation (.cb-epigraph); cite -> <cite> (escaped)
+CB.pullquote(html)            // LARGE quotation with a hanging accent quote glyph (.cb-pullquote)
+```
+Real `<blockquote>`/`<cite>`. `epigraph` = a small opening epigram; `pullquote` = a large
+emphasized lift-out. Bodies are trusted HTML. Distinct from `CB.quote` (a callout-family
+inline blockquote).
+
+### `CB.kicker(text, opts?) -> string` + the `.cb-leadin` run-in class
+
+```text
+CB.kicker(text, { tone? })    // an eyebrow line (.cb-kicker) meant to sit directly above an <h2>
+  tone?,            // colors the eyebrow via the shared tone text class (default accent-strong look)
+```
+A section eyebrow/label. Its companion is the **`.cb-leadin`** class (the runtime emits
+**no** element for it — apply it by hand to the first inline `<span>`/`<b>` of an opening
+paragraph for a small-caps run-in): `<p><span class="cb-leadin">In short,</span> …</p>`.
+
+### `CB.legend(target, items, opts?)` — standalone / interactive legend
+
+```text
+item: { label, color?, value?, note? }
+opts: {
+  swatch?,          // 'square' (default) | 'line' | 'dot' — match the series' mark
+  interactive?,     // true -> each row is a <button aria-pressed> toggling a series
+  chart?,           // selector/instance of a registered ECharts chart to toggle
+}
+```
+A standalone `.cb-legend`; swatch colors default to `CB.categoricalColors(n)` and re-read
+the **live accent** (registered via `CB.onThemeChange`, so a dark toggle recolors them).
+Optional right-aligned `tabular-nums` value per row. `interactive:true` + `chart` makes
+each row a real button that fires `dispatchAction('legendToggleSelect')` on the chart —
+use it to give a multi-series chart a richer, value-bearing legend than ECharts' built-in.
+
+---
+
+## Look system: `CB.applyLook(look?) -> CB`
+
+```text
+CB.applyLook(look?)   // reads window.REPORT_LOOK (or the arg) and projects each field
+                      //   onto an html data-* attr OR an inline :root var.
+```
+Called **once at init** before charts render. Sets `data-density`/`elevation`/`surface`/
+`bg`/`header`; the `--radius-scale` (a number OR `'sharp'|'subtle'|'default'|'round'`),
+`--border-w`, `--border-style`, `--font-heading`, `--measure-prose`, `--measure-page`,
+`--dark-tint` (+ `data-dark-tint`); writes `window.PALETTE_MODE`; applies the named
+`--semantic-preset`. **Every field is optional; absent === today (touches nothing)** —
+this is the backward-compat guarantee. See `design-system.md` (the Look system) for every
+knob, its data-attr/CSS-var contract, and the theme.json `look:{}` block that emits
+`window.REPORT_LOOK` for this function to read.

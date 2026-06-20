@@ -291,6 +291,13 @@ every chart needs a data-table alternative + `aria-label`), and the **copy-must-
 visual** rule are all in **`references/craft.md`**. Read it while filling the template with
 real content. The Quality checklist below re-encodes the must-pass items as checkboxes.
 
+**`.cb-prose` / `.cb-lead` readability defaults.** For longform/narrative body text, the
+`.cb-prose` and `.cb-lead` classes clamp line length to `--measure-prose` (default 68ch;
+`.cb-lead` falls back to 58ch) so paragraphs stay readable instead of spanning the full
+page width. `COOKIEBITE.lead(html)` emits the standfirst class for you; pass
+`{ measure:false }` to opt one paragraph out (full-bleed) when you want it wide. The
+measure is a Look knob (`--measure-prose`) — see "Theming → Look system".
+
 
 ## Visual self-check (required)
 
@@ -405,6 +412,23 @@ invisible against it. `accentOnDark` is the optional companion field for that in
 defaults to a dark ink (`#111111`) when `accentDark` is present. Presets without
 `accentDark` emit nothing extra (unchanged behavior).
 
+**The Look system (structure knobs — orthogonal to color).** Beyond color/font, a report
+has an optional **Look**: a set of *structural* knobs — **density** (compact/comfortable/
+spacious), **corner radius**, **elevation**, **surface** treatment, **border** weight/style,
+**chart-palette mode** (analogous/mono/categorical/sequential), **heading font**, text
+**measure** (prose/page width), **page background** (plain/wash/pattern), **header** style,
+**semantic preset** (classic/muted/vivid/colorblind-safe), and **dark-mode tint**. Color
+asks "what hue?"; the Look asks "how sharp / dense / bordered / wide?".
+**Backward-compat is the contract: every knob defaults to today's look, so a report with
+no Look is byte-identical to before** — you opt in per knob, never wholesale. A Look is
+carried by `window.REPORT_LOOK = { …only the divergent knobs… }` (read once at init by
+`CB.applyLook`, which projects each field onto an `html data-*` attr or `:root` var) and,
+in a preset, by a sparse `theme.json` `look:{}` object (omitted entirely when all-default).
+The **theme studio has a Look tab** for all of it. Full knob table, CSS-var/data-attr
+contract, defaults, and the theme.json block are in
+**`references/design-system.md` → "The Look system"**; the `CB.applyLook` /
+`categoricalColors`/`ramp` `mode` signatures are in `references/helpers.md`.
+
 **Choosing/changing the theme:**
 
 - **Default**: the template ships with the **Persimmon** preset (Pretendard, Tomato
@@ -495,6 +519,15 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | `COOKIEBITE.pseudocode(target, codeOrLines, opts?)` | escaped annotated-code / pseudocode block with numbered gutter + inline notes | `components.md` "Pseudocode" |
 | `COOKIEBITE.matrix(target, { rows, cols, data, … })` | generic rows×cols×value grid-heatmap (cohort/retention/confusion), single-hue accent ramp; `heatmap` stays calendar-only | `helpers.md` (CB.matrix) |
 | `COOKIEBITE.actionItems(target, items[{title, owner?, due?, priority?, body?}], opts?)` | priority-pill action list + owner/due meta + collapsible `<details>` body + optional copy-as-markdown | `components.md` "Checklist / todo" |
+| `COOKIEBITE.shapes.{dumbbell,slope,lollipop,rangeDot,histogram,stackedBar}(cfg)` | **pure ECharts-`option` builders** (pass to `CB.chart`) — dumbbell/slope (two-point change), lollipop/rangeDot (ranking/range), histogram (distribution), stackedBar (composition) | `libraries.md` "which chart-shape builder when" + `helpers.md` |
+| `COOKIEBITE.threshold(option, { value, tone, band?, axis? })` / `COOKIEBITE.annotate(chartSel, points)` | **transformers** (not builders): `threshold` merges a themed reference line/band onto an author option (stackable); `annotate` pins labelled points on a registered chart | `helpers.md` (threshold/annotate) |
+| `COOKIEBITE.lead(html, opts?)` / `COOKIEBITE.kicker(text, opts?)` | return **strings**: a `.cb-lead` standfirst (opening paragraph) / a `.cb-kicker` section eyebrow above an `<h2>` | `components.md` "Editorial components" |
+| `COOKIEBITE.note/tip/warning/danger/example(html, opts?)` / `COOKIEBITE.quote(html, opts?)` | return **strings**: the callout **family** — admonitions with a fixed tone + locale kicker + icon (note/tip/warning/danger/example), plus an inline `.cb-quote` blockquote | `components.md` "Editorial components" |
+| `COOKIEBITE.figure(target, { number?, title, note?, source? })` | wraps the host **in place** in a `<figure>` with a numbered `Fig. N` eyebrow + tiered figcaption (title/note/source); idempotent | `components.md` "Editorial components" |
+| `COOKIEBITE.statusDot(tone, label, opts?)` / `COOKIEBITE.trendChip(value, opts?)` | return **strings**: a tone dot + **required** label (live status) / an inline up/down/flat trend chip + delta + optional sparkline | `components.md` + `helpers.md` |
+| `COOKIEBITE.whatChanged(target, items[{label, from, to, tone?}], opts?)` | a value-diff block: per row `old → new` (old struck) + an auto Δ badge; the textual sibling of the dumbbell chart | `helpers.md` (CB.whatChanged) |
+| `COOKIEBITE.epigraph(html, opts?)` / `COOKIEBITE.pullquote(html)` | return **strings**: a small italic opening epigraph / a large accent-glyph lift-out pullquote | `components.md` "Editorial components" |
+| `COOKIEBITE.legend(target, items, opts?)` | standalone legend (square/line/dot swatch, optional value column); `interactive:true` + `chart` toggles series on a registered ECharts chart | `helpers.md` (CB.legend) |
 | `COOKIEBITE.search(opts?)` | **opt-in** sticky search bar filtering/dimming `[data-searchable]` regions with `<mark>` highlight | `helpers.md` (CB.search) |
 | `COOKIEBITE.densityToggle()` / `COOKIEBITE.permalinks(opts?)` | **opt-in** chrome: a compact-density toggle (`html[data-density]`, localStorage) / hover `#` section permalinks (copy section URL) | — |
 | `COOKIEBITE.print()` / `COOKIEBITE.audit()` | `print()` forces light + expands `<details>`/tab panels then `window.print()`; `audit()` is a dev-only DOM a11y/contrast audit (also `?audit=1`) | — |

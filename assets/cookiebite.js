@@ -137,6 +137,8 @@
       density: 'Toggle density', auditTitle: 'Audit',
       details: 'Details', copyMarkdown: 'Copy as Markdown',
       mermaidFail: 'Diagram failed to render — check the Mermaid definition.',
+      coNote: 'NOTE', coTip: 'TIP', coWarning: 'WARNING', coDanger: 'DANGER', coExample: 'EXAMPLE',
+      figAbbr: 'Fig.',
     },
     ko: {
       noData: '데이터 없음',
@@ -155,6 +157,8 @@
       density: '밀도 전환', auditTitle: '점검',
       details: '상세', copyMarkdown: 'Markdown 복사',
       mermaidFail: '다이어그램 렌더 실패 — Mermaid 정의를 확인하세요.',
+      coNote: '참고', coTip: '팁', coWarning: '주의', coDanger: '위험', coExample: '예시',
+      figAbbr: '그림',
     },
     /* ja ships ONLY the cells that differ from en where trivial; missing keys fall
        back to en via the t() resolver, so a ja report degrades gracefully. */
@@ -239,8 +243,10 @@
     }
     return [h * 360, s, l];
   }
-  CB.categoricalColors = function (n) {
-    n = n || 1;
+  // resolve the live accent to [r,g,b] (handles #RGB/#RRGGBB and rgb()/rgba()/named via
+  // the cssColor probe). Shared by categoricalColors/ramp so the palette modes all read
+  // the SAME accent and re-theme for free on a dark toggle.
+  function accentRgb() {
     var raw = CB.theme.ACCENT || '#E8552D', r, g, b;
     if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) {
       var h = raw.replace('#', '');
@@ -250,8 +256,64 @@
       var m = (cssColor('--accent', '#E8552D') || '').match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
       if (m) { r = +m[1]; g = +m[2]; b = +m[3]; } else { r = 232; g = 85; b = 45; }
     }
-    if (n <= 1) return [CB.theme.ACCENT || raw];
-    var hsl = rgbToHsl(r, g, b), baseH = hsl[0], s = Math.max(0.45, hsl[1]), l0 = Math.min(0.62, Math.max(0.42, hsl[2]));
+    return [r, g, b];
+  }
+
+  // resolve the palette mode for a call: opts.mode override > window.PALETTE_MODE > default.
+  // 'analogous' is the historical default (bit-for-bit today's output); unknown values fall
+  // back to 'analogous' so a typo never produces a rainbow.
+  function resolvePaletteMode(opts) {
+    var m = (opts && opts.mode) || window.PALETTE_MODE || 'analogous';
+    return (m === 'mono' || m === 'categorical' || m === 'sequential') ? m : 'analogous';
+  }
+
+  /* CB.categoricalColors(n, opts?) -> [color×n] for PEER series. Honors the active
+     palette mode (window.PALETTE_MODE or opts.mode):
+       'analogous'   (default) — EXACTLY today's bounded-arc output, byte-for-byte.
+       'mono'        — one hue; series separate by Lightness/Saturation only (quietest).
+       'categorical' — wider, evenly-spaced hues with S/L locked near the accent (many peers).
+       'sequential'  — perceptually-even light->dark on the accent hue (ordered peers).
+     All re-read the live accent so a dark toggle re-themes for free. n<=1 -> just the accent. */
+  CB.categoricalColors = function (n, opts) {
+    n = n || 1;
+    var rgb = accentRgb(), r = rgb[0], g = rgb[1], b = rgb[2];
+    if (n <= 1) return [CB.theme.ACCENT || '#E8552D'];
+    var hsl = rgbToHsl(r, g, b), baseH = hsl[0];
+    var mode = resolvePaletteMode(opts);
+
+    if (mode === 'mono') {
+      // single accent hue; peers separate by a bounded L sweep (dark .. light) with a
+      // gentle S taper so adjacent series stay distinguishable without rotating hue.
+      var mh = Math.round(baseH), ms = Math.max(0.40, hsl[1]);
+      var mo = [];
+      for (var mi = 0; mi < n; mi++) {
+        var mf = i01(mi, n);
+        var ml = 0.40 + (0.70 - 0.40) * mf;
+        var msi = Math.max(0.30, ms - 0.12 * mf);
+        mo.push('hsl(' + mh + ',' + Math.round(msi * 100) + '%,' + Math.round(ml * 100) + '%)');
+      }
+      return mo;
+    }
+    if (mode === 'sequential') {
+      // ordered peers: same hue, perceptually-even light->dark (delegates to ramp's band
+      // but reversed so index 0 is the LIGHTEST start of an ordered run).
+      return CB.ramp(n, { mode: 'sequential' });
+    }
+    if (mode === 'categorical') {
+      // many distinct peers: evenly-spaced hues across a WIDE arc (240°) with S/L pinned
+      // near the accent so the family still reads as one palette, just broader.
+      var cs = Math.max(0.45, Math.min(0.7, hsl[1]));
+      var cl = Math.min(0.60, Math.max(0.44, hsl[2]));
+      var co = [];
+      for (var ci = 0; ci < n; ci++) {
+        var ch = ((baseH + 240 * i01(ci, n)) % 360 + 360) % 360;
+        co.push('hsl(' + Math.round(ch) + ',' + Math.round(cs * 100) + '%,' + Math.round(cl * 100) + '%)');
+      }
+      return co;
+    }
+
+    // 'analogous' (default) — UNCHANGED historical output.
+    var s = Math.max(0.45, hsl[1]), l0 = Math.min(0.62, Math.max(0.42, hsl[2]));
     // bounded arc: index 0 sits ON the accent hue (the PRIMARY series stays the accent),
     // and later series sweep FORWARD across a span that TIGHTENS for small n so a 2- or
     // 3-series chart reads as one accent family, not a rainbow:
@@ -268,6 +330,8 @@
     }
     return out;
   };
+  // even fraction 0..1 across n items (n>1 guaranteed by callers).
+  function i01(i, n) { return n <= 1 ? 0 : i / (n - 1); }
 
   /* CB.ramp(n) -> [color×n]: n shades of ONE accent hue, light -> dark, for
      SEQUENTIAL/ordered data (funnel steps, a stacked area of one metric across
@@ -276,27 +340,37 @@
      reads as "more vs less", not "different things". Re-reads the live accent so
      it follows dark re-theme. n<=1 returns just the accent. */
   function accentHsl() {
-    var raw = CB.theme.ACCENT || '#E8552D', r, g, b;
-    if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw)) {
-      var h = raw.replace('#', '');
-      if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
-      r = parseInt(h.slice(0, 2), 16); g = parseInt(h.slice(2, 4), 16); b = parseInt(h.slice(4, 6), 16);
-    } else {
-      var m = (cssColor('--accent', '#E8552D') || '').match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
-      if (m) { r = +m[1]; g = +m[2]; b = +m[3]; } else { r = 232; g = 85; b = 45; }
-    }
-    return rgbToHsl(r, g, b);
+    var rgb = accentRgb();
+    return rgbToHsl(rgb[0], rgb[1], rgb[2]);
   }
-  CB.ramp = function (n) {
+  /* CB.ramp(n, opts?) -> [color×n]: shades of ONE accent hue for SEQUENTIAL/ordered data.
+     ramp is single-hue by nature, so the palette mode only nudges the lightness curve:
+       default ('analogous'/absent) — EXACTLY today's dark->light band, byte-for-byte.
+       'sequential' — perceptually-even light->dark (REVERSED: i=0 lightest start of a run).
+       'mono'/'categorical' — fall back to the default band (ramp has no hue to sweep). */
+  CB.ramp = function (n, opts) {
     n = n || 1;
     if (n <= 1) return [CB.theme.ACCENT || '#E8552D'];
     var hsl = accentHsl(), baseH = Math.round(hsl[0]), s = Math.round(Math.max(0.42, hsl[1]) * 100);
-    // ramp lightness across a bounded band (dark ~38% -> light ~72%) on the accent's
-    // own hue+sat. i=0 is the DARKEST (heaviest emphasis — funnel top, peak density);
-    // later steps lighten. Bounded so neither end blows out to black/white.
-    var L_DARK = 0.38, L_LIGHT = 0.72, out = [];
-    for (var i = 0; i < n; i++) {
-      var l = L_DARK + (L_LIGHT - L_DARK) * (i / (n - 1));
+    var mode = resolvePaletteMode(opts);
+    var out = [], i, l;
+    if (mode === 'sequential') {
+      // perceptually-even light -> dark for an ordered series read top-to-bottom: i=0 is
+      // the LIGHTEST (low value) and later steps darken (high value). Slightly wider band
+      // than the default so the low end reads as "near empty".
+      var SL_LIGHT = 0.80, SL_DARK = 0.34;
+      for (i = 0; i < n; i++) {
+        l = SL_LIGHT + (SL_DARK - SL_LIGHT) * (i / (n - 1));
+        out.push('hsl(' + baseH + ',' + s + '%,' + Math.round(l * 100) + '%)');
+      }
+      return out;
+    }
+    // default — ramp lightness across a bounded band (dark ~38% -> light ~72%) on the
+    // accent's own hue+sat. i=0 is the DARKEST (heaviest emphasis — funnel top, peak
+    // density); later steps lighten. Bounded so neither end blows out to black/white.
+    var L_DARK = 0.38, L_LIGHT = 0.72;
+    for (i = 0; i < n; i++) {
+      l = L_DARK + (L_LIGHT - L_DARK) * (i / (n - 1));
       out.push('hsl(' + baseH + ',' + s + '%,' + Math.round(l * 100) + '%)');
     }
     return out;
@@ -2024,6 +2098,511 @@
   };
 
   /* ==========================================================================
+     CHART-SHAPE additions (C01/C02/C03/C04/C12/C13/C24) — same contract as the
+     shapes above: pure option builders the author passes to CB.chart, which owns
+     dark re-theme + the data-table + aria. Colors are resolved at BUILD time via
+     CB.theme / cssColor / CB.ramp / CB.categoricalColors / accentRgba — NEVER
+     var(--*) on canvas — and because the result flows through CB.chart they
+     re-resolve on a dark toggle. Horizontal + label-safe defaults so Korean
+     labels never clip; one accent hue + neutral connectors, never a rainbow.
+     ========================================================================== */
+
+  // semantic tone token -> resolved color (read live so dark re-theme flips it).
+  // 'neutral' has no semantic color; callers decide its fallback (usually --c-secondary).
+  var SEMANTIC_TOKEN = {
+    critical: '--c-critical', danger: '--c-critical',
+    warning: '--c-cautionary', cautionary: '--c-cautionary',
+    success: '--c-positive', positive: '--c-positive',
+    info: '--c-informative', informative: '--c-informative',
+  };
+  function toneColor(tone, fallback) {
+    var v = SEMANTIC_TOKEN[tone];
+    return v ? cssColor(v, fallback || CB.theme.C_SECONDARY || '#52525B') : (fallback || CB.theme.C_SECONDARY || '#52525B');
+  }
+
+  /* C01 — CB.shapes.dumbbell({ rows:[{label,from,to}], series?, showDelta?, sortBy? }) -> option
+     Horizontal dumbbell (connected-dot) chart for FROM→TO change per row. A neutral
+     connector line (--c-line-weak) joins a HOLLOW from-dot (accentRgba(.12) fill,
+     accentRgba(.55) stroke) to a SOLID to-dot (the accent). Never categorical — one
+     accent hue carries the "now" state; the connector stays neutral so the eye reads
+     direction, not category.
+       rows: [{label, from, to}]. series: [fromName, toName] for the legend (default
+         ['from','to']). showDelta: true -> a right-edge tabular-nums Δ label per row,
+         toned via the semantic token ONLY when it crosses `threshold` (else
+         --c-secondary). sortBy: 'delta' | 'to' | null — reorder rows (desc).
+       threshold: number (default 0) — the sign/crossing line for the Δ tone.
+     Table: pass { columns:[labelHdr, fromName, toName, 'Δ'], rows: rows.map(r=>[r.label,r.from,r.to,r.to-r.from]) }. */
+  CB.shapes.dumbbell = function (cfg) {
+    cfg = cfg || {};
+    var rows = (cfg.rows || []).slice();
+    var ser = cfg.series || ['from', 'to'];
+    var thr = cfg.threshold != null ? +cfg.threshold : 0;
+    if (cfg.sortBy === 'delta') rows.sort(function (a, b) { return ((b.to - b.from) - (a.to - a.from)); });
+    else if (cfg.sortBy === 'to') rows.sort(function (a, b) { return (b.to - a.to); });
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var connector = CB.theme.C_LINE || '#E4E4E7';
+    var cats = rows.map(function (r) { return r.label; });
+    // connector: a thin line series per row drawn as a 2-point custom — simplest is a
+    // 'lines'-free approach using two bar-less scatter points joined by markLine. We
+    // model each row as a horizontal line via a custom series of [from,to] on the row.
+    return {
+      legend: { data: ser, textStyle: { color: CB.theme.C_SECONDARY }, top: 0 },
+      // extra right pad so the Δ label (position right of the to-dot) never clips.
+      grid: { left: 8, right: cfg.showDelta ? 64 : 24, top: 28, bottom: 8, containLabel: true },
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          var r = rows[p.dataIndex == null ? p.data[1] : p.dataIndex] || rows[p.dataIndex];
+          if (!r) return '';
+          return r.label + '<br/>' + ser[0] + ': ' + CB.nf.format(r.from) + '<br/>' + ser[1] + ': ' + CB.nf.format(r.to) +
+            '<br/>Δ ' + (r.to - r.from >= 0 ? '+' : '') + CB.nf.format(r.to - r.from);
+        },
+      },
+      xAxis: { type: 'value', scale: true },
+      yAxis: { type: 'category', data: cats, axisTick: { show: false } },
+      series: [
+        { // connectors — one custom-rendered line per row, neutral
+          type: 'custom', silent: true, z: 1,
+          renderItem: function (params, api) {
+            var i = api.value(2);
+            var p1 = api.coord([api.value(0), i]);
+            var p2 = api.coord([api.value(1), i]);
+            return { type: 'line', shape: { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] }, style: { stroke: connector, lineWidth: 2 } };
+          },
+          // encode [from, to, rowIndex] per row
+          data: rows.map(function (r, i) { return [r.from, r.to, i]; }),
+          encode: { x: [0, 1], y: 2 },
+        },
+        { // FROM dot — hollow
+          name: ser[0], type: 'scatter', symbolSize: 10, z: 2,
+          itemStyle: { color: accentRgba(0.12), borderColor: accentRgba(0.55), borderWidth: 1.5 },
+          data: rows.map(function (r, i) { return [r.from, i]; }),
+        },
+        { // TO dot — solid accent (+ optional Δ label hung off the to-dot)
+          name: ser[1], type: 'scatter', symbolSize: 10, z: 3,
+          itemStyle: { color: accent },
+          label: cfg.showDelta ? {
+            show: true, position: 'right', distance: 10,
+            fontFamily: CB.theme.FONT, fontSize: 12, fontWeight: 600,
+            formatter: function (p) { var d = rows[p.dataIndex].to - rows[p.dataIndex].from; return (d >= 0 ? '+' : '') + CB.nf.format(d); },
+            // tone only when the delta CROSSES the threshold; else neutral secondary.
+            color: function (p) {
+              var r = rows[p.dataIndex], d = r.to - r.from;
+              var crossed = (r.from - thr) * (r.to - thr) < 0 || (r.to === thr && r.from !== thr);
+              if (!crossed) return CB.theme.C_SECONDARY;
+              return d >= 0 ? toneColor('positive') : toneColor('critical');
+            },
+          } : { show: false },
+          data: rows.map(function (r, i) { return [r.to, i]; }),
+        },
+      ],
+    };
+  };
+
+  /* C02 — CB.shapes.stackedBar({ categories, series, mode?, horizontal?, peer? }) -> option
+     Horizontal-default stacked bar. peer:false (default) -> CB.ramp(series.length):
+     ORDERED tiers of one accent hue (low→high reads as "more vs less"). peer:true ->
+     CB.categoricalColors(series.length): independent peers sweep the bounded accent arc.
+     mode:'percent' normalizes each category to 100%. Inside % labels auto-hide when a
+     segment's share < ~8% (avoids label collisions on thin slivers). 1px --c-bg gutters
+     separate stacks; legend on.
+       categories: string[]. series: [{name, data:number[]}] (data aligned to categories).
+       mode: 'stack' (default) | 'percent'. horizontal: true (default). peer: false (default).
+     Table: pass { columns:['', ...series names], rows: categories.map((c,i)=>[c, ...series.map(s=>s.data[i])]) }. */
+  CB.shapes.stackedBar = function (cfg) {
+    cfg = cfg || {};
+    var cats = cfg.categories || [];
+    var series = cfg.series || [];
+    var horizontal = cfg.horizontal !== false;
+    var percent = cfg.mode === 'percent';
+    var colors = cfg.peer ? CB.categoricalColors(series.length || 1) : CB.ramp(series.length || 1);
+    var gutter = cssColor('--c-bg', '#fff');
+    // per-category totals for percent normalization + share-based label hiding.
+    var totals = cats.map(function (_, i) {
+      return series.reduce(function (sum, s) { return sum + (+(s.data[i] || 0)); }, 0) || 1;
+    });
+    var es = series.map(function (s, si) {
+      return {
+        name: s.name, type: 'bar', stack: 'sb',
+        itemStyle: { color: colors[si], borderColor: gutter, borderWidth: 1 },
+        data: s.data.map(function (v, i) {
+          v = +(v || 0);
+          return percent ? +(v / totals[i] * 100).toFixed(2) : v;
+        }),
+        label: {
+          show: true, position: 'inside', fontFamily: CB.theme.FONT, fontSize: 11,
+          color: cssColor('--accent-on', '#fff'),
+          // hide the inside label when this segment's share < ~8% (too thin to fit).
+          formatter: function (p) {
+            var raw = +(s.data[p.dataIndex] || 0);
+            var share = raw / totals[p.dataIndex];
+            if (share < 0.08) return '';
+            return percent ? Math.round(share * 100) + '%' : CB.nf.format(raw);
+          },
+        },
+      };
+    });
+    var valAxis = { type: 'value', max: percent ? 100 : null, axisLabel: percent ? { formatter: '{value}%' } : {} };
+    var catAxis = { type: 'category', data: cats, axisTick: { show: false } };
+    return {
+      legend: { data: series.map(function (s) { return s.name; }), textStyle: { color: CB.theme.C_SECONDARY }, top: 0 },
+      grid: { left: 8, right: 16, top: 28, bottom: 8, containLabel: true },
+      tooltip: {
+        trigger: 'axis', axisPointer: { type: 'shadow' },
+        formatter: function (ps) {
+          var head = (ps[0] && ps[0].axisValue) || '';
+          var body = ps.map(function (p) {
+            var raw = +(series[p.seriesIndex].data[p.dataIndex] || 0);
+            return p.marker + p.seriesName + ': ' + CB.nf.format(raw) + (percent ? ' (' + Math.round(raw / totals[p.dataIndex] * 100) + '%)' : '');
+          }).join('<br/>');
+          return head + '<br/>' + body;
+        },
+      },
+      xAxis: horizontal ? valAxis : catAxis,
+      yAxis: horizontal ? catAxis : valAxis,
+      series: es,
+    };
+  };
+
+  /* C03 — CB.shapes.histogram({ values, bins?, showMean? }) -> option
+     Vertical frequency histogram. Auto-bins via Freedman–Diaconis (IQR-based bin
+     WIDTH), falling back to Sturges' rule for small/degenerate n. Bars are the accent
+     with 1px --c-bg separators and a faint accentRgba(.10) area echo behind them.
+     showMean -> a dashed --c-secondary markLine at the mean (label position 'start' so
+     it never clips). Bin labels are terse locale-formatted ranges.
+       values: number[]. bins: 'auto' (default) | number (explicit bin count).
+       showMean: true (default) — draw the mean markLine.
+     Table: pass { columns:['bin','count'], rows: <built from the same binning> } — or
+     simplest, the author tables the raw values; the chart's aria already states the shape. */
+  CB.shapes.histogram = function (cfg) {
+    cfg = cfg || {};
+    var vals = (cfg.values || []).filter(function (v) { return typeof v === 'number' && isFinite(v); }).slice().sort(function (a, b) { return a - b; });
+    var n = vals.length;
+    var accent = CB.theme.ACCENT || '#E8552D';
+    if (!n) return { xAxis: { type: 'category', data: [] }, yAxis: { type: 'value' }, series: [] };
+    var min = vals[0], max = vals[n - 1], range = max - min;
+    // bin count: explicit, else Freedman–Diaconis (fallback Sturges).
+    var binCount;
+    if (typeof cfg.bins === 'number' && cfg.bins > 0) {
+      binCount = Math.round(cfg.bins);
+    } else {
+      var q = function (p) { var idx = (n - 1) * p, lo = Math.floor(idx), hi = Math.ceil(idx); return vals[lo] + (vals[hi] - vals[lo]) * (idx - lo); };
+      var iqr = q(0.75) - q(0.25);
+      var fdWidth = iqr > 0 ? 2 * iqr / Math.cbrt(n) : 0;
+      if (fdWidth > 0 && range > 0) binCount = Math.max(1, Math.min(60, Math.ceil(range / fdWidth)));
+      else binCount = Math.max(1, Math.ceil(Math.log2(n) + 1)); // Sturges fallback
+    }
+    var width = range > 0 ? range / binCount : 1;
+    var counts = new Array(binCount).fill(0), labels = [];
+    for (var i = 0; i < n; i++) {
+      var bi = range > 0 ? Math.min(binCount - 1, Math.floor((vals[i] - min) / width)) : 0;
+      counts[bi]++;
+    }
+    for (var b = 0; b < binCount; b++) {
+      var lo = min + b * width, hi = lo + width;
+      labels.push(CB.nf.format(+lo.toFixed(2)) + '–' + CB.nf.format(+hi.toFixed(2)));
+    }
+    var mean = vals.reduce(function (s, v) { return s + v; }, 0) / n;
+    var meanBin = range > 0 ? Math.min(binCount - 1, (mean - min) / width) : 0; // fractional x for the line
+    var series = [{
+      type: 'bar', barCategoryGap: '0%',
+      itemStyle: { color: accent, borderColor: cssColor('--c-bg', '#fff'), borderWidth: 1 },
+      data: counts,
+      // faint area echo: a translucent fill behind the bars via a backing area series is
+      // overkill; instead tint each bar's emphasis softly. The bars themselves carry the
+      // accent; the echo is the subtle accentRgba background of the grid (markArea below).
+      markArea: {
+        silent: true,
+        itemStyle: { color: accentRgba(0.10) },
+        data: [[{ xAxis: 0 }, { xAxis: binCount - 1 }]],
+      },
+    }];
+    if (cfg.showMean !== false) {
+      series[0].markLine = {
+        symbol: 'none', silent: true,
+        lineStyle: { color: CB.theme.C_SECONDARY, type: 'dashed', width: 1 },
+        label: { show: true, position: 'start', color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT, formatter: function () { return CB.t ? (CB.t('mean', 'mean') + ' ' + CB.nf.format(+mean.toFixed(2))) : ('mean ' + CB.nf.format(+mean.toFixed(2))); } },
+        data: [{ xAxis: meanBin }],
+      };
+    }
+    return {
+      grid: { left: 8, right: 16, top: 24, bottom: 8, containLabel: true },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function (ps) { var p = ps[0]; return p.axisValue + '<br/>' + CB.nf.format(p.value); } },
+      xAxis: { type: 'category', data: labels, axisLabel: { color: CB.theme.C_SECONDARY, hideOverlap: true } },
+      yAxis: { type: 'value' },
+      series: series,
+    };
+  };
+
+  /* C12 — CB.shapes.rangeDot({ rows:[{label,low,high,value,band?}], unit? }) -> option
+     Horizontal min–max range with a current-value dot per row. Each row is a rounded
+     accentRgba(.10) capsule track from low→high; an optional inner p25–p75 band (one
+     CB.ramp step darker) sits inside; the current value is a solid accent dot. Single-hue
+     ramp — never categorical.
+       rows: [{label, low, high, value, band?:[q1,q3]}]. unit: string for tooltips.
+     Table: pass { columns:[labelHdr,'low','high','value'], rows: rows.map(r=>[r.label,r.low,r.high,r.value]) }. */
+  CB.shapes.rangeDot = function (cfg) {
+    cfg = cfg || {};
+    var rows = cfg.rows || [];
+    var unit = cfg.unit || '';
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var ramp = CB.ramp(3); // step 0 darkest .. used for the inner band tint
+    var bandColor = ramp[1] || accent;
+    var cats = rows.map(function (r) { return r.label; });
+    return {
+      grid: { left: 8, right: 24, top: 16, bottom: 8, containLabel: true },
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          var r = rows[typeof p.dataIndex === 'number' ? p.dataIndex : 0];
+          if (!r) return '';
+          var bandTxt = r.band ? '<br/>p25–p75: ' + CB.nf.format(r.band[0]) + '–' + CB.nf.format(r.band[1]) : '';
+          return r.label + '<br/>' + CB.nf.format(r.low) + '–' + CB.nf.format(r.high) + unit + '<br/>● ' + CB.nf.format(r.value) + unit + bandTxt;
+        },
+      },
+      xAxis: { type: 'value', scale: true },
+      yAxis: { type: 'category', data: cats, axisTick: { show: false } },
+      series: [
+        { // min–max capsule track (rounded caps) — custom render per row
+          type: 'custom', silent: true, z: 1,
+          renderItem: function (params, api) {
+            var i = api.value(0);
+            var p1 = api.coord([api.value(1), i]);
+            var p2 = api.coord([api.value(2), i]);
+            var h = 12;
+            return { type: 'rect', shape: { x: p1[0], y: p1[1] - h / 2, width: Math.max(1, p2[0] - p1[0]), height: h, r: h / 2 }, style: { fill: accentRgba(0.10) } };
+          },
+          data: rows.map(function (r, i) { return [i, r.low, r.high]; }),
+          encode: { x: [1, 2], y: 0 },
+        },
+        { // optional inner p25–p75 band — one ramp step darker
+          type: 'custom', silent: true, z: 2,
+          renderItem: function (params, api) {
+            var idx = api.value(0), r = rows[idx];
+            if (!r || !r.band) return null;
+            var p1 = api.coord([r.band[0], idx]);
+            var p2 = api.coord([r.band[1], idx]);
+            var h = 12;
+            return { type: 'rect', shape: { x: p1[0], y: p1[1] - h / 2, width: Math.max(1, p2[0] - p1[0]), height: h, r: 3 }, style: { fill: bandColor, opacity: 0.45 } };
+          },
+          data: rows.map(function (r, i) { return [i]; }),
+          encode: { x: [], y: 0 },
+        },
+        { // current value — solid accent dot
+          type: 'scatter', symbolSize: 11, z: 3,
+          itemStyle: { color: accent },
+          data: rows.map(function (r, i) { return [r.value, i]; }),
+        },
+      ],
+    };
+  };
+
+  /* C13 — CB.shapes.lollipop({ rows:[{label,value,tone?}], baseline?, sort?, horizontal? }) -> option
+     Lollipop: a thin --c-line-weak stem to a ~10px end-dot (accent, or the row's tone
+     token). Horizontal default; whitespace separates rows. An optional baseline turns it
+     into a DEVIATION chart (stems start at baseline; dots above/below it). The value
+     label is always present.
+       rows: [{label, value, tone?}]. baseline: number — deviation origin (default 0 when
+       baseline passed; otherwise stems start at the axis min). sort: 'desc'|'asc'|null.
+       horizontal: true (default).
+     Table: pass { columns:[labelHdr,'value'], rows: rows.map(r=>[r.label,r.value]) }. */
+  CB.shapes.lollipop = function (cfg) {
+    cfg = cfg || {};
+    var rows = (cfg.rows || []).slice();
+    if (cfg.sort === 'desc') rows.sort(function (a, b) { return b.value - a.value; });
+    else if (cfg.sort === 'asc') rows.sort(function (a, b) { return a.value - b.value; });
+    var horizontal = cfg.horizontal !== false;
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var stemColor = CB.theme.C_LINE || '#E4E4E7';
+    var hasBaseline = cfg.baseline != null;
+    var baseline = hasBaseline ? +cfg.baseline : 0;
+    var cats = rows.map(function (r) { return r.label; });
+    var dotColor = function (r) { return r.tone ? toneColor(r.tone, accent) : accent; };
+    var catAxis = { type: 'category', data: cats, axisTick: { show: false } };
+    var valAxis = { type: 'value', scale: true };
+    return {
+      grid: { left: 8, right: 28, top: 16, bottom: 8, containLabel: true },
+      tooltip: {
+        trigger: 'item',
+        formatter: function (p) {
+          var r = rows[typeof p.dataIndex === 'number' ? p.dataIndex : 0];
+          return r ? r.label + ': ' + CB.nf.format(r.value) : '';
+        },
+      },
+      xAxis: horizontal ? valAxis : catAxis,
+      yAxis: horizontal ? catAxis : valAxis,
+      series: [
+        { // stems — from baseline (or axis origin) to the value
+          type: 'custom', silent: true, z: 1,
+          renderItem: function (params, api) {
+            var i = api.value(0), v = api.value(1);
+            var from = horizontal ? api.coord([baseline, i]) : api.coord([i, baseline]);
+            var to = horizontal ? api.coord([v, i]) : api.coord([i, v]);
+            return { type: 'line', shape: { x1: from[0], y1: from[1], x2: to[0], y2: to[1] }, style: { stroke: stemColor, lineWidth: 2 } };
+          },
+          data: rows.map(function (r, i) { return [i, r.value]; }),
+          encode: horizontal ? { x: 1, y: 0 } : { x: 0, y: 1 },
+        },
+        { // end-dots + always-on value label
+          type: 'scatter', symbolSize: 11, z: 2,
+          itemStyle: { color: function (p) { return dotColor(rows[p.dataIndex]); } },
+          label: {
+            show: true, position: horizontal ? 'right' : 'top', distance: 8,
+            color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT, fontSize: 12,
+            formatter: function (p) { return CB.nf.format(rows[p.dataIndex].value); },
+          },
+          data: rows.map(function (r, i) { return horizontal ? [r.value, i] : [i, r.value]; }),
+          markLine: hasBaseline ? {
+            symbol: 'none', silent: true,
+            lineStyle: { color: stemColor, type: 'dashed', width: 1 },
+            data: [horizontal ? { xAxis: baseline } : { yAxis: baseline }],
+          } : undefined,
+        },
+      ],
+    };
+  };
+
+  /* C24 — CB.shapes.slope({ items:[{label,from,to}], left?, right?, mode?, highlight? }) -> option
+     Two-axis slope / bump chart. Every item is a line from the LEFT axis value to the
+     RIGHT axis value; most are muted (--c-line-weak), highlighted items are solid accent.
+     End labels are tabular-nums with leader dots. mode:'rank' reorders/positions by rank
+     (1 at top) instead of raw value — a bump chart.
+       items: [{label, from, to}]. left/right: axis captions (default 'before'/'after').
+       mode: 'value' (default) | 'rank'. highlight: [labels] — emphasize these items.
+     Table: pass { columns:[labelHdr, leftCap, rightCap], rows: items.map(i=>[i.label,i.from,i.to]) }. */
+  CB.shapes.slope = function (cfg) {
+    cfg = cfg || {};
+    var items = (cfg.items || []).slice();
+    var leftCap = cfg.left || 'before';
+    var rightCap = cfg.right || 'after';
+    var isRank = cfg.mode === 'rank';
+    var hi = {};
+    (cfg.highlight || []).forEach(function (l) { hi[l] = true; });
+    var accent = CB.theme.ACCENT || '#E8552D';
+    var muted = CB.theme.C_LINE || '#E4E4E7';
+    // for rank mode, convert raw values to positions (1 = best/top). Higher value = better
+    // rank here; ECharts y is inverted below so rank 1 sits at the top.
+    var yFrom, yTo;
+    if (isRank) {
+      var byFrom = items.slice().sort(function (a, b) { return b.from - a.from; });
+      var byTo = items.slice().sort(function (a, b) { return b.to - a.to; });
+      yFrom = {}; yTo = {};
+      byFrom.forEach(function (it, i) { yFrom[it.label] = i + 1; });
+      byTo.forEach(function (it, i) { yTo[it.label] = i + 1; });
+    }
+    var lineSeries = items.map(function (it) {
+      var on = hi[it.label];
+      var fy = isRank ? yFrom[it.label] : it.from;
+      var ty = isRank ? yTo[it.label] : it.to;
+      return {
+        type: 'line', name: it.label, symbol: 'circle', symbolSize: on ? 7 : 5, z: on ? 3 : 1,
+        lineStyle: { color: on ? accent : muted, width: on ? 2.5 : 1 },
+        itemStyle: { color: on ? accent : muted },
+        // end labels: left endpoint shows label+value on the left, right endpoint on the right.
+        label: {
+          show: true, fontFamily: CB.theme.FONT, fontSize: 12,
+          color: on ? accent : CB.theme.C_SECONDARY, fontWeight: on ? 600 : 'normal',
+          formatter: function (p) {
+            if (p.dataIndex === 0) return it.label + '  ' + CB.nf.format(it.from);
+            return CB.nf.format(it.to) + '  ' + it.label;
+          },
+          position: function (p) { return p.dataIndex === 0 ? 'left' : 'right'; },
+        },
+        labelLayout: { hideOverlap: true },
+        data: [[0, fy], [1, ty]],
+        emphasis: { focus: 'series' },
+      };
+    });
+    return {
+      // generous left/right pad for the leader-dot end labels.
+      grid: { left: 90, right: 90, top: 24, bottom: 24, containLabel: false },
+      tooltip: { trigger: 'item', formatter: function (p) { return p.seriesName + ': ' + (p.dataIndex === 0 ? '' : '') + CB.nf.format(p.data[1]); } },
+      xAxis: {
+        type: 'category', data: [leftCap, rightCap], boundaryGap: false,
+        position: 'top', axisLine: { show: false }, axisTick: { show: false },
+        axisLabel: { color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT, fontWeight: 600 },
+      },
+      // rank mode: invert so rank 1 (smallest position) sits at the TOP.
+      yAxis: { type: 'value', show: false, inverse: isRank, scale: !isRank },
+      series: lineSeries,
+    };
+  };
+
+  /* ==========================================================================
+     C04 — CB.threshold(option, { value, label, tone?, band? }) -> option
+     A PURE option-merge TRANSFORMER (NOT a CB.shapes.* builder): take an author's
+     ECharts option and return it with a themed reference markLine at `value` (label
+     position 'start' so it never clips the right edge) and, when band:[lo,hi] is given,
+     a tinted markArea between lo and hi. STACKABLE — call it twice to add two lines.
+     Colors are resolved via cssColor / CB.theme at BUILD time (never var(--*) on canvas);
+     because the result still flows through CB.chart, it re-resolves on a dark toggle.
+       option: an author option (e.g. from CB.shapes.* or hand-rolled).
+       value: number — where the line sits (on the value axis).
+       label: string — shown in a tiny tone-tinted rounded chip at the axis edge.
+       tone: 'neutral' (default) | 'critical'|'danger'|'warning'|'success'|'info'|… —
+         neutral -> a dashed --c-line line; else the semantic token at FULL for the line
+         and ~8% for the band.
+       band: [lo, hi] — a tinted markArea (the same tone family).
+       axis: 'x' | 'y' (default 'y' — a horizontal rule across a value-y chart; use 'x'
+         for a vertical rule on a value-x / horizontal chart).
+     Because it merges onto a single carrier series, the author still passes the result to
+     CB.chart with their own table/ariaLabel. */
+  CB.threshold = function (option, opts) {
+    option = option || {};
+    opts = opts || {};
+    var tone = opts.tone || 'neutral';
+    var neutral = tone === 'neutral';
+    var axis = opts.axis === 'x' ? 'x' : 'y';
+    var lineColor = neutral ? cssColor('--c-line', '#E4E4E7') : toneColor(tone);
+    var chipBg = neutral ? cssColor('--c-disabled-bg', '#F4F4F5') : accentTone(tone, 0.14);
+    var chipFg = neutral ? (CB.theme.C_SECONDARY || '#52525B') : toneColor(tone);
+    // carrier series: a hidden, silent line series that hosts the markLine/markArea so we
+    // never disturb the author's real series. Multiple calls each append their own carrier.
+    option.series = (option.series || []).slice();
+    var markLine = {
+      symbol: 'none', silent: true,
+      lineStyle: { color: lineColor, width: neutral ? 1 : 1.5, type: neutral ? 'dashed' : 'solid' },
+      label: {
+        show: opts.label != null, position: 'start',
+        formatter: opts.label != null ? String(opts.label) : '',
+        color: chipFg, backgroundColor: chipBg, fontFamily: CB.theme.FONT, fontSize: 11, fontWeight: 600,
+        padding: [2, 6], borderRadius: 4,
+      },
+      data: [axis === 'y' ? { yAxis: opts.value } : { xAxis: opts.value }],
+    };
+    var carrier = { type: 'line', data: [], silent: true, markLine: markLine, tooltip: { show: false }, legendHoverLink: false };
+    if (option.legend && option.legend.data) carrier.name = '__threshold__';
+    if (opts.band && opts.band.length === 2) {
+      var bandColor = neutral ? cssColor('--c-line', '#E4E4E7') : accentTone(tone, 0.08);
+      carrier.markArea = {
+        silent: true,
+        itemStyle: { color: neutral ? accentTone(null, 0.06, cssColor('--c-line', '#E4E4E7')) : bandColor },
+        data: [[
+          axis === 'y' ? { yAxis: opts.band[0] } : { xAxis: opts.band[0] },
+          axis === 'y' ? { yAxis: opts.band[1] } : { xAxis: opts.band[1] },
+        ]],
+      };
+    }
+    option.series.push(carrier);
+    return option;
+  };
+
+  // tone-tinted rgba helper for C04 chips/bands: resolve the tone token and apply alpha.
+  // (Distinct from accentRgba, which is accent-only.) tone null -> use `raw` as the base.
+  function accentTone(tone, alpha, raw) {
+    var hex = raw || (tone ? toneColor(tone) : CB.theme.ACCENT);
+    var m;
+    if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(hex)) {
+      var h = hex.replace('#', '');
+      if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+      return 'rgba(' + parseInt(h.slice(0, 2), 16) + ',' + parseInt(h.slice(2, 4), 16) + ',' + parseInt(h.slice(4, 6), 16) + ',' + alpha + ')';
+    }
+    m = (hex || '').match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (m) return 'rgba(' + Math.round(+m[1]) + ',' + Math.round(+m[2]) + ',' + Math.round(+m[3]) + ',' + alpha + ')';
+    return 'rgba(0,0,0,' + alpha + ')';
+  }
+
+  /* ==========================================================================
      F39 — COOKIEBITE.bigNumber(target, { value, label, delta?, caption?, spark? })
      ONE oversized hero number (CountUp), with an optional delta badge, sparkline, and
      a takeaway caption. Reuses the kpis internals (data-countup wiring via hydrate,
@@ -2790,12 +3369,22 @@
      Off by default; opt-in. Persists in localStorage('report-density'). Sits next to
      the theme/print chrome (top-right stack).
      ========================================================================== */
+  // 3-way density cycle: compact -> comfortable -> spacious -> compact ...
+  // 'comfortable' is today's look (the --density-scale:1 default), so it's the absent
+  // state — we DELETE the attr for it rather than writing it, keeping a no-toggle report
+  // byte-identical. Persisted to localStorage('report-density').
+  var DENSITY_CYCLE = ['compact', 'comfortable', 'spacious'];
   CB.densityToggle = function (opts) {
     opts = opts || {};
     if (document.getElementById('cbDensityToggle')) return document.getElementById('cbDensityToggle');
     var saved = null;
     try { saved = localStorage.getItem('report-density'); } catch (e) {}
-    if (saved === 'compact') document.documentElement.dataset.density = 'compact';
+    // restore a saved choice; 'comfortable'/absent leaves the attr off (the default look).
+    function setDensity(val) {
+      if (val === 'compact' || val === 'spacious') document.documentElement.dataset.density = val;
+      else delete document.documentElement.dataset.density; // comfortable === default
+    }
+    if (saved) setDensity(saved);
     var btn = document.createElement('button');
     btn.id = 'cbDensityToggle';
     btn.type = 'button';
@@ -2805,9 +3394,11 @@
     btn.innerHTML = '<i data-lucide="rows-3" class="w-20 h-20"></i>';
     document.body.appendChild(btn);
     btn.addEventListener('click', function () {
-      var on = document.documentElement.dataset.density === 'compact';
-      if (on) { delete document.documentElement.dataset.density; } else { document.documentElement.dataset.density = 'compact'; }
-      try { localStorage.setItem('report-density', on ? 'comfortable' : 'compact'); } catch (e) {}
+      var cur = document.documentElement.dataset.density || 'comfortable';
+      var idx = DENSITY_CYCLE.indexOf(cur);
+      var next = DENSITY_CYCLE[(idx + 1) % DENSITY_CYCLE.length];
+      setDensity(next);
+      try { localStorage.setItem('report-density', next); } catch (e) {}
       // charts may need a resize after the row-height shift
       pruneCharts();
       charts.forEach(function (c) { if (c.instance) { try { c.instance.resize(); } catch (e) {} } });
@@ -3078,6 +3669,99 @@
     return btn;
   }
 
+  /* ==========================================================================
+     THEME-KNOB runtime — CB.applyLook(look?).
+     Reads window.REPORT_LOOK (or the arg) and projects each field onto either an
+     html data-* attribute (the CSS recipe lives in cookiebite.css) or an inline
+     :root CSS var. EVERY field is optional; an absent field touches NOTHING, so a
+     report with no REPORT_LOOK is byte-identical to today. Call once at init BEFORE
+     charts render so the first paint already reflects the look.
+     ========================================================================== */
+  // named semantic 4-tuples: [critical, cautionary, positive, informative] for light,
+  // plus a `dark` variant nudged brighter (mirrors the CSS dark layer's intent) so the
+  // four tokens stay legible on a dark surface. 'classic' is special-cased to touch
+  // NOTHING (the CSS :root + dark layer already own it — keeps today byte-identical).
+  var SEMANTIC_PRESETS = {
+    muted: {
+      light: ['#C0454A', '#C98A12', '#4A8C58', '#3B7BB5'],
+      dark: ['#D9777B', '#D6A848', '#76B383', '#76A8D6'],
+    },
+    vivid: {
+      light: ['#E11D27', '#F59E0B', '#16A34A', '#0070F3'],
+      dark: ['#FF5A60', '#FFC53D', '#3FCD63', '#4DA3FF'],
+    },
+    'colorblind-safe': {
+      // Okabe–Ito-derived: vermillion / orange / bluish-green / blue — distinguishable
+      // for the common deutan/protan/tritan types.
+      light: ['#D55E00', '#E69F00', '#009E73', '#0072B2'],
+      dark: ['#FF7A33', '#FFC04D', '#33C99B', '#4FA3D9'],
+    },
+  };
+  var SEMANTIC_VARS = ['--c-critical', '--c-cautionary', '--c-positive', '--c-informative'];
+
+  // (re-)apply whichever semantic preset is active, picking the light or dark tuple by
+  // the live theme. Called from applyLook AND from applyTheme so the dark nudge follows
+  // a toggle. classic/absent clears any inline overrides so the CSS layers win again.
+  var _activeSemanticPreset = null;
+  function applySemanticPreset(name) {
+    var root = document.documentElement.style;
+    if (name != null) _activeSemanticPreset = name; // remember author's choice across toggles
+    var preset = _activeSemanticPreset && SEMANTIC_PRESETS[_activeSemanticPreset];
+    if (!preset) {
+      // classic / unknown / unset — remove any inline overrides so :root + dark layer own it.
+      SEMANTIC_VARS.forEach(function (v) { root.removeProperty(v); });
+      return;
+    }
+    var dark = document.documentElement.dataset.theme === 'dark';
+    var tuple = (dark && preset.dark) ? preset.dark : preset.light;
+    SEMANTIC_VARS.forEach(function (v, i) { root.setProperty(v, tuple[i]); });
+  }
+
+  CB.applyLook = function (look) {
+    var L = look || window.REPORT_LOOK || {};
+    var html = document.documentElement;
+    var root = html.style;
+    function setAttr(name, val) { if (val != null) html.setAttribute('data-' + name, val); }
+    function setVar(name, val) { if (val != null) root.setProperty(name, val); }
+
+    // --- data-* knobs (CSS owns the recipe) ---
+    setAttr('density', L.density);       // compact | comfortable | spacious
+    setAttr('elevation', L.elevation);   // flat | soft | sharp | bordered
+    setAttr('surface', L.surface);       // card | flat | outlined
+    setAttr('bg', L.bg);                 // plain | wash | pattern
+    setAttr('header', L.header);         // standard | banded | bordered
+
+    // --- inline :root vars ---
+    // radius scale: number OR named ('sharp'/'subtle'/'default'/'round').
+    if (L.radiusScale != null) {
+      var RS = { sharp: 0, subtle: 0.6, 'default': 1, round: 1.4 };
+      var rs = typeof L.radiusScale === 'number' ? L.radiusScale : RS[L.radiusScale];
+      if (rs != null) setVar('--radius-scale', String(rs));
+    }
+    setVar('--border-w', L.borderW);            // e.g. '.5px' | '1px' | '1.5px'
+    setVar('--border-style', L.borderStyle);    // 'solid' | 'dashed'
+    setVar('--font-heading', L.headingFont);    // a font-family string; author adds the <link>
+    setVar('--measure-prose', L.measureProse);  // e.g. '68ch'
+    setVar('--measure-page', L.measurePage);    // e.g. '1400px'
+
+    // dark tint: 'neutral' is today's EXACT look, so DON'T set the attr/var for it
+    // (leave the CSS default). warm/cool/accent (or any color) write --dark-tint + the attr.
+    if (L.darkTint != null && L.darkTint !== 'neutral') {
+      var TINT = { warm: '#3a2a18', cool: '#16202e', accent: cssColor('--accent', '#FA4D02') };
+      var tint = TINT[L.darkTint] || L.darkTint; // named nudge or a raw color
+      html.setAttribute('data-dark-tint', L.darkTint === 'accent' ? 'accent' : L.darkTint);
+      setVar('--dark-tint', tint);
+    }
+
+    // palette mode -> window.PALETTE_MODE (categoricalColors/ramp read it live).
+    if (L.paletteMode != null) window.PALETTE_MODE = L.paletteMode;
+
+    // semantic preset (named 4-tuple). 'classic'/absent clears inline overrides.
+    applySemanticPreset(L.semanticPreset != null ? L.semanticPreset : 'classic');
+
+    return CB;
+  };
+
   function applyTheme(mode) {
     document.documentElement.dataset.theme = mode; // '' (light) handled as light
     var btn = document.getElementById('themeToggle');
@@ -3086,6 +3770,7 @@
       if (i) i.setAttribute('data-lucide', mode === 'dark' ? 'sun' : 'moon');
     }
     if (window.lucide) window.lucide.createIcons();
+    applySemanticPreset();    // re-pick light/dark tuple for the active semantic preset
     readThemeVars();          // rebuild baseChart + theme constants from now-current vars
     rethemeCharts();          // re-theme EVERY registered chart (fast-path + escape-hatch)
     themeCbs.forEach(function (cb) { try { cb(mode); } catch (e) {} });
@@ -3192,6 +3877,447 @@
   }
 
   /* ==========================================================================
+     EDITORIAL / INLINE / ANNOTATION helpers (C05–C19). String-returning helpers
+     compose into innerHTML; target-rendering helpers render into a host
+     (resolveTarget + disposeIn). Markup emits the SHARED contract classes
+     (.cb-lead/.cb-callout/.cb-figure/…) so the CSS agent's styles apply; the
+     runtime never hard-codes the editorial look here.
+     ========================================================================== */
+
+  /* C05 — COOKIEBITE.trendChip(value, { dir?, tone?, period?, spark? }) -> string
+     Inline trend chip: up/down/flat Lucide glyph + delta + optional ~40×14 inline
+     SVG polyline sparkline (stroke = live --accent, last point a 2px accent dot).
+     dir auto-derived from the sign of `value` unless overridden; tone defaults to
+     a direction-implied tone (up=success, down=critical, flat=neutral) but any
+     tone key wins. period renders as trailing text-disabled context. Never
+     color-alone: the glyph + the sign in the value carry direction without color.
+     aria-label states direction + value (+ period). */
+  CB.trendChip = function (value, opts) {
+    opts = opts || {};
+    // derive direction from the numeric sign of `value` unless explicitly set.
+    var num = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.\-+]/g, ''));
+    var dir = opts.dir || (isFinite(num) ? (num > 0 ? 'up' : num < 0 ? 'down' : 'flat') : 'flat');
+    var glyph = dir === 'up' ? 'trending-up' : dir === 'down' ? 'trending-down' : 'minus';
+    var dirWord = dir === 'up' ? 'up' : dir === 'down' ? 'down' : 'flat';
+    // tone: explicit wins; else direction implies one (semantics, not just color).
+    var toneName = opts.tone || (dir === 'up' ? 'success' : dir === 'down' ? 'critical' : 'neutral');
+    var tn = tone(toneName);
+    var text = String(value == null ? '' : value);
+
+    var spark = '';
+    if (Array.isArray(opts.spark) && opts.spark.length > 1) {
+      // build a ~40×14 polyline from the data, normalized to the box; stroke reads
+      // the LIVE accent (re-resolved at call time, not a baked var(--*)).
+      var d = opts.spark.map(Number).filter(isFinite);
+      if (d.length > 1) {
+        var w = 40, h = 14, pad = 2;
+        var min = Math.min.apply(null, d), max = Math.max.apply(null, d);
+        var span = (max - min) || 1;
+        var stepX = (w - pad * 2) / (d.length - 1);
+        var pts = d.map(function (v, i) {
+          var x = pad + i * stepX;
+          var y = pad + (h - pad * 2) * (1 - (v - min) / span);
+          return (Math.round(x * 10) / 10) + ',' + (Math.round(y * 10) / 10);
+        });
+        var lastXY = pts[pts.length - 1].split(',');
+        var accent = CB.css('--accent') || CB.theme.ACCENT || '#E8552D';
+        spark = '<svg class="cb-trendchip__spark" width="' + w + '" height="' + h + '" viewBox="0 0 ' + w + ' ' + h +
+          '" aria-hidden="true" focusable="false" style="vertical-align:middle">' +
+          '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + esc(accent) +
+          '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>' +
+          '<circle cx="' + esc(lastXY[0]) + '" cy="' + esc(lastXY[1]) + '" r="2" fill="' + esc(accent) + '"/></svg>';
+      }
+    }
+
+    var period = opts.period ? '<span class="cb-trendchip__period text-disabled">' + esc(opts.period) + '</span>' : '';
+    var aria = dirWord + ' ' + text + (opts.period ? ' ' + opts.period : '');
+    return '<span class="cb-trendchip ' + tn.text + '" role="img" aria-label="' + esc(aria) + '">' +
+      iconTag(glyph, 'cb-trendchip__icon w-12 h-12') +
+      '<span class="cb-trendchip__val nums">' + esc(text) + '</span>' +
+      spark + period + '</span>';
+  };
+
+  /* C06 — COOKIEBITE.lead(htmlOrText, { measure?, dropcap? }) -> string
+     A standfirst / leading paragraph (.cb-lead). CSS owns the size/leading look.
+     `htmlOrText` is TRUSTED author HTML (so inline bold/links compose), matching
+     the callout/takeaway trusted-body convention. measure:false opts the
+     paragraph out of the prose measure (full bleed via .cb-bleed); dropcap adds
+     the .cb-lead--dropcap modifier for an initial drop-cap. */
+  CB.lead = function (htmlOrText, opts) {
+    opts = opts || {};
+    var cls = 'cb-lead';
+    if (opts.dropcap) cls += ' cb-lead--dropcap';
+    if (opts.measure === false) cls += ' cb-bleed';
+    return '<p class="' + cls + '">' + (htmlOrText == null ? '' : htmlOrText) + '</p>';
+  };
+
+  /* C07 — callouts family: COOKIEBITE.note/tip/warning/danger/example(html, {title?})
+     and COOKIEBITE.quote(html, {cite?}) -> string. Each emits .cb-callout with a
+     .cb-callout--<variant> modifier (or .cb-quote), a locale-aware text kicker
+     (NOTE/TIP/주의/위험/예시 via CB.t) + a tone Lucide icon + the trusted body.
+     Reuses the pill/callout tone→icon vocabulary. The original CB.callout (above)
+     is untouched and keeps working. */
+  // variant -> { tone (drives icon+color from the shared TONE map), kicker i18n key, icon override? }
+  var CALLOUT_VARIANTS = {
+    note:    { tone: 'info',     key: 'coNote',    fallback: 'NOTE',    icon: 'info' },
+    tip:     { tone: 'success',  key: 'coTip',     fallback: 'TIP',     icon: 'lightbulb' },
+    warning: { tone: 'warning',  key: 'coWarning', fallback: 'WARNING', icon: 'alert-triangle' },
+    danger:  { tone: 'critical', key: 'coDanger',  fallback: 'DANGER',  icon: 'octagon-x' },
+    example: { tone: 'neutral',  key: 'coExample', fallback: 'EXAMPLE', icon: 'code' },
+  };
+  function calloutVariant(variant, html, opts) {
+    opts = opts || {};
+    var v = CALLOUT_VARIANTS[variant] || CALLOUT_VARIANTS.note;
+    var tn = tone(v.tone);
+    var kicker = opts.title != null ? opts.title : t(v.key, v.fallback);
+    var ic = iconTag(v.icon, 'cb-callout__icon w-16 h-16 ' + tn.text);
+    return '<div class="cb-callout cb-callout--' + variant + ' ' + tn.tint + ' ' + tn.text + '" role="note">' +
+      '<div class="cb-callout__kicker">' + ic +
+      '<span class="cb-callout__label ' + tn.text + '">' + esc(kicker) + '</span></div>' +
+      '<div class="cb-callout__body text-primary">' + (html == null ? '' : html) + '</div></div>';
+  }
+  CB.note = function (html, opts) { return calloutVariant('note', html, opts); };
+  CB.tip = function (html, opts) { return calloutVariant('tip', html, opts); };
+  CB.warning = function (html, opts) { return calloutVariant('warning', html, opts); };
+  CB.danger = function (html, opts) { return calloutVariant('danger', html, opts); };
+  CB.example = function (html, opts) { return calloutVariant('example', html, opts); };
+
+  /* COOKIEBITE.quote(html, { cite? }) -> string — a real <blockquote> styled .cb-quote
+     (a callout-family member, distinct from the large .cb-pullquote). cite renders
+     as a trailing <cite>. body is trusted HTML; cite is escaped. */
+  CB.quote = function (html, opts) {
+    opts = opts || {};
+    var cite = opts.cite ? '<cite class="cb-quote__cite text-secondary">' + esc(opts.cite) + '</cite>' : '';
+    return '<blockquote class="cb-callout cb-quote">' +
+      '<div class="cb-quote__body">' + (html == null ? '' : html) + '</div>' + cite + '</blockquote>';
+  };
+
+  /* C09 — COOKIEBITE.figure(target, { number?:'auto'|n|false, title, note?, source? })
+     Wraps the host node IN PLACE inside a <figure class="cb-figure"> with an
+     optional 'Fig. N' eyebrow (a CSS counter on the .cb-figure root when
+     number==='auto'; a literal label when number is a number) and a
+     <figcaption class="cb-figcaption"> carrying title + note/source tiers. Pairs
+     with a chart's existing aria/data-table (the chart host stays the figure's
+     content). Idempotent: a host already wrapped in a .cb-figure is re-captioned,
+     not double-wrapped. */
+  CB.figure = function (target, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    var number = config.number == null ? 'auto' : config.number;
+
+    // resolve an existing wrapper (re-run) or build a new <figure> around the host.
+    var fig = host.closest ? host.closest('.cb-figure') : null;
+    if (!fig) {
+      fig = document.createElement('figure');
+      fig.className = 'cb-figure';
+      host.parentNode.insertBefore(fig, host);
+      fig.appendChild(host);
+    }
+    // remove a prior caption/eyebrow from a re-run so we don't stack duplicates.
+    var old = fig.querySelector(':scope > figcaption.cb-figcaption');
+    if (old) old.parentNode.removeChild(old);
+    var oldEye = fig.querySelector(':scope > .cb-figure__eyebrow');
+    if (oldEye) oldEye.parentNode.removeChild(oldEye);
+
+    // eyebrow: 'auto' -> CSS-counter driven (data-attr toggles the counter); a
+    // number -> a literal 'Fig. N'; false -> no eyebrow.
+    var eyebrow = '';
+    if (number === 'auto') {
+      fig.setAttribute('data-cb-autonum', '');
+      eyebrow = '<figcaption class="cb-figure__eyebrow text-secondary" aria-hidden="true"></figcaption>';
+    } else if (typeof number === 'number') {
+      fig.removeAttribute('data-cb-autonum');
+      eyebrow = '<figcaption class="cb-figure__eyebrow text-secondary" aria-hidden="true">' +
+        esc(t('figAbbr', 'Fig.')) + ' ' + esc(String(number)) + '</figcaption>';
+    } else {
+      fig.removeAttribute('data-cb-autonum');
+    }
+
+    var tiers = '';
+    if (config.title != null) tiers += '<span class="cb-figcaption__title text-primary">' + esc(config.title) + '</span>';
+    if (config.note != null) tiers += '<span class="cb-figcaption__note text-secondary">' + esc(config.note) + '</span>';
+    if (config.source != null) tiers += '<span class="cb-figcaption__source text-disabled">' + esc(config.source) + '</span>';
+    var caption = '<figcaption class="cb-figcaption">' + tiers + '</figcaption>';
+
+    // eyebrow goes BEFORE the content (top of figure); figcaption AFTER it (bottom).
+    if (eyebrow) fig.insertAdjacentHTML('afterbegin', eyebrow);
+    fig.insertAdjacentHTML('beforeend', caption);
+    CB.refreshIcons(fig);
+    return fig;
+  };
+
+  /* C10 — COOKIEBITE.statusDot(tone, label, { pulse?, size? }) -> string
+     A filled tone dot + a REQUIRED text label (never color-alone). pulse adds the
+     .cb-statusdot--pulse modifier (CSS owns the single slow ring, gated on
+     prefers-reduced-motion). size sets the dot diameter via a CSS var so the same
+     helper scales (default ~8px from CSS). The dot color is a color-mix tone owned
+     by CSS via the modifier class; size is the only inline knob. */
+  CB.statusDot = function (toneName, label, opts) {
+    opts = opts || {};
+    var safeTone = TONE[toneName] ? toneName : 'neutral';
+    var cls = 'cb-statusdot cb-statusdot--' + safeTone + (opts.pulse ? ' cb-statusdot--pulse' : '');
+    var sizeVar = opts.size ? ' style="--cb-statusdot-size:' + esc(String(opts.size).replace(/[^0-9a-z.%]/gi, '')) + 'px"' : '';
+    return '<span class="' + cls + '"' + sizeVar + '>' +
+      '<span class="cb-statusdot__dot" aria-hidden="true"></span>' +
+      '<span class="cb-statusdot__label">' + esc(label == null ? '' : label) + '</span></span>';
+  };
+
+  /* C11 — COOKIEBITE.whatChanged(target, items, { title? })
+     A 'value diff' block (.cb-whatchanged): each row = label / old (struck,
+     --c-disabled) → new (--c-primary) / a Δ badge (via CB.deltaBadge), with an
+     aligned arrow column. Numerics use tabular-nums; rows stack below sm. items:
+     [{ label, from, to, tone?, delta? }] — delta is the badge text (auto-built from
+     a numeric from→to when omitted); tone colors the Δ badge + arrow. */
+  CB.whatChanged = function (target, items, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    items = items || [];
+    CB.disposeIn(host);
+
+    if (!items.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    var title = config.title != null
+      ? '<p class="cb-whatchanged__title text-caption-12 font-semibold uppercase tracking-wide text-secondary">' + esc(config.title) + '</p>'
+      : '';
+
+    var rows = items.map(function (it) {
+      it = it || {};
+      var toneName = it.tone || 'neutral';
+      // auto-derive the Δ badge from numeric from→to when no explicit delta given.
+      var deltaText = it.delta;
+      var dir = null;
+      var fromN = parseFloat(it.from), toN = parseFloat(it.to);
+      if (isFinite(fromN) && isFinite(toN)) {
+        var diff = toN - fromN;
+        dir = diff > 0 ? 'up' : diff < 0 ? 'down' : 'flat';
+        if (deltaText == null) deltaText = (diff > 0 ? '+' : '') + (Math.round(diff * 100) / 100);
+      }
+      var badge = deltaText != null
+        ? CB.deltaBadge(String(deltaText), { dir: dir || undefined, tone: toneName })
+        : '';
+      return '<div class="cb-whatchanged__row">' +
+        '<span class="cb-whatchanged__label text-secondary">' + esc(it.label == null ? '' : it.label) + '</span>' +
+        '<span class="cb-whatchanged__from text-disabled nums"><s>' + esc(it.from == null ? '' : it.from) + '</s></span>' +
+        '<span class="cb-whatchanged__arrow text-disabled" aria-hidden="true">' + iconTag('arrow-right', 'w-12 h-12') + '</span>' +
+        '<span class="cb-whatchanged__to text-primary nums">' + esc(it.to == null ? '' : it.to) + '</span>' +
+        '<span class="cb-whatchanged__delta">' + badge + '</span></div>';
+    }).join('');
+
+    host.innerHTML = '<div class="cb-whatchanged">' + title + rows + '</div>';
+    CB.refreshIcons(host);
+  };
+
+  /* C16 — COOKIEBITE.epigraph(html, { cite? }) and COOKIEBITE.pullquote(html) -> string
+     Real <blockquote>/<cite>. epigraph = a small italic opening quotation
+     (.cb-epigraph); pullquote = a large quotation with a hanging accent quote
+     glyph (.cb-pullquote, glyph aria-hidden). Bodies are trusted HTML; cite escaped. */
+  CB.epigraph = function (html, opts) {
+    opts = opts || {};
+    var cite = opts.cite ? '<cite class="cb-epigraph__cite text-secondary">' + esc(opts.cite) + '</cite>' : '';
+    return '<blockquote class="cb-epigraph">' +
+      '<p class="cb-epigraph__body">' + (html == null ? '' : html) + '</p>' + cite + '</blockquote>';
+  };
+  CB.pullquote = function (html) {
+    return '<blockquote class="cb-pullquote">' +
+      '<span class="cb-pullquote__glyph" aria-hidden="true">“</span>' +
+      '<p class="cb-pullquote__body">' + (html == null ? '' : html) + '</p></blockquote>';
+  };
+
+  /* C17 — COOKIEBITE.kicker(text, { tone? }) -> string
+     An eyebrow line (.cb-kicker) meant to sit directly above an <h2>. tone colors
+     the eyebrow via the shared tone text class (default accent-strong look from
+     CSS). The companion run-in opening phrase uses the .cb-leadin class — apply it
+     to the FIRST inline <span>/<b> of an opening paragraph for a small-caps run-in:
+       <p><span class="cb-leadin">In short,</span> the rest of the sentence…</p>
+     (.cb-leadin is documented here; the runtime emits no element for it.) */
+  CB.kicker = function (text, opts) {
+    opts = opts || {};
+    var toneCls = opts.tone && TONE[opts.tone] ? ' ' + tone(opts.tone).text : '';
+    return '<p class="cb-kicker' + toneCls + '">' + esc(text == null ? '' : text) + '</p>';
+  };
+
+  /* C18 — COOKIEBITE.legend(target, items, { swatch?, interactive?, chart? })
+     A standalone legend (.cb-legend). Colors default to CB.categoricalColors(n) and
+     re-read the LIVE accent (registered via CB.onThemeChange so a dark toggle
+     recolors swatches). swatch: 'square'|'line'|'dot' (matches a series' mark).
+     Optional right-aligned tabular-nums value per row. interactive:true renders
+     each row as a real <button aria-pressed> that toggles the matching series on a
+     registered ECharts chart (passed as `chart`: a selector/instance) via
+     dispatchAction('legendToggleSelect'). items: [{label,color?,value?,note?}]. */
+  CB.legend = function (target, items, config) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    config = config || {};
+    items = items || [];
+    var swatch = config.swatch || 'square';
+    var interactive = !!config.interactive;
+    // resolve the chart instance (for interactive toggling) from a selector/instance.
+    var chartInst = null;
+    if (config.chart) {
+      if (config.chart.dispatchAction) chartInst = config.chart;
+      else {
+        var cEl = resolveTarget(config.chart);
+        // a CB.chart host wraps the canvas in an inner #cbChartN div; find the echarts dom.
+        if (cEl && window.echarts) {
+          var canvasEl = cEl.matches && cEl.matches('[id^="cbChart"]') ? cEl : (cEl.querySelector ? cEl.querySelector('[id^="cbChart"]') : null);
+          if (canvasEl) chartInst = window.echarts.getInstanceByDom(canvasEl);
+        }
+      }
+    }
+
+    if (!items.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
+
+    // render() rebuilds rows so a theme toggle can recolor the default swatches.
+    function swatchMarkup(color) {
+      var style = 'style="--cb-swatch-color:' + esc(color) + '"';
+      return '<span class="cb-legend__swatch cb-legend__swatch--' + swatch + '" ' + style + ' aria-hidden="true"></span>';
+    }
+    function render() {
+      var colors = CB.categoricalColors(items.length);
+      var rowsHtml = items.map(function (it, i) {
+        it = it || {};
+        var color = it.color || colors[i] || CB.theme.ACCENT;
+        var sw = swatchMarkup(color);
+        var label = '<span class="cb-legend__label">' + esc(it.label == null ? '' : it.label) + '</span>';
+        var note = it.note != null ? '<span class="cb-legend__note text-disabled">' + esc(it.note) + '</span>' : '';
+        var value = it.value != null ? '<span class="cb-legend__value nums text-secondary">' + esc(it.value) + '</span>' : '';
+        var inner = sw + label + note + value;
+        if (interactive) {
+          return '<button type="button" class="cb-legend__row cb-legend__row--btn" aria-pressed="true" ' +
+            'data-cb-legend-series="' + esc(it.label == null ? '' : it.label) + '">' + inner + '</button>';
+        }
+        return '<div class="cb-legend__row">' + inner + '</div>';
+      }).join('');
+      host.innerHTML = '<div class="cb-legend">' + rowsHtml + '</div>';
+      CB.refreshIcons(host);
+    }
+    render();
+    // re-read accent/categorical colors on a dark/light toggle.
+    CB.onThemeChange(function () { if (document.contains(host)) render(); });
+
+    // interactive: wire each button to toggle the matching chart series.
+    if (interactive && chartInst) {
+      host.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('[data-cb-legend-series]') : null;
+        if (!btn) return;
+        var name = btn.getAttribute('data-cb-legend-series');
+        var pressed = btn.getAttribute('aria-pressed') !== 'false';
+        btn.setAttribute('aria-pressed', pressed ? 'false' : 'true');
+        try { chartInst.dispatchAction({ type: 'legendToggleSelect', name: name }); } catch (err) {}
+      });
+    }
+  };
+
+  /* C19 — COOKIEBITE.annotate(chartSel, points)
+     A post-init annotation layer on a REGISTERED chart: themed markPoints (an
+     accent teardrop pin + a label in a --c-surface rounded plate with a hairline
+     leader). Colors are token-resolved at apply time AND re-applied via the
+     chart's registered renderFn so a dark toggle re-themes them. Each annotation's
+     text is appended to the chart's data-table alt (a sibling table or an sr-only
+     list) so the note isn't canvas-only. Labels are confined on narrow widths.
+     points: [{ coord:[x,y], text, tone?, symbolSize? }]. */
+  CB.annotate = function (chartSel, points) {
+    points = points || [];
+    if (!window.echarts || !points.length) return;
+    var el = resolveTarget(chartSel);
+    if (!el) return;
+    // resolve the actual echarts dom (a CB.chart host wraps it in #cbChartN).
+    var dom = (el.matches && el.matches('[id^="cbChart"]')) ? el
+      : (el.querySelector ? el.querySelector('[id^="cbChart"]') : null) || el;
+    var inst = window.echarts.getInstanceByDom(dom);
+    if (!inst) { console.warn('[cookiebite] COOKIEBITE.annotate: no registered chart found at the selector.'); return; }
+
+    // find this instance's registry entry so we can WRAP its renderFn — re-applying
+    // the annotation markPoints (with freshly-read tokens) after every dark re-theme.
+    var entry = null;
+    for (var i = 0; i < charts.length; i++) { if (charts[i].instance === inst) { entry = charts[i]; break; } }
+
+    var narrow = dom.getBoundingClientRect().width < 480;
+
+    function applyAnnotations(chart) {
+      var surface = CB.css('--c-surface') || '#fff';
+      var line = CB.theme.C_LINE || CB.css('--c-line') || '#E4E4E7';
+      var primary = CB.css('--c-primary') || '#18181B';
+      var data = points.map(function (p) {
+        p = p || {};
+        var pinColor = annTone(p.tone);
+        return {
+          coord: p.coord,
+          value: p.text,
+          symbol: 'pin',
+          symbolSize: p.symbolSize || 42,
+          itemStyle: { color: pinColor, borderColor: pinColor },
+          label: {
+            show: true,
+            formatter: p.text == null ? '' : String(p.text),
+            color: primary,
+            backgroundColor: surface,
+            borderColor: line,
+            borderWidth: 1,
+            borderRadius: 6,
+            padding: [3, 6],
+            fontFamily: CB.theme.FONT,
+            fontSize: narrow ? 10 : 12,
+            // confine the label box on narrow charts so it can't run off-canvas.
+            width: narrow ? 90 : undefined,
+            overflow: narrow ? 'break' : undefined,
+            position: 'top',
+            distance: 8,
+          },
+          // hairline leader from the pin to the plotted point.
+          lineStyle: { color: line, width: 1 },
+        };
+      });
+      // overlay a dedicated empty scatter series carrying the markPoints so we don't
+      // clobber the author's series. A single-element series array merges by INDEX
+      // into series[0], so rebuild the FULL series list: keep every author series
+      // (stripped of any prior cbAnnotate entry) and append ours last.
+      var opt = chart.getOption() || {};
+      var keep = (opt.series || []).filter(function (s) { return s && s.id !== 'cbAnnotate'; });
+      keep.push({ id: 'cbAnnotate', type: 'scatter', data: [], markPoint: { data: data, silent: false } });
+      chart.setOption({ series: keep }, { replaceMerge: ['series'] });
+    }
+
+    // tone -> token color for the pin (accent default; semantic tones token-resolved).
+    function annTone(toneName) {
+      if (!toneName || toneName === 'accent') return CB.theme.ACCENT || CB.css('--accent') || '#E8552D';
+      var map = { critical: '--c-critical', warning: '--c-cautionary', success: '--c-positive', info: '--c-informative', neutral: '--c-secondary' };
+      return CB.css(map[toneName] || '--accent') || CB.theme.ACCENT || '#E8552D';
+    }
+
+    applyAnnotations(inst);
+
+    // re-apply on dark toggle by wrapping the registered renderFn (so the pins keep
+    // their themed plate after the base re-theme runs).
+    if (entry) {
+      var prev = entry.renderFn;
+      entry.renderFn = function (chart) {
+        if (typeof prev === 'function') prev(chart); else chart.setOption(CB.baseChart);
+        applyAnnotations(chart);
+      };
+    }
+
+    // append each annotation text to the chart's data-table alt so it isn't canvas-only.
+    // prefer a sibling data-table (from CB.chart/dataTableToggle); else attach an sr-only list.
+    var card = el.closest ? el.closest('.bg-surface') : null;
+    var scope = card || (el.parentNode || el);
+    var existingNotes = scope.querySelector ? scope.querySelector('[data-cb-annnotes]') : null;
+    if (!existingNotes) {
+      existingNotes = document.createElement('ul');
+      existingNotes.setAttribute('data-cb-annnotes', '');
+      existingNotes.className = 'sr-only';
+      scope.appendChild(existingNotes);
+    } else {
+      existingNotes.innerHTML = ''; // re-run: rebuild the note list
+    }
+    existingNotes.innerHTML = points.map(function (p) {
+      return '<li>' + esc((p && p.text) || '') + '</li>';
+    }).join('');
+  };
+
+  /* ==========================================================================
      "Made with cookiebite" credit — auto-injected so every report carries a
      quiet, discoverable link back to the project (a reader who likes a page can
      find what made it). Appends one muted line to the report footer, or creates
@@ -3239,6 +4365,8 @@
   document.addEventListener('DOMContentLoaded', function () {
     if (window.lucide) window.lucide.createIcons();
     checkLoadOrder();
+    CB.applyLook();         // THEME-KNOB: project window.REPORT_LOOK onto html data-*/:root vars
+    readThemeVars();        // re-read in case applyLook changed accent-derived/semantic tokens
     CB.hydrate(document);   // wire any [data-countup]/[data-spark] authored in raw HTML
     initToc();
     initTheme();

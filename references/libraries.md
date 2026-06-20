@@ -69,6 +69,29 @@ should still feel like an operational, designed surface, not a landing page. A g
 rule: every animation should survive the question "what does this
 help the reader understand?"
 
+## Which chart-shape builder when (`CB.shapes.*` — pick by question)
+
+The `CB.shapes.*` builders return a ready ECharts `option` you hand to `CB.chart` (it
+themes + registers it). Pick by the **question the reader is asking**, not the fanciest
+shape — and remember each owes a data-table (the suggested `table` shape is in
+`helpers.md`). Newer builders, by intent:
+
+| Question | Builder | Notes |
+|----------|---------|-------|
+| What's the **spread / shape** of a sample? | `CB.shapes.histogram({ values })` | auto-bins (Freedman-Diaconis); `showMean` line. The one **distribution** shape. |
+| How did each item **change** (before→after)? | `CB.shapes.dumbbell({ rows })` | per-row FROM→TO capsule; `sortBy:'delta'`. Many items. |
+| How did the **ranking** change across two points? | `CB.shapes.slope({ items })` | two-axis slope/bump; `highlight[]` solid, rest muted; `mode:'rank'`. Few series. |
+| A **ranking** where a full bar is too heavy? | `CB.shapes.lollipop({ rows })` | stem + dot; `baseline` -> a deviation chart. |
+| Where does each item sit **in its range**? | `CB.shapes.rangeDot({ rows })` | min–max capsule + value dot; optional p25–p75 `band`. |
+| How is each category **composed**? | `CB.shapes.stackedBar({ categories, series })` | horizontal stack; `mode:'percent'` to normalize; `peer:true` -> categorical palette, else a `ramp`. |
+
+**Annotation, not a new chart:** to add a **threshold / target line** to *any* chart, don't
+build a new shape — call `CB.threshold(option, { value, tone, axis })` (a pure transformer
+that merges a themed `markLine`/band; stackable) before passing the option to `CB.chart`.
+To pin a **specific point** (a peak, an incident) on a registered chart, call
+`CB.annotate(chartSel, [{ coord, text }])`. Both are in `helpers.md`; the hand-rolled
+`markLine`/`markArea` equivalent is in `components.md` ("Annotated chart markers").
+
 ## Diagrams: pick by layout, not by habit
 
 When a chart library is the wrong tool — a flowchart, a module map, a state machine, a

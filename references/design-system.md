@@ -226,3 +226,107 @@ A user can set **one global default theme** that applies to every report from no
   theme.json, e.g. from the studio's "Set as my default" button), write that JSON to
   `assets/presets/default.json`. Confirm all future reports will use it until they change
   it — the user reverts by deleting that file or setting a new default.
+
+## The Look system (shape/density/surface knobs — separate from color)
+
+The **Look** is a second, orthogonal layer on top of the color/font tokens above: a set
+of **structural** knobs — density, corner radius, elevation, surface treatment, border
+weight, chart-palette mode, heading font, text measure, page background, header style,
+semantic preset, and dark-mode tint. Color answers *"what hue?"*; the Look answers
+*"how sharp / dense / bordered / wide?"*.
+
+> **Backward-compat is the whole contract: absent Look === today, byte-for-byte.**
+> Every knob defaults to today's look. A report with no Look emits **nothing** extra and
+> renders identically to before. You only opt in per knob; an untouched Look is invisible.
+
+### The knobs (each: default === today)
+
+| Knob | `look` field | Values (**default**) | Engages via |
+|------|-------------|----------------------|-------------|
+| Density | `density` | **comfortable** / compact / spacious | `html[data-density]` → `--density-scale` .82 / **1** / 1.18 |
+| Corner radius | `radiusScale` | 0 sharp / .6 subtle / **1** default / 1.4 round | `html[data-radius]` → `--radius-scale` → `--r-*` |
+| Elevation | `elevation` | **soft** / flat / sharp / bordered | `html[data-elevation]` → `--shadow-sm`/`--shadow-md` |
+| Surface | `surface` | **card** / flat / outlined | `html[data-surface]` → `--surface-fill`/`-border-w`/`-shadow` |
+| Border weight | `borderW` | .5 / **1** / 1.5 px | `html[data-border]` → `--border-w` |
+| Border style | `borderStyle` | **solid** / dashed | `html[data-border]` → `--border-style` |
+| Chart palette | `paletteMode` | **analogous** / mono / categorical / sequential | `window.PALETTE_MODE` (read by `categoricalColors`/`ramp`) |
+| Heading font | `headingFont` | **''** (= body font) / a family name | `--font-heading` (+ a font `<link>`) |
+| Prose measure | `measureProse` | **68** ch | `--measure-prose` (`.cb-lead`/`.cb-prose`/`.cb-figure`) |
+| Page measure | `measurePage` | **1400** px | `html[data-measure-page]` → `--measure-page` (`main` max-width) |
+| Page background | `bg` | **plain** / wash / pattern | `html[data-bg]` → `--page-bg` (BODY only; print forces white) |
+| Header style | `header` | **standard** / banded / bordered | `html[data-header]` → `--header-bg`/`--header-rule` (needs a `.cb-header`/real `<header>`) |
+| Semantic preset | `semanticPreset` | **classic** / muted / vivid / colorblind-safe | `--semantic-preset` (recolors the four semantic tokens as a set) |
+| Dark-mode tint | `darkTint` | **neutral** / warm / cool / accent (or a raw color) | `html[data-theme=dark][data-dark-tint]` → `--dark-tint` (mixes bg/surface at 6%) |
+
+Notes on the contract:
+
+- The **data-attr layers fire only under an explicit attr** — `[data-density]`,
+  `[data-radius]`, `[data-elevation]`, `[data-surface]`, `[data-border]`, `[data-bg]`,
+  `[data-header]`, `[data-measure-page]`, `[data-dark-tint]`. Absent the attr, the default
+  recipe is today's, so omitting a knob is a true no-op.
+- `radiusScale` accepts a **number** or a name (`sharp`/`subtle`/`default`/`round`); the
+  `--r-*` keys are `calc(base × scale)`. The Tailwind `rounded-*` keys live in
+  `cookiebite.js`; the vars live in CSS.
+- **Print / forced-colors clamp:** borders are forced to min `1px solid` and the page
+  background to white under `@media print` and forced-colors, regardless of the Look.
+- `darkTint` `neutral` resolves to today's exact `#101013`/`#1a1a1f`. The semantic-preset
+  *token sets* are JS-written; the CSS dark layer only nudges them by name.
+
+### How a Look is carried: `window.REPORT_LOOK` → `CB.applyLook`
+
+```js
+window.REPORT_LOOK = { /* only the knobs that differ from default */ };
+```
+`CB.applyLook(look?)` (in the runtime, signature in `helpers.md`) reads
+`window.REPORT_LOOK` (or its argument) **once at init, before charts render**, and
+projects each field onto its `html data-*` attr or inline `:root` var (and writes
+`window.PALETTE_MODE`). It is **sparse-friendly**: absent fields touch nothing. You don't
+call it by hand — the emitted THEME block does.
+
+### The theme.json `look:{}` block (sparse)
+
+A preset's optional `look` object carries the same knobs:
+
+```jsonc
+{
+  "colors": { /* … */ },
+  "font":   { /* … */ },
+  "look": {                  // OMITTED ENTIRELY when all-default
+    "density": "compact",
+    "radiusScale": 0,        // or "sharp"|"subtle"|"default"|"round"
+    "elevation": "bordered",
+    "surface": "outlined",
+    "borderW": 1.5, "borderStyle": "dashed",
+    "paletteMode": "sequential",
+    "headingFont": "Fraunces",   // family NAME; the matching <link> is emitted alongside
+    "measureProse": 72, "measurePage": 1200,
+    "bg": "wash", "header": "banded",
+    "semanticPreset": "colorblind-safe",
+    "darkTint": "warm"
+  }
+}
+```
+
+- **SPARSE: only divergent knobs appear.** If every field is default, the whole `look`
+  key is omitted and `theme.json` is byte-identical to today.
+- `apply-theme.py` / theme-studio's `buildCSS()` emit
+  `<script>window.REPORT_LOOK={…}</script>` (+ a heading-font `<link>` when one is chosen)
+  **only when the Look diverges from default**; the runtime owns applying it via
+  `CB.applyLook`. When hand-applying a pasted `theme.json`, copy any `look` fields into a
+  `window.REPORT_LOOK = {…}` script in the THEME block the same way.
+- Defaults each field fills to when absent: `density=comfortable, radiusScale=1,
+  elevation=soft, surface=card, borderW=1, borderStyle=solid, paletteMode=analogous,
+  headingFont='', measureProse=68, measurePage=1400, bg=plain, header=standard,
+  semanticPreset=classic, darkTint=neutral`.
+- The CLI validates a present `look` (`validate_look`) and **fails the run (exit 1)** with
+  field-level messages if a knob is out of range — a broken Look never silently emits junk.
+
+### The theme-studio **Look tab**
+
+`assets/theme-studio.html` has a **Look** tab beside the color/font controls: segmented
+buttons + card pickers for every knob above (density, radius, elevation, surface, border,
+chart palette, heading font, width/prose, page background, header, semantic preset, dark
+tint). **Every control defaults to today's look**, so an untouched Look exports nothing —
+the studio's CSS/`theme.json` output stays byte-identical until the user actually changes a
+knob. The semantic-preset picker fills the four semantic color pickers (still individually
+tweakable). "Reset look" returns every knob to default.

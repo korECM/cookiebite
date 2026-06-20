@@ -46,6 +46,16 @@
   .lang-btn{ color:#71717A; background:transparent; border:0; cursor:pointer; }
   .lang-btn:hover:not(.is-active){ color:#18181B; background:#fff; }
   .lang-btn.is-active{ background:#18181B; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  /* Look — segmented option buttons (density/radius/elevation/etc.) */
+  .seg-btn{ height:28px; border:0; background:transparent; color:#52525B; font-size:12px; font-weight:600;
+            border-radius:6px; cursor:pointer; transition:all .12s; white-space:nowrap; }
+  .seg-btn:hover:not(.is-active){ background:#fff; color:#18181B; }
+  .seg-btn.is-active{ background:#18181B; color:#fff; box-shadow:0 1px 2px rgba(0,0,0,.12); }
+  /* Look — card pickers (palette mode, page background) */
+  .look-card{ text-align:left; border:1px solid #E4E4E7; border-radius:8px; padding:8px; background:#fff; cursor:pointer; transition:all .12s; }
+  .look-card:hover:not(.is-active){ border-color:#A1A1AA; }
+  .look-card.is-active{ border-color:#18181B; box-shadow:0 0 0 1px #18181B; }
+  .look-card .cap{ font-size:11px; font-weight:600; color:#18181B; line-height:1.2; }
 </style>
 <script>
   tailwind.config = { theme: { extend: {
@@ -153,6 +163,89 @@
       <div class="bg-white rounded-lg border border-hair shadow-card p-16">
         <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint mb-12" data-i18n="semantic">Semantic</h2>
         <div class="space-y-8" id="semantic-group"></div>
+      </div>
+
+      <!-- ===== LOOK ===== theme-knob customization. Every control defaults to
+           today's look, so an untouched Look exports nothing (byte-identical). -->
+      <div class="bg-white rounded-lg border border-hair shadow-card p-16">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[12px] font-semibold uppercase tracking-wide text-faint" data-i18n="look">Look</h2>
+          <button id="btn-reset-look" class="text-[11px] text-faint underline hover:text-ink" data-i18n="look_reset">Reset look</button>
+        </div>
+        <p class="text-[11px] text-faint leading-relaxed mb-12" data-i18n="look_hint">Shape, density, surfaces &amp; type. Defaults match today's look, so an untouched Look adds nothing to the export.</p>
+
+        <div class="space-y-14">
+          <!-- Density -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_density">Density</label>
+            <div id="look-density" class="seg grid grid-cols-3 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+          </div>
+          <!-- Radius -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_radius">Corner radius</label>
+            <div id="look-radius" class="seg grid grid-cols-4 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+          </div>
+          <!-- Elevation -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_elevation">Elevation</label>
+            <div id="look-elevation" class="seg grid grid-cols-4 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+          </div>
+          <!-- Surface -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_surface">Surface</label>
+            <div id="look-surface" class="seg grid grid-cols-3 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+          </div>
+          <!-- Border -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_border">Border</label>
+            <div class="grid grid-cols-2 gap-8">
+              <div id="look-borderw" class="seg grid grid-cols-3 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+              <div id="look-borderstyle" class="seg grid grid-cols-2 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+            </div>
+          </div>
+          <!-- Palette mode -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_palette">Chart palette</label>
+            <div id="look-palette" class="grid grid-cols-2 gap-6"></div>
+          </div>
+          <!-- Heading font -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_heading">Heading font</label>
+            <select id="look-heading" class="w-full h-[34px] px-10 rounded-xs border border-hair text-[13px] bg-white"></select>
+          </div>
+          <!-- Measure -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_measure">Width</label>
+            <div id="look-measurepage" class="seg grid grid-cols-3 gap-2 rounded-xs border border-hair p-2 bg-wash mb-8" role="group"></div>
+            <div class="flex items-center gap-8">
+              <span class="text-[12px] text-sub" data-i18n="look_prose">Prose</span>
+              <input id="look-measureprose" type="range" min="50" max="90" step="1" class="flex-1 accent-current" />
+              <span id="look-prose-val" class="text-[12px] nums text-faint w-[42px] text-right">68ch</span>
+            </div>
+          </div>
+          <!-- Background -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_bg">Page background</label>
+            <div id="look-bg" class="grid grid-cols-3 gap-6"></div>
+          </div>
+          <!-- Header -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_header">Header style</label>
+            <div id="look-header" class="seg grid grid-cols-3 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+          </div>
+          <!-- Semantic preset -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_semantic">Semantic preset</label>
+            <select id="look-semantic" class="w-full h-[34px] px-10 rounded-xs border border-hair text-[13px] bg-white"></select>
+            <p class="mt-4 text-[11px] text-faint" data-i18n="look_semantic_hint">Fills the four Semantic pickers above — still individually tweakable.</p>
+          </div>
+          <!-- Dark tint -->
+          <div>
+            <label class="block text-[11px] font-semibold uppercase tracking-wide text-faint mb-6" data-i18n="look_darktint">Dark-mode tint</label>
+            <div id="look-darktint" class="seg grid grid-cols-4 gap-2 rounded-xs border border-hair p-2 bg-wash" role="group"></div>
+            <p class="mt-4 text-[11px] text-faint" data-i18n="look_darktint_hint">Switch the preview to Dark to see it.</p>
+          </div>
+        </div>
       </div>
 
       <!-- locale -->
@@ -273,21 +366,22 @@
            style="background:var(--c-bg); border-color:var(--c-line-weak); color:var(--c-primary)">
         <div class="p-24 md:p-28">
 
-          <!-- header -->
+          <!-- header (data-header drives the band/rule via --header-bg/--header-rule) -->
+          <div class="mb-16 -mx-24 -mt-24 md:-mx-28 md:-mt-28 px-24 md:px-28 pt-24 md:pt-28 pb-16"
+               style="background:var(--header-bg,transparent); border-bottom:1px solid var(--header-rule,transparent)">
           <div class="flex flex-wrap items-center gap-8 mb-12">
-            <span class="px-10 py-4 rounded-md text-[12px] font-semibold"
-                  style="background:var(--accent); color:var(--accent-on)">Q2 FY26</span>
-            <span class="px-10 py-4 rounded-md text-[12px] font-medium"
-                  style="background:var(--accent-weak); color:var(--accent-strong)">Revenue</span>
+            <span class="px-10 py-4 text-[12px] font-semibold" style="border-radius:calc(12px*var(--radius-scale,1)); background:var(--accent); color:var(--accent-on)">Q2 FY26</span>
+            <span class="px-10 py-4 text-[12px] font-medium" style="border-radius:calc(12px*var(--radius-scale,1)); background:var(--accent-weak); color:var(--accent-strong)">Revenue</span>
           </div>
-          <h1 class="text-[26px] font-bold tracking-tight" style="color:var(--c-primary)">Quarterly Performance</h1>
+          <h1 class="text-[26px] font-bold tracking-tight" style="color:var(--c-primary); font-family:var(--font-heading,var(--font-family))">Quarterly Performance</h1>
           <p class="text-[14px] mt-6" style="color:var(--c-secondary)">Automated summary generated from the data pipeline.</p>
+          </div>
 
           <!-- KPI cards -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-12 mt-20" id="kpi-row"></div>
 
           <!-- chart -->
-          <div class="mt-20 rounded-md p-16 border" style="background:var(--c-surface); border-color:var(--c-line-weak)">
+          <div class="mt-20 p-16" style="background:var(--surface-fill,var(--c-surface)); border:var(--surface-border-w,1px) var(--border-style,solid) var(--c-line-weak); border-radius:calc(12px*var(--radius-scale,1)); box-shadow:var(--surface-shadow,none)">
             <div class="flex items-center justify-between mb-12">
               <h3 class="text-[14px] font-semibold" style="color:var(--c-primary)">Weekly bookings</h3>
               <span class="text-[12px]" style="color:var(--c-secondary)">last 8 weeks</span>
@@ -297,7 +391,7 @@
           </div>
 
           <!-- table -->
-          <div class="mt-20 rounded-md border overflow-hidden" style="background:var(--c-surface); border-color:var(--c-line-weak)">
+          <div class="mt-20 overflow-hidden" style="background:var(--surface-fill,var(--c-surface)); border:var(--surface-border-w,1px) var(--border-style,solid) var(--c-line-weak); border-radius:calc(12px*var(--radius-scale,1)); box-shadow:var(--surface-shadow,none)">
             <table class="w-full text-[13px] nums" style="color:var(--c-primary)">
               <thead>
                 <tr style="background:var(--c-disabled-bg); color:var(--c-secondary)">
@@ -362,6 +456,97 @@ const FONTS = [
   { name:"Noto Sans KR", url:"https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap", fallback:"system-ui, sans-serif" },
   { name:"system-ui",    url:"", fallback:"-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" },
 ];
+
+/* ============================================================
+   LOOK model — the theme-knob customization layer.
+   Each knob's DEFAULT === today's look, so an all-default look exports
+   as NOTHING (no look:{} key) and existing reports stay byte-identical.
+   The runtime carrier is window.REPORT_LOOK; CB.applyLook reads it at init.
+   ============================================================ */
+// canonical default look — every value here === today's rendered look.
+// A look that equals this (field by field) is "absent" and is NOT exported.
+const LOOK_DEFAULT = {
+  density: "comfortable",      // html[data-density]; --density-scale 1
+  radiusScale: 1,              // --radius-scale (Default)
+  elevation: "soft",           // html[data-elevation]; soft===today
+  surface: "card",             // html[data-surface]; card===today
+  borderW: 1,                  // --border-w in px (Standard)
+  borderStyle: "solid",        // --border-style
+  paletteMode: "analogous",    // window.PALETTE_MODE; analogous===today
+  headingFont: "",             // --font-heading; ""===inherit --font-family
+  measureProse: 68,            // --measure-prose in ch
+  measurePage: 1400,           // --measure-page in px
+  bg: "plain",                 // html[data-bg]; plain===var(--c-bg)
+  header: "standard",          // html[data-header]
+  semanticPreset: "classic",   // named 4-tuple feeding the semantic pickers
+  darkTint: "neutral",         // html[data-theme=dark] --dark-tint
+};
+// per-knob option tables (value, short label) for the segmented/card controls.
+const DENSITY_OPTS   = [["compact","Compact"],["comfortable","Comfortable"],["spacious","Spacious"]];
+const DENSITY_SCALE  = { compact:0.82, comfortable:1, spacious:1.18 };
+const RADIUS_OPTS    = [["0","Sharp"],["0.6","Subtle"],["1","Default"],["1.4","Round"]];
+const ELEVATION_OPTS = [["flat","Flat"],["soft","Soft"],["sharp","Sharp"],["bordered","Bordered"]];
+const SURFACE_OPTS   = [["card","Card"],["flat","Flat"],["outlined","Outlined"]];
+const BORDERW_OPTS   = [["0.5","Fine"],["1","Standard"],["1.5","Bold"]];
+const PALETTE_OPTS   = ["mono","analogous","categorical","sequential"];
+const MEASURE_PAGE_OPTS = [["1120","Reading"],["1400","Default"],["1600","Wide"]];
+const BG_OPTS     = [["plain","Plain"],["wash","Wash"],["pattern","Pattern"]];
+const HEADER_OPTS = [["standard","Standard"],["banded","Banded"],["bordered","Bordered"]];
+const DARKTINT_OPTS = [["neutral","Neutral"],["warm","Warm"],["cool","Cool"],["accent-tinted","Accent"]];
+// curated body+display heading-font PAIRS. "" === heading uses --font-family (today).
+// each carries the <link> the export must emit so the heading font actually loads.
+const HEADING_PAIRS = [
+  { name:"",                family:"",                  url:"" }, // (match body — default)
+  { name:"Fraunces",        family:"Fraunces",          url:"https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&display=swap" },
+  { name:"Playfair Display",family:"Playfair Display",  url:"https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" },
+  { name:"Space Grotesk",   family:"Space Grotesk",     url:"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" },
+  { name:"Sora",            family:"Sora",              url:"https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&display=swap" },
+  { name:"Lora",            family:"Lora",              url:"https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&display=swap" },
+  { name:"Archivo",         family:"Archivo",           url:"https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&display=swap" },
+];
+// SEMANTIC presets — each fills the four existing semantic pickers (still tweakable).
+// "classic" === today's neutral-preset semantic colors EXACTLY (backward compatible).
+// `dark` is the nudged variant the dark layer / --semantic-preset uses.
+const SEMANTIC_PRESETS = {
+  classic: { label:"Classic",
+    light:{ critical:"#DC2626", cautionary:"#D97706", positive:"#16A34A", informative:"#2563EB" },
+    dark: { critical:"#F2555A", cautionary:"#F5C544", positive:"#4FBB60", informative:"#4DA3FF" } },
+  muted: { label:"Muted",
+    light:{ critical:"#B4474C", cautionary:"#B07A2E", positive:"#3F8456", informative:"#3B6FB0" },
+    dark: { critical:"#D77B7F", cautionary:"#D6B164", positive:"#6FA982", informative:"#7FA8D8" } },
+  vivid: { label:"Vivid",
+    light:{ critical:"#EF2B2B", cautionary:"#F59E0B", positive:"#12B141", informative:"#1E6BFF" },
+    dark: { critical:"#FF6066", cautionary:"#FFCE4D", positive:"#41D061", informative:"#5DA8FF" } },
+  "colorblind-safe": { label:"Colorblind-safe",
+    light:{ critical:"#D55E00", cautionary:"#E69F00", positive:"#0072B2", informative:"#56638A" },
+    dark: { critical:"#F08A3C", cautionary:"#F5C04A", positive:"#4FA8DE", informative:"#9AA4C8" } },
+};
+// small per-mode swatch strip preview for the palette-mode cards (illustrative).
+const PALETTE_SWATCHES = {
+  mono:       ["var(--accent)","color-mix(in srgb,var(--accent) 70%,#fff)","color-mix(in srgb,var(--accent) 45%,#fff)","color-mix(in srgb,var(--accent) 22%,#fff)"],
+  analogous:  ["var(--accent)","color-mix(in srgb,var(--accent) 80%,#16A34A)","color-mix(in srgb,var(--accent) 60%,#2563EB)","color-mix(in srgb,var(--accent) 70%,#D97706)"],
+  categorical:["var(--accent)","#16A34A","#D97706","#2563EB"],
+  sequential: ["color-mix(in srgb,var(--accent) 30%,#fff)","color-mix(in srgb,var(--accent) 55%,#fff)","color-mix(in srgb,var(--accent) 80%,#fff)","var(--accent)"],
+};
+
+// shallow normalize: fill any missing look field from LOOK_DEFAULT (never undefined vars).
+function normalizeLook(l){ return { ...LOOK_DEFAULT, ...(l||{}) }; }
+// true when a look equals the default field-for-field — such a look is NOT exported.
+function isDefaultLook(l){
+  const n = normalizeLook(l);
+  return Object.keys(LOOK_DEFAULT).every(k => String(n[k]) === String(LOOK_DEFAULT[k]));
+}
+// build the EXPORTED look:{} — only the fields that diverge from default, or null if none.
+// keeping it sparse means a one-knob change exports just that knob (and apply-theme fills
+// the rest from its own defaults), and an all-default look exports nothing at all.
+function exportLook(l){
+  const n = normalizeLook(l);
+  const out = {};
+  for(const k of Object.keys(LOOK_DEFAULT)){
+    if(String(n[k]) !== String(LOOK_DEFAULT[k])) out[k] = n[k];
+  }
+  return Object.keys(out).length ? out : null;
+}
 
 /* ============================================================
    Preset library — embedded from assets/presets/*.json
@@ -531,7 +716,11 @@ function loadInitial(){
       if(t && t.colors && t.font && t.locale){
         // every export-contract color key must be present; missing keys mean a stale shape
         const complete = COLOR_KEYS.every(([k])=> typeof t.colors[k] === "string" && t.colors[k]);
-        if(t.schemaVersion === SCHEMA_VERSION && complete) return t;
+        if(t.schemaVersion === SCHEMA_VERSION && complete){
+          // a persisted look is sparse/partial → normalize so no knob is ever undefined
+          t.look = normalizeLook(t.look);
+          return t;
+        }
         // version mismatch OR a missing/blank key: merge over DEFAULT_PRESET so the saved
         // tweaks survive but no key is ever undefined (which would blank a CSS var).
         return {
@@ -540,10 +729,12 @@ function loadInitial(){
           colors: { ...base.colors, ...t.colors },
           font:   { ...base.font,   ...t.font },
           locale: { ...base.locale, ...t.locale },
+          look:   normalizeLook(t.look),
         };
       }
     }
   }catch(e){}
+  base.look = normalizeLook(base.look);
   return base;
 }
 
@@ -577,7 +768,10 @@ function applyTheme(){
   // accent-colored chrome bits that aren't CSS-var driven
   document.querySelectorAll("[style*='var(--accent)']").forEach(()=>{}); // (already var-driven)
 
+  applyLook();
+
   window.REPORT_LOCALE = { ...theme.locale };
+  window.REPORT_LOOK = exportLook(theme.look) || {};
   renderPreview();
   renderContrast();
   renderJSON();
@@ -662,6 +856,91 @@ function applyAccentDark(accentDark, accentOnDark){
 }
 
 /* ============================================================
+   LOOK -> preview. Mirrors the runtime CB.applyLook: set html data-*
+   attrs (here: on #preview-root so editor chrome is untouched) + inline
+   the :root-equivalent vars in a .preview-root-scoped <style>. So every
+   knob is visible in the live preview without pulling in cookiebite.css.
+   ============================================================ */
+function applyLook(){
+  const L = normalizeLook(theme.look);
+  const pr = document.getElementById("preview-root");
+  if(!pr) return;
+  // data-* carriers (only set when non-default, matching the runtime's data-attr contract)
+  const setAttr = (name, val, def) => {
+    if(String(val) === String(def)) pr.removeAttribute(name); else pr.setAttribute(name, val);
+  };
+  setAttr("data-density",   L.density,   LOOK_DEFAULT.density);
+  setAttr("data-elevation", L.elevation, LOOK_DEFAULT.elevation);
+  setAttr("data-surface",   L.surface,   LOOK_DEFAULT.surface);
+  setAttr("data-bg",        L.bg,        LOOK_DEFAULT.bg);
+  setAttr("data-header",    L.header,    LOOK_DEFAULT.header);
+  // window.PALETTE_MODE carrier (consumed by CB.categoricalColors at runtime)
+  window.PALETTE_MODE = L.paletteMode;
+
+  // heading-font <link> for the preview (only when a pair is chosen)
+  const pair = HEADING_PAIRS.find(p => p.name === L.headingFont) || HEADING_PAIRS[0];
+  let hlink = document.getElementById("preview-heading-font-link");
+  if(pair.url){
+    if(!hlink){ hlink = document.createElement("link"); hlink.id="preview-heading-font-link"; hlink.rel="stylesheet"; document.head.appendChild(hlink); }
+    if(hlink.getAttribute("href") !== pair.url) hlink.setAttribute("href", pair.url);
+  }else if(hlink){ hlink.remove(); }
+  const headingFamily = pair.family ? (/\s/.test(pair.family)?`'${pair.family}'`:pair.family) + ", var(--font-family)" : "var(--font-family)";
+
+  // dark-tint nudges the dark bg/surface base via <=6% accent/temperature color-mix
+  const DARK_BG = "#101013", DARK_SURF = "#1a1a1f";
+  const tintMix = (base) => {
+    if(L.darkTint==="warm")  return `color-mix(in srgb, ${base} 95%, #FF8A3D)`;
+    if(L.darkTint==="cool")  return `color-mix(in srgb, ${base} 95%, #3D7BFF)`;
+    if(L.darkTint==="accent-tinted") return `color-mix(in srgb, ${base} 94%, var(--accent))`;
+    return base; // neutral === today
+  };
+
+  // the scoped vars: --density-scale, --radius-scale, elevation shadows, surface fill,
+  // border weight/style, measures, page bg, header, heading font, dark tint.
+  let el = document.getElementById("look-preview-style");
+  if(!el){ el = document.createElement("style"); el.id = "look-preview-style"; document.head.appendChild(el); }
+  // page-bg per data-bg (BODY/page surface only — never content cards)
+  const pageBg = {
+    plain:   "var(--c-bg)",
+    wash:    "linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, var(--c-bg)), var(--c-bg))",
+    pattern: "radial-gradient(var(--c-line) 0.5px, transparent 0.5px) 0 0 / 16px 16px, var(--c-bg)",
+  }[L.bg] || "var(--c-bg)";
+  // elevation shadow vars
+  const shadow = {
+    flat:     ["none","none"],
+    soft:     ["0 1px 2px rgba(16,24,40,.06)","0 1px 3px rgba(16,24,40,.10)"],
+    sharp:    ["0 1px 0 rgba(16,24,40,.10)","0 2px 0 rgba(16,24,40,.14)"],
+    bordered: ["0 0 0 1px var(--c-line-weak)","0 0 0 1px var(--c-line)"],
+  }[L.elevation] || ["0 1px 2px rgba(16,24,40,.06)","0 1px 3px rgba(16,24,40,.10)"];
+  // surface fill/border/shadow per data-surface
+  const surf = {
+    card:     ["var(--c-surface)","var(--border-w)","var(--shadow-sm)"],
+    flat:     ["transparent","0px","none"],
+    outlined: ["transparent","var(--border-w)","none"],
+  }[L.surface] || ["var(--c-surface)","var(--border-w)","var(--shadow-sm)"];
+  // header bg/rule per data-header
+  const header = {
+    standard: ["transparent","transparent"],
+    banded:   ["color-mix(in srgb, var(--accent) 8%, var(--c-bg))","var(--c-line-weak)"],
+    bordered: ["transparent","var(--c-line)"],
+  }[L.header] || ["transparent","transparent"];
+  el.textContent =
+    `.preview-root{
+      --density-scale:${DENSITY_SCALE[L.density] ?? 1};
+      --radius-scale:${L.radiusScale};
+      --border-w:${L.borderW}px; --border-style:${L.borderStyle};
+      --shadow-sm:${shadow[0]}; --shadow-md:${shadow[1]};
+      --surface-fill:${surf[0]}; --surface-border-w:${surf[1]}; --surface-shadow:${surf[2]};
+      --font-heading:${headingFamily};
+      --measure-prose:${L.measureProse}ch; --measure-page:min(${L.measurePage}px, 100vw - 48px);
+      --page-bg:${pageBg}; --header-bg:${header[0]}; --header-rule:${header[1]};
+      --semantic-preset:${L.semanticPreset};
+      background:var(--page-bg);
+     }
+     .preview-root[data-theme="dark"]{ --dark-tint:${L.darkTint}; --c-bg:${tintMix(DARK_BG)}; --c-surface:${tintMix(DARK_SURF)}; }`;
+}
+
+/* ============================================================
    Number formatting for the preview (mirrors report runtime)
    ============================================================ */
 function fmtMoney(v){
@@ -695,7 +974,7 @@ const ROWS = [
 function renderPreview(){
   // KPI cards
   const kpi = KPIS.map(k=>`
-    <div class="rounded-md border p-14 min-w-0" style="background:var(--c-surface); border-color:var(--c-line-weak)">
+    <div class="min-w-0" style="background:var(--surface-fill,var(--c-surface)); border:var(--surface-border-w,1px) var(--border-style,solid) var(--c-line-weak); border-radius:calc(12px*var(--radius-scale,1)); box-shadow:var(--surface-shadow,none); padding:calc(14px*var(--density-scale,1))">
       <div class="text-[12px] whitespace-nowrap overflow-hidden text-ellipsis" style="color:var(--c-secondary)">${k.label}</div>
       <div class="text-[22px] leading-tight font-bold mt-6 nums whitespace-nowrap" style="color:var(--accent)">${fmtMoney(k.value)}</div>
       <span class="inline-block mt-8 px-8 py-2 rounded text-[11px] font-semibold whitespace-nowrap"
@@ -732,12 +1011,17 @@ function renderPreview(){
    theme.json output
    ============================================================ */
 function buildExport(){
-  return {
+  const out = {
     name: theme.name || "custom",
     font: { family: theme.font.family, url: theme.font.url, fallback: theme.font.fallback },
     colors: { ...theme.colors },
     locale: { ...theme.locale },
   };
+  // LOOK CONTRACT: only emit look:{} when at least one knob diverges from default.
+  // An absent/all-default look exports EXACTLY as today (backward compatible).
+  const look = exportLook(theme.look);
+  if(look) out.look = look;
+  return out;
 }
 function renderJSON(){
   document.getElementById("json-out").textContent = JSON.stringify(buildExport(), null, 2);
@@ -768,7 +1052,21 @@ function buildCSS(){
   const darkLine = c.accentDark
     ? ` html[data-theme="dark"]{ --accent:${c.accentDark}; --accent-strong:${c.accentDark}; --accent-on:${c.accentOnDark || "#111111"}; }`
     : "";
-  return `${linkLine}<style>:root{ ${varsStr}; }${darkLine}</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>`;
+  // LOOK CONTRACT: when a knob diverges from default, also emit the heading-font <link>
+  // (if a pair is chosen) and set window.REPORT_LOOK so the runtime CB.applyLook stamps
+  // the html data-* attrs + inline :root look vars at init. Default look emits NOTHING here,
+  // so the exported block stays byte-identical to today.
+  const look = exportLook(theme.look);
+  let headLink = "";
+  let lookScript = "";
+  if(look){
+    if("headingFont" in look){
+      const pair = HEADING_PAIRS.find(p => p.name === look.headingFont);
+      if(pair && pair.url) headLink = `<link rel="stylesheet" href="${pair.url}">\n`;
+    }
+    lookScript = `\n<script>window.REPORT_LOOK=${JSON.stringify(look)};<\/script>`;
+  }
+  return `${linkLine}${headLink}<style>:root{ ${varsStr}; }${darkLine}</style>\n<script>window.REPORT_LOCALE=${JSON.stringify(theme.locale)};<\/script>${lookScript}`;
 }
 
 /* ============================================================
@@ -832,6 +1130,7 @@ function buildControls(){
       </div>`;
     btn.addEventListener("click", ()=>{
       theme = JSON.parse(JSON.stringify(p));
+      theme.look = normalizeLook(theme.look); // presets carry no look → default (today)
       syncInputsFromTheme();
       applyTheme();
       markActivePreset();
@@ -944,6 +1243,126 @@ function buildControls(){
     theme.colors.accentOnDark = theme.colors.accentOnDark || "#111111";
     syncInputsFromTheme(); applyTheme();
   });
+
+  // Look controls (theme knobs)
+  buildLookControls();
+}
+
+/* ============================================================
+   LOOK controls — build / wire / sync
+   ============================================================ */
+// set a look knob, re-render preview, refresh active states, persist.
+function setLook(key, val){
+  if(!theme.look) theme.look = normalizeLook();
+  theme.look[key] = val;
+  syncLookInputs();
+  applyTheme();
+}
+// render a segmented control of [value,label] options into `el`.
+function segControl(el, opts, getActive, onPick){
+  el.innerHTML = "";
+  opts.forEach(([val,label])=>{
+    const b = document.createElement("button");
+    b.className = "seg-btn"; b.type = "button"; b.dataset.val = val; b.textContent = label;
+    b.addEventListener("click", ()=> onPick(val));
+    el.appendChild(b);
+  });
+}
+function buildLookControls(){
+  const L = normalizeLook(theme.look);
+  segControl(document.getElementById("look-density"),   DENSITY_OPTS,   ()=>L.density,    v=>setLook("density", v));
+  segControl(document.getElementById("look-radius"),    RADIUS_OPTS,    ()=>String(L.radiusScale), v=>setLook("radiusScale", parseFloat(v)));
+  segControl(document.getElementById("look-elevation"), ELEVATION_OPTS, ()=>L.elevation,  v=>setLook("elevation", v));
+  segControl(document.getElementById("look-surface"),   SURFACE_OPTS,   ()=>L.surface,    v=>setLook("surface", v));
+  segControl(document.getElementById("look-borderw"),   BORDERW_OPTS,   ()=>String(L.borderW), v=>setLook("borderW", parseFloat(v)));
+  segControl(document.getElementById("look-borderstyle"), [["solid","Solid"],["dashed","Dashed"]], ()=>L.borderStyle, v=>setLook("borderStyle", v));
+  segControl(document.getElementById("look-measurepage"), MEASURE_PAGE_OPTS, ()=>String(L.measurePage), v=>setLook("measurePage", parseInt(v,10)));
+  segControl(document.getElementById("look-header"),    HEADER_OPTS,    ()=>L.header,     v=>setLook("header", v));
+  segControl(document.getElementById("look-darktint"),  DARKTINT_OPTS,  ()=>L.darkTint,   v=>setLook("darkTint", v));
+
+  // palette-mode visual cards (swatch strip per mode)
+  const pal = document.getElementById("look-palette");
+  pal.innerHTML = "";
+  PALETTE_OPTS.forEach(mode=>{
+    const strip = PALETTE_SWATCHES[mode].map(c=>`<span style="flex:1;height:14px;background:${c}"></span>`).join("");
+    const card = document.createElement("button");
+    card.className = "look-card"; card.type = "button"; card.dataset.val = mode;
+    card.innerHTML = `<div style="display:flex;gap:2px;border-radius:4px;overflow:hidden;margin-bottom:6px">${strip}</div><div class="cap" style="text-transform:capitalize">${mode}</div>`;
+    card.addEventListener("click", ()=> setLook("paletteMode", mode));
+    pal.appendChild(card);
+  });
+
+  // page-background cards (live mini preview of plain / wash / pattern)
+  const bg = document.getElementById("look-bg");
+  bg.className = "grid grid-cols-3 gap-6"; bg.innerHTML = "";
+  const bgFill = {
+    plain:   "var(--c-bg)",
+    wash:    "linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--c-bg)), var(--c-bg))",
+    pattern: "radial-gradient(var(--c-line) 0.5px, transparent 0.5px) 0 0 / 8px 8px, var(--c-bg)",
+  };
+  BG_OPTS.forEach(([val,label])=>{
+    const card = document.createElement("button");
+    card.className = "look-card"; card.type = "button"; card.dataset.val = val;
+    card.innerHTML = `<div style="height:22px;border-radius:4px;margin-bottom:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);background:${bgFill[val]}"></div><div class="cap">${label}</div>`;
+    card.addEventListener("click", ()=> setLook("bg", val));
+    bg.appendChild(card);
+  });
+
+  // heading-font <select> (curated pairs)
+  const hf = document.getElementById("look-heading");
+  hf.innerHTML = HEADING_PAIRS.map(p=>`<option value="${p.name}">${p.name || "Match body font"}</option>`).join("");
+  hf.addEventListener("change", e=> setLook("headingFont", e.target.value));
+
+  // semantic-preset <select> — also FILLS the four semantic pickers
+  const sp = document.getElementById("look-semantic");
+  sp.innerHTML = Object.entries(SEMANTIC_PRESETS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("");
+  sp.addEventListener("change", e=> applySemanticPreset(e.target.value));
+
+  // prose-measure range
+  const pr = document.getElementById("look-measureprose");
+  pr.addEventListener("input", e=>{
+    document.getElementById("look-prose-val").textContent = e.target.value + "ch";
+    setLook("measureProse", parseInt(e.target.value,10));
+  });
+
+  // reset-look button
+  const rl = document.getElementById("btn-reset-look");
+  if(rl) rl.addEventListener("click", ()=>{ theme.look = normalizeLook(); syncLookInputs(); applyTheme(); });
+}
+// choosing a semantic preset writes the four semantic colors AND records the preset name
+// in look (so the dark layer can pick the matching dark nudge). Colors stay tweakable after.
+function applySemanticPreset(name){
+  const p = SEMANTIC_PRESETS[name]; if(!p) return;
+  theme.colors.critical    = p.light.critical;
+  theme.colors.cautionary  = p.light.cautionary;
+  theme.colors.positive    = p.light.positive;
+  theme.colors.informative = p.light.informative;
+  if(!theme.look) theme.look = normalizeLook();
+  theme.look.semanticPreset = name;
+  syncInputsFromTheme();
+  applyTheme();
+}
+// reflect current look into every Look control's active state / value.
+function syncLookInputs(){
+  const L = normalizeLook(theme.look);
+  const mark = (id, val) => document.querySelectorAll(`#${id} [data-val]`).forEach(b=>{
+    b.classList.toggle("is-active", b.dataset.val === String(val));
+  });
+  mark("look-density",     L.density);
+  mark("look-radius",      L.radiusScale);
+  mark("look-elevation",   L.elevation);
+  mark("look-surface",     L.surface);
+  mark("look-borderw",     L.borderW);
+  mark("look-borderstyle", L.borderStyle);
+  mark("look-measurepage", L.measurePage);
+  mark("look-bg",          L.bg);
+  mark("look-header",      L.header);
+  mark("look-darktint",    L.darkTint);
+  mark("look-palette",     L.paletteMode);
+  const hf = document.getElementById("look-heading");   if(hf) hf.value = L.headingFont;
+  const sp = document.getElementById("look-semantic");  if(sp) sp.value = L.semanticPreset;
+  const pr = document.getElementById("look-measureprose"); if(pr) pr.value = L.measureProse;
+  const pv = document.getElementById("look-prose-val");    if(pv) pv.textContent = L.measureProse + "ch";
 }
 
 function setColor(key, hex, fromAccent){
@@ -1030,6 +1449,7 @@ function syncInputsFromTheme(){
   document.getElementById("loc-bigunits").checked = !!theme.locale.bigUnits;
   const nameInput = document.getElementById("theme-name");
   if(nameInput) nameInput.value = theme.name || "";
+  syncLookInputs();
   renderThemeNameSpans();
 }
 
@@ -1091,6 +1511,15 @@ const STRINGS = {
     font_custom_name: "Custom name (optional)", font_custom_url: "Custom stylesheet URL (optional)",
     font_custom_fallback: "Fallback stack",
     neutrals: "Neutrals", semantic: "Semantic",
+    look: "Look", look_reset: "Reset look",
+    look_hint: "Shape, density, surfaces & type. Defaults match today's look, so an untouched Look adds nothing to the export.",
+    look_density: "Density", look_radius: "Corner radius", look_elevation: "Elevation",
+    look_surface: "Surface", look_border: "Border", look_palette: "Chart palette",
+    look_heading: "Heading font", look_measure: "Width", look_prose: "Prose",
+    look_bg: "Page background", look_header: "Header style",
+    look_semantic: "Semantic preset",
+    look_semantic_hint: "Fills the four Semantic pickers above — still individually tweakable.",
+    look_darktint: "Dark-mode tint", look_darktint_hint: "Switch the preview to Dark to see it.",
     locale: "Locale & numbers", loc_number: "Number format", loc_currency: "Currency code",
     loc_symbol: "Symbol", loc_bigunits: "Big units (만/억)",
     loc_hint: "Off = K / M / B scale. On = East-Asian 만 / 억 scale.",
@@ -1137,6 +1566,15 @@ const STRINGS = {
     font_custom_name: "직접 입력 (선택)", font_custom_url: "스타일시트 URL 직접 입력 (선택)",
     font_custom_fallback: "폴백 글꼴 스택",
     neutrals: "중립색", semantic: "의미색",
+    look: "룩", look_reset: "룩 초기화",
+    look_hint: "모양 · 밀도 · 표면 · 서체. 기본값은 지금 룩과 같아서, 손대지 않으면 내보내기에 아무것도 추가되지 않아요.",
+    look_density: "밀도", look_radius: "모서리", look_elevation: "그림자",
+    look_surface: "표면", look_border: "테두리", look_palette: "차트 팔레트",
+    look_heading: "제목 글꼴", look_measure: "너비", look_prose: "본문",
+    look_bg: "페이지 배경", look_header: "헤더 스타일",
+    look_semantic: "의미색 프리셋",
+    look_semantic_hint: "위의 의미색 4개를 채워줘요 — 이후 개별 조정도 가능해요.",
+    look_darktint: "다크 모드 색조", look_darktint_hint: "미리보기를 다크로 바꾸면 보여요.",
     locale: "지역 · 숫자", loc_number: "숫자 형식", loc_currency: "통화 코드",
     loc_symbol: "기호", loc_bigunits: "큰 단위 (만/억)",
     loc_hint: "끄면 K / M / B 단위, 켜면 동아시아 만 / 억 단위로 표시해요.",
@@ -1277,6 +1715,7 @@ function init(){
   document.getElementById("btn-set-default").addEventListener("click", copyDefaultPrompt);
   document.getElementById("btn-reset").addEventListener("click", ()=>{
     theme = JSON.parse(JSON.stringify(DEFAULT_PRESET));
+    theme.look = normalizeLook(theme.look);
     syncInputsFromTheme(); applyTheme(); markActivePreset(); showToast(t("t_reset"));
   });
 

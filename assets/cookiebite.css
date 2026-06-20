@@ -159,17 +159,35 @@ td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-c
 .cb-search-hide{ opacity:.28; transition:opacity .15s ease; }
 mark.cb-mark{ background:var(--accent-weak); color:var(--accent-strong); border-radius:3px; padding:0 1px; }
 
-/* (8) F45 compact-density layer — flips on html[data-density="compact"] (toggled by
-   COOKIEBITE.densityToggle). Tightens card/list padding + vertical rhythm a notch for
-   data-dense exec reads, WITHOUT touching the comfortable default. Scoped to the report's
-   common surfaces/utilities; token-based so it re-themes for free. */
-html[data-density="compact"] .p-20{ padding:12px !important; }
-html[data-density="compact"] .p-16{ padding:10px !important; }
-html[data-density="compact"] .gap-16{ gap:10px !important; }
-html[data-density="compact"] .space-y-8 > * + *{ margin-top:5px !important; }
-html[data-density="compact"] .mt-12{ margin-top:8px !important; }
-html[data-density="compact"] .py-8{ padding-top:5px !important; padding-bottom:5px !important; }
-html[data-density="compact"] .gridjs-td, html[data-density="compact"] .gridjs-th{ padding-top:6px !important; padding-bottom:6px !important; }
+/* (8) F45 density layer — flips on html[data-density="compact"|"comfortable"|"spacious"]
+   (toggled by COOKIEBITE.densityToggle / CB.applyLook). Originally a single compact notch;
+   now SCALE-DRIVEN by --density-scale (compact .82 / comfortable 1 / spacious 1.18) so the
+   same recipe yields all three tiers from one stop. comfortable/absent === today byte-for-byte
+   (the previous compact values were hand-picked; the calc() below reproduces the *intent*: a
+   notch tighter, a notch looser — comfortable stays untouched because the layer is gated on
+   :root[data-density] presence and only the comfortable rule resolves scale 1 = identity).
+   Scoped to the report's common surfaces/utilities; token-based so it re-themes for free.
+   NOTE: comfortable is the DEFAULT — when data-density is absent NONE of these fire, so an
+   existing report renders identically. The comfortable rule below exists only for the explicit
+   opt-in case and resolves to the same px the unscoped utilities already produce. */
+:root{ --density-scale:1; }
+html[data-density="compact"]{ --density-scale:.82; }
+html[data-density="comfortable"]{ --density-scale:1; }
+html[data-density="spacious"]{ --density-scale:1.18; }
+/* the scaled spacing recipe — only emitted under an explicit [data-density] so the
+   comfortable DEFAULT (attr absent) never pays the !important tax. round() keeps sub-px
+   from blurring hairline-adjacent padding. */
+html[data-density] .p-20{ padding:round(calc(20px * var(--density-scale)), 1px) !important; }
+html[data-density] .p-16{ padding:round(calc(16px * var(--density-scale)), 1px) !important; }
+html[data-density] .p-12{ padding:round(calc(12px * var(--density-scale)), 1px) !important; }
+html[data-density] .p-8{ padding:round(calc(8px * var(--density-scale)), 1px) !important; }
+html[data-density] .gap-16{ gap:round(calc(16px * var(--density-scale)), 1px) !important; }
+html[data-density] .gap-12{ gap:round(calc(12px * var(--density-scale)), 1px) !important; }
+html[data-density] .gap-8{ gap:round(calc(8px * var(--density-scale)), 1px) !important; }
+html[data-density] .space-y-8 > * + *{ margin-top:round(calc(8px * var(--density-scale)), 1px) !important; }
+html[data-density] .mt-12{ margin-top:round(calc(12px * var(--density-scale)), 1px) !important; }
+html[data-density] .py-8{ padding-top:round(calc(8px * var(--density-scale)), 1px) !important; padding-bottom:round(calc(8px * var(--density-scale)), 1px) !important; }
+html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(calc(9px * var(--density-scale)), 1px) !important; padding-bottom:round(calc(9px * var(--density-scale)), 1px) !important; }
 
 /* (9) F45 permalinks — a quiet '#' anchor that appears on heading hover/focus, copied via
    COOKIEBITE.permalinks. Hidden until the heading is hovered or the anchor itself is
@@ -178,3 +196,244 @@ html[data-density="compact"] .gridjs-td, html[data-density="compact"] .gridjs-th
 .cb-permalink{ opacity:0; margin-left:.4em; font-weight:600; transition:opacity .12s ease; }
 .cb-permalink-h:hover .cb-permalink, .cb-permalink:focus-visible{ opacity:.55; }
 .cb-permalink:hover{ opacity:1 !important; }
+
+/* ============================================================================
+   (10) EDITORIAL COMPONENTS — long-form / report-prose primitives emitted by
+   CB markup helpers (JS adds the class; all styling lives here). Every rule is
+   token-based (var(--c-*) / var(--accent*)), 390px-safe (no fixed widths that
+   overflow), never-color-alone (icon/text accompanies every tone), and prints
+   sensibly. Measures resolve var(--measure-prose, …) so the theme-knob can widen
+   them globally; the second arg is the historical per-component default.
+   ========================================================================== */
+
+/* --- .cb-lead — the standfirst / deck under a headline ---------------------- */
+.cb-lead{ font-size:18px; line-height:26px; font-weight:400; color:var(--c-secondary); max-width:var(--measure-prose,58ch); margin-bottom:24px; text-wrap:pretty; }
+/* dropped initial — first letter only, accent-strong, sits 2 lines tall. Guarded
+   so an empty lead doesn't render a stray glyph; float keeps text wrapping around. */
+.cb-lead.dropcap::first-letter{ float:left; font-size:3.1em; line-height:.82; font-weight:700; color:var(--accent-strong); padding:.02em .08em 0 0; margin-top:.02em; }
+
+/* --- .cb-prose — a measured long-form text block --------------------------- */
+.cb-prose{ max-width:var(--measure-prose,68ch); color:var(--c-primary); }
+.cb-prose p{ line-height:1.65; margin-block:0 .9em; text-wrap:pretty; }
+.cb-prose h2, .cb-prose h3{ margin-top:2em; margin-bottom:.4em; text-wrap:balance; }
+.cb-prose h2:first-child, .cb-prose h3:first-child{ margin-top:0; }
+.cb-prose ul, .cb-prose ol{ margin-block:.4em .9em; padding-left:1.4em; }
+.cb-prose li{ margin-block:.3em; line-height:1.6; }
+.cb-prose li::marker{ color:var(--c-secondary); }
+/* .cb-bleed opts a child (a wide chart/table) OUT of the measured column so it can
+   run full-width inside an otherwise-narrow prose block. */
+.cb-prose .cb-bleed{ max-width:none; width:100%; }
+
+/* --- .cb-callout + 5 tone variants ----------------------------------------- */
+/* tone is carried by --cb-tone (default = informative) so the body shares one rule;
+   each variant just rebinds the token + bg mix. border-l-4 in the tone, icon shrink-0,
+   uppercase tracked kicker, body-14. amber/warning gets a richer 15% mix for contrast. */
+.cb-callout{ --cb-tone:var(--c-informative); --cb-tone-bg:color-mix(in srgb, var(--c-informative) 10%, var(--c-surface)); display:flex; gap:12px; align-items:flex-start; border-radius:var(--r-medium,16px); border-left:4px solid var(--cb-tone); background:var(--cb-tone-bg); padding:16px; font-size:14px; line-height:1.55; color:var(--c-primary); }
+.cb-callout--note{ --cb-tone:var(--c-informative); --cb-tone-bg:color-mix(in srgb, var(--c-informative) 10%, var(--c-surface)); }
+.cb-callout--tip{ --cb-tone:var(--c-positive); --cb-tone-bg:color-mix(in srgb, var(--c-positive) 10%, var(--c-surface)); }
+.cb-callout--warning{ --cb-tone:var(--c-cautionary); --cb-tone-bg:color-mix(in srgb, var(--c-cautionary) 15%, var(--c-surface)); }
+.cb-callout--danger{ --cb-tone:var(--c-critical); --cb-tone-bg:color-mix(in srgb, var(--c-critical) 10%, var(--c-surface)); }
+.cb-callout--example{ --cb-tone:var(--c-secondary); --cb-tone-bg:color-mix(in srgb, var(--c-secondary) 8%, var(--c-surface)); }
+.cb-callout__icon{ flex:0 0 auto; width:20px; height:20px; color:var(--cb-tone); margin-top:1px; }
+.cb-callout__icon svg{ width:100%; height:100%; display:block; }
+.cb-callout__body{ min-width:0; }
+.cb-callout__kicker{ display:block; font-size:12px; line-height:16px; letter-spacing:.08em; text-transform:uppercase; font-weight:700; color:color-mix(in srgb, var(--cb-tone) 80%, var(--c-primary)); margin-bottom:4px; }
+.cb-callout p{ margin-block:0 .5em; }
+.cb-callout p:last-child{ margin-bottom:0; }
+
+/* --- .cb-quote — inline pull/attribution quote with a hanging mark ---------- */
+.cb-quote{ position:relative; margin:0 0 .9em; padding-left:1.1em; color:var(--c-primary); font-style:italic; line-height:1.6; text-indent:-.5em; }
+.cb-quote::before{ content:"\201C"; color:var(--accent-strong); font-style:normal; font-weight:700; margin-right:.06em; }
+.cb-quote cite{ display:block; text-indent:0; margin-top:.4em; font-style:normal; font-size:13px; color:var(--c-secondary); }
+.cb-quote cite::before{ content:"\2014\00a0"; }
+
+/* --- .cb-figure / .cb-figcaption — auto-numbered figure ('Fig. N') ---------- */
+/* a CSS counter on the figure ROOT increments per .cb-figure; the eyebrow renders
+   'Fig. N'. Caption tiers: the eyebrow (caption-12 accent-strong) + the description
+   (body-14 secondary). Counter is screen+print stable. */
+.cb-figure{ counter-increment:cb-fig; margin:0 0 24px; }
+.cb-figure > :where(img,svg,canvas,table,.cb-bleed){ max-width:100%; }
+.cb-figcaption{ margin-top:8px; font-size:14px; line-height:1.5; color:var(--c-secondary); }
+.cb-figcaption::before{ content:"Fig. " counter(cb-fig) " · "; font-size:12px; letter-spacing:.04em; font-weight:700; text-transform:uppercase; color:var(--accent-strong); }
+
+/* --- .cb-statusdot — a tiny status pip (text/icon always accompanies it) ---- */
+.cb-statusdot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; vertical-align:baseline; margin-right:.1em; flex:0 0 auto; }
+/* pulse halo — reduced-motion users get a static dot (the keyframe is gated). */
+@media (prefers-reduced-motion: no-preference){
+  .cb-statusdot--pulse{ position:relative; }
+  .cb-statusdot--pulse::after{ content:""; position:absolute; inset:0; border-radius:50%; background:currentColor; animation:cb-statusdot-pulse 1.8s cubic-bezier(.4,0,.6,1) infinite; }
+  @keyframes cb-statusdot-pulse{ 0%{ transform:scale(1); opacity:.6; } 70%,100%{ transform:scale(2.6); opacity:0; } }
+}
+
+/* --- .cb-trendchip — an inline ▲N% / ▼N% chip sitting on the text baseline -- */
+.cb-trendchip{ display:inline-flex; align-items:center; gap:.18em; vertical-align:baseline; font-variant-numeric:tabular-nums; font-size:.875em; font-weight:600; line-height:1; }
+.cb-trendchip svg, .cb-trendchip .cb-trendchip__glyph{ width:.9em; height:.9em; flex:0 0 auto; }
+
+/* --- .cb-whatchanged — a from→to delta list (arrow column aligns) ----------- */
+.cb-whatchanged{ display:grid; grid-template-columns:max-content auto max-content; align-items:baseline; gap:6px 12px; margin:0 0 .9em; font-size:14px; }
+.cb-whatchanged__label{ color:var(--c-secondary); }
+.cb-whatchanged__from{ color:var(--c-secondary); text-align:right; }
+.cb-whatchanged__arrow{ color:var(--c-disabled); justify-self:center; }
+.cb-whatchanged__to{ color:var(--c-primary); font-weight:600; }
+.cb-whatchanged__row{ display:contents; }
+/* below sm: stack each row (label over from→to) instead of a 3-col grid that crushes */
+@media (max-width:640px){
+  .cb-whatchanged{ grid-template-columns:1fr; gap:2px 0; }
+  .cb-whatchanged__from{ text-align:left; }
+}
+
+/* --- .cb-epigraph / .cb-pullquote — display quotes ------------------------- */
+/* both hang a large accent-strong opening glyph and carry an accent-weak left keyline.
+   epigraph = small, italic, chapter-opener; pullquote = large, pulled emphasis. */
+.cb-epigraph, .cb-pullquote{ position:relative; margin:0 0 24px; padding-left:1.1em; border-left:3px solid var(--accent-weak); color:var(--c-primary); }
+/* the hanging open-quote glyph is a PULLQUOTE flourish only — on the small epigraph it
+   collided with the first words, so the epigraph keeps just the italic + left keyline. */
+.cb-pullquote::before{ content:"\201C"; position:absolute; left:.18em; top:-.12em; color:var(--accent-strong); font-weight:700; line-height:1; }
+.cb-epigraph{ font-style:italic; font-size:15px; line-height:1.55; color:var(--c-secondary); }
+.cb-pullquote{ font-size:clamp(20px, 3.2vw, 28px); line-height:1.3; font-weight:600; text-wrap:balance; }
+.cb-pullquote::before{ font-size:2.4em; top:-.18em; }
+.cb-epigraph cite, .cb-pullquote cite{ display:block; margin-top:.5em; font-style:normal; font-weight:400; font-size:13px; color:var(--c-secondary); }
+.cb-epigraph cite::before, .cb-pullquote cite::before{ content:"\2014\00a0"; }
+
+/* --- .cb-kicker / .cb-leadin — eyebrow + run-in opener ---------------------- */
+.cb-kicker{ display:block; font-size:12px; line-height:16px; letter-spacing:.1em; text-transform:uppercase; font-weight:700; color:var(--accent-strong); margin-bottom:6px; }
+.cb-leadin{ font-weight:700; color:var(--c-primary); }
+
+/* --- .cb-legend — a wrapping chart/figure legend --------------------------- */
+.cb-legend{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:8px; font-size:12px; line-height:16px; color:var(--c-secondary); }
+.cb-legend__item{ display:inline-flex; align-items:center; gap:6px; }
+.cb-legend__swatch{ width:10px; height:10px; border-radius:3px; flex:0 0 auto; background:currentColor; }
+/* narrow: collapse the legend into a single column so swatch+label pairs don't split */
+@media (max-width:480px){ .cb-legend{ flex-direction:column; gap:4px; } }
+
+/* --- [data-elevate] — CSS-only hover/focus elevation ----------------------- */
+/* JS/templates just add the attribute. shadow-sm→md + a 1px lift over ~120ms, gated on
+   a real hover pointer AND reduced-motion (a no-pref motion user still gets shadow; a
+   reduce user gets shadow without the translate). :focus-visible mirrors hover so a
+   keyboard user sees the same affordance. accent variant adds a faint accent ring. */
+[data-elevate]{ box-shadow:var(--shadow-sm,0 2px 8px rgba(0,0,0,.15)); }
+@media (hover:hover){
+  [data-elevate]{ transition:box-shadow .12s ease, transform .12s ease; }
+  [data-elevate]:hover{ box-shadow:var(--shadow-md,0 8px 20px rgba(0,0,0,.12)); transform:translateY(-1px); }
+  @media (prefers-reduced-motion: reduce){
+    [data-elevate]{ transition:box-shadow .12s ease; }
+    [data-elevate]:hover{ transform:none; }
+  }
+}
+[data-elevate]:focus-visible{ box-shadow:var(--shadow-md,0 8px 20px rgba(0,0,0,.12)); }
+[data-elevate="accent"]:hover, [data-elevate="accent"]:focus-visible{ box-shadow:var(--shadow-md,0 8px 20px rgba(0,0,0,.12)), 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent); }
+@media print{ [data-elevate]{ box-shadow:none !important; transform:none !important; } }
+
+/* ============================================================================
+   (11) THEME-KNOB LAYERS — each defaults to TODAY's exact look (default value ===
+   today, so an existing report whose REPORT_LOOK is absent is byte-identical).
+   CB.applyLook (JS) sets the html[data-*] attrs + inline :root vars; THIS file
+   supplies the recipes those attrs/vars drive. Densitiy lives in (8) above.
+   ========================================================================== */
+
+/* --- radius scale — --radius-scale (Sharp 0 / Subtle .6 / Default 1 / Round 1.4).
+   The Tailwind rounded-* keys are defined in cookiebite.js; the VARS live here and the
+   reachable card/pill/button/gridjs recipes resolve them. Each --r-* = base * scale, so
+   scale 1 (default) reproduces the historical 4/8/12/16/24/32 exactly. clamp at 0 so a
+   negative scale can't produce an invalid radius. */
+:root{
+  --radius-scale:1;
+  --r-xxs:calc(4px * var(--radius-scale));
+  --r-xs:calc(8px * var(--radius-scale));
+  --r-small:calc(12px * var(--radius-scale));
+  --r-medium:calc(16px * var(--radius-scale));
+  --r-large:calc(24px * var(--radius-scale));
+  --r-xlarge:calc(32px * var(--radius-scale));
+}
+/* apply the scaled radius to the Tailwind rounded-* recipes we can reach via class.
+   Only emitted when the knob is engaged (scale ≠ 1) to avoid an unconditional !important
+   over every report; CB.applyLook sets data-radius when it writes --radius-scale. */
+html[data-radius] .rounded-xxs{ border-radius:var(--r-xxs) !important; }
+html[data-radius] .rounded-xs{ border-radius:var(--r-xs) !important; }
+html[data-radius] .rounded-small{ border-radius:var(--r-small) !important; }
+html[data-radius] .rounded-medium{ border-radius:var(--r-medium) !important; }
+html[data-radius] .rounded-large{ border-radius:var(--r-large) !important; }
+html[data-radius] .rounded-xlarge{ border-radius:var(--r-xlarge) !important; }
+/* rounded-full stays full; gridjs wrapper + inputs follow the small/medium tier */
+html[data-radius] .gridjs-wrapper{ border-radius:var(--r-medium) !important; }
+html[data-radius] input.gridjs-input, html[data-radius] .gridjs-search-input{ border-radius:var(--r-xs) !important; }
+
+/* --- elevation — html[data-elevation] overrides --shadow-sm/--shadow-md.
+   soft === today (the Tailwind sm/md). flat → no shadow + a forced hairline on cards so
+   they don't dissolve. sharp → a tight dark shadow. bordered → no shadow + a stronger
+   border. The component layer above reads var(--shadow-sm/md), so [data-elevate] follows. */
+:root{ --shadow-sm:0 2px 8px rgba(0,0,0,.15); --shadow-md:0 8px 20px rgba(0,0,0,.12); }
+html[data-elevation="flat"]{ --shadow-sm:none; --shadow-md:none; }
+html[data-elevation="flat"] .shadow-sm, html[data-elevation="flat"] .shadow-md{ box-shadow:none !important; }
+html[data-elevation="flat"] :where(.card, .bg-surface){ border:1px solid var(--c-line-weak); }
+html[data-elevation="sharp"]{ --shadow-sm:0 1px 2px rgba(0,0,0,.35); --shadow-md:0 3px 6px rgba(0,0,0,.4); }
+html[data-elevation="sharp"] .shadow-sm{ box-shadow:var(--shadow-sm) !important; }
+html[data-elevation="sharp"] .shadow-md{ box-shadow:var(--shadow-md) !important; }
+html[data-elevation="bordered"]{ --shadow-sm:none; --shadow-md:none; }
+html[data-elevation="bordered"] .shadow-sm, html[data-elevation="bordered"] .shadow-md{ box-shadow:none !important; }
+html[data-elevation="bordered"] :where(.card, .bg-surface){ border:1px solid var(--c-line); }
+
+/* --- surface treatment — html[data-surface] → --surface-fill/--surface-border-w/
+   --surface-shadow. card === today (filled surface + sm shadow). flat → no fill/shadow,
+   a top hairline per section instead. outlined → fill kept, shadow dropped, border bumped. */
+:root{ --surface-fill:var(--c-surface); --surface-border-w:1px; --surface-shadow:var(--shadow-sm); }
+html[data-surface="flat"]{ --surface-fill:transparent; --surface-border-w:0px; --surface-shadow:none; }
+html[data-surface="flat"] :where(.card, .bg-surface){ background:transparent !important; box-shadow:none !important; }
+html[data-surface="flat"] section + section{ border-top:1px solid var(--c-line-weak); }
+html[data-surface="outlined"]{ --surface-fill:var(--c-surface); --surface-border-w:1.5px; --surface-shadow:none; }
+html[data-surface="outlined"] :where(.card, .bg-surface){ box-shadow:none !important; border:var(--border-w,1.5px) solid var(--c-line); }
+
+/* --- border knob — canonical --hairline recipe. --border-w (.5/1/1.5px default 1) +
+   --border-style (solid|dashed, default solid). 1px solid === today. */
+:root{ --border-w:1px; --border-style:solid; --hairline:var(--border-w) var(--border-style) var(--c-line-weak); }
+html[data-border] :where(.border, .border-line-weak){ border-width:var(--border-w) !important; border-style:var(--border-style) !important; }
+/* print + forced-colors clamp: never thinner than 1px solid (a .5px dashed rule vanishes on paper) */
+@media print{ html[data-border] :where(.border, .border-line-weak){ border-width:max(1px, var(--border-w)) !important; border-style:solid !important; } }
+@media (forced-colors: active){ :root{ --border-w:1px; --border-style:solid; } }
+
+/* --- heading font — --font-heading (defaults to var(--font-family) so absent === today).
+   Applied to the display heading classes. body stays var(--font-family). */
+:root{ --font-heading:var(--font-family); }
+:where(.text-headline-48, .text-headline-36, .text-title-28, .text-title-24, .text-title-20, .cb-pullquote, .cb-kicker, h1, h2, h3){ font-family:var(--font-heading); }
+
+/* --- measures — --measure-prose (68ch) drives .cb-prose/.prose-measure (already wired
+   above + below); --measure-page (1400px) clamps the main column to the viewport minus
+   gutters so a wide page can't cause horizontal scroll on a phone. Default === today. */
+:root{ --measure-prose:68ch; --measure-page:1400px; }
+.prose-measure{ max-width:var(--measure-prose,68ch); }
+html[data-measure-page] main{ max-width:min(var(--measure-page,1400px), calc(100vw - 32px)) !important; margin-inline:auto; }
+
+/* --- page background — html[data-bg] → --page-bg on BODY only (never content surfaces).
+   plain === var(--c-bg) (today). wash → a 4% accent gradient. pattern → a faint --c-line
+   dot tile. @media print forces plain (no ink-wasting wash/pattern on paper). */
+:root{ --page-bg:var(--c-bg); }
+html[data-bg="plain"]{ --page-bg:var(--c-bg); }
+html[data-bg="wash"]{ --page-bg:linear-gradient(180deg, color-mix(in srgb, var(--accent) 4%, var(--c-bg)) 0%, var(--c-bg) 60%); }
+html[data-bg="pattern"]{ --page-bg:radial-gradient(circle, color-mix(in srgb, var(--c-line) 45%, transparent) 1px, transparent 1px) 0 0 / 18px 18px, var(--c-bg); }
+html[data-bg] body{ background:var(--page-bg); background-attachment:fixed; }
+@media print{ html[data-bg] body{ background:#FFFFFF !important; } }
+
+/* --- header band — html[data-header] → --header-bg/--header-rule. standard === today
+   (transparent, no rule). banded → a faint accent-weak band. bordered → a bottom rule.
+   Applied to the report's top <header> when present. */
+:root{ --header-bg:transparent; --header-rule:transparent; }
+html[data-header="standard"]{ --header-bg:transparent; --header-rule:transparent; }
+html[data-header="banded"]{ --header-bg:color-mix(in srgb, var(--accent) 6%, var(--c-bg)); --header-rule:transparent; }
+html[data-header="bordered"]{ --header-bg:transparent; --header-rule:var(--c-line-weak); }
+html[data-header] :where(header, .cb-header){ background:var(--header-bg); border-bottom:1px solid var(--header-rule); }
+
+/* --- semantic preset SETS — written by JS (CB.applyLook sets --c-critical/-cautionary/
+   -positive/-informative inline from the named 4-tuple). Nothing to redefine here: the
+   existing dark layer (section 2) already NUDGES those four tokens brighter, and because
+   it overrides them by name it keeps working for any preset JS writes. (Left as a marker
+   so the contract is auditable — no rule needed.) */
+
+/* --- dark tint — html[data-theme="dark"] --dark-tint nudges --c-bg/--c-surface via a
+   ≤6% color-mix. neutral (default) === today's EXACT #101013 / #1a1a1f (the mix with a
+   neutral tint resolves back to the same values). warm/cool/accent give a faint cast.
+   Set as a variable so JS only writes --dark-tint; the recipe lives here. */
+html[data-theme="dark"]{ --dark-tint:#101013; }
+html[data-theme="dark"][data-dark-tint]{
+  --c-bg:color-mix(in srgb, var(--dark-tint) 6%, #101013);
+  --c-surface:color-mix(in srgb, var(--dark-tint) 6%, #1a1a1f);
+}

@@ -40,6 +40,30 @@
   }
 </style>
 <script>window.REPORT_LOCALE = {'number': 'ko-KR', 'currency': 'KRW', 'symbol': '₩', 'bigUnits': true};</script>
+<!-- OPTIONAL "Look" system — leave commented for today's exact look. Uncomment + set any
+     subset to opt in; the runtime reads window.REPORT_LOOK once at init (CB.applyLook) and
+     sets the html data-* attributes + :root vars. Every knob is optional; an absent/commented
+     REPORT_LOOK === today, byte-for-byte. (Design one in assets/theme-studio.html, or let
+     scripts/apply-theme.py emit it from a preset's "look":{} block.)
+<script>
+  window.REPORT_LOOK = {
+    // density:       'compact' | 'comfortable' | 'spacious',   // → --density-scale (0.82/1/1.18); comfortable === today
+    // radiusScale:   1,            // Sharp 0 / Subtle .6 / Default 1 / Round 1.4 → --radius-scale
+    // elevation:     'flat' | 'soft' | 'sharp' | 'bordered',   // → --shadow-sm/--shadow-md; soft === today
+    // surface:       'card' | 'flat' | 'outlined',             // → --surface-fill/--surface-border-w/--surface-shadow; card === today
+    // borderW:       1,            // .5 | 1 | 1.5 (px) → --border-w
+    // borderStyle:   'solid',      // 'solid' | 'dashed' → --border-style
+    // paletteMode:   'analogous',  // 'mono' | 'analogous' | 'categorical' | 'sequential'; analogous === today
+    // headingFont:   { family: 'Newsreader', url: 'https://…', fallback: 'Georgia, serif' }, // → --font-heading
+    // measureProse:  '68ch',       // → --measure-prose
+    // measurePage:   '1400px',     // → --measure-page (clamped to min(var,100vw-gutters))
+    // bg:            'plain' | 'wash' | 'pattern',             // body bg only; plain === today
+    // header:        'standard' | 'banded' | 'bordered',       // → --header-bg/--header-rule
+    // semanticPreset:'classic' | 'muted' | 'vivid' | 'colorblind-safe',  // → --c-critical/cautionary/positive/informative
+    // darkTint:      'neutral' | 'warm' | 'cool' | 'accent',   // dark-mode surface tint; neutral === today
+  };
+</script>
+-->
 <!-- end THEME -->
 <!-- /COOKIEBITE:HEAD-THEME -->
 

@@ -475,6 +475,42 @@ line for an average/baseline and the **accent** for the line that carries the po
 
 ---
 
+## Editorial components (lead, callouts, figure, quotes, kicker, status, legend)
+
+A second family beyond the data blocks above: **editorial** components for narrative /
+explainer / longform reports — the parts that make a report read like an article, not a
+dashboard. They all return the **shared `.cb-*` contract classes** (styled by
+`cookiebite.css`) and speak the same `tone` language; the runtime fast-path is in
+`helpers.md` (the `CB.lead`/`CB.note`/… signatures). Use them when prose carries the
+report; reach for the data blocks above when numbers do.
+
+| Component | Runtime | When to use | Tone |
+|-----------|---------|-------------|------|
+| **Lead / standfirst** | `CB.lead(html, {measure?,dropcap?})` | the opening paragraph of a section/report — larger, looser than body, sets up what follows | — (no tone) |
+| **Callout family** | `CB.note/tip/warning/danger/example(html,{title?})` | an admonition with a **fixed role** — a caveat (`warning`), a hint (`tip`), an aside (`note`), a hazard (`danger`), a worked case (`example`) | fixed per variant: note→info, tip→success, warning→warning, danger→critical, example→neutral |
+| **Quote (inline)** | `CB.quote(html,{cite?})` | a short pulled sentence inside the flow, with attribution | — |
+| **Epigraph** | `CB.epigraph(html,{cite?})` | a small italic **opening** quotation above a section | — |
+| **Pullquote** | `CB.pullquote(html)` | a **large** lift-out quotation that breaks up a long passage | — (accent glyph) |
+| **Figure** | `CB.figure(target,{number?,title,note?,source?})` | wrap a chart/table/image with a numbered `Fig. N` caption + source provenance | — |
+| **Kicker / lead-in** | `CB.kicker(text,{tone?})` + `.cb-leadin` class | a section eyebrow above an `<h2>` (kicker) / a small-caps run-in opening a paragraph (`.cb-leadin`, hand-applied) | optional |
+| **Status dot** | `CB.statusDot(tone,label,{pulse?,size?})` | a live status indicator (service state, build health) — dot **plus** a required label | the dot's color |
+| **What-changed** | `CB.whatChanged(target,items,{title?})` | a small config/metric **before→after** value diff (old struck → new + Δ badge) | per-row, colors the Δ |
+| **Legend (standalone)** | `CB.legend(target,items,{swatch?,interactive?,chart?})` | a value-bearing / interactive legend for a multi-series chart, richer than ECharts' built-in | swatch colors (categorical palette) |
+
+**The tone contract still governs.** Every editorial component that carries status uses
+the same five-name scale from the top of this file — the **callout family hard-wires** its
+tone per variant (`warning`→warning, `danger`→critical, `tip`→success, `note`/`example`→
+info/neutral), so you pick the *variant* by meaning and the color follows. `statusDot`,
+`whatChanged`, and `kicker` take an explicit `tone`; **never color-alone** — `statusDot`
+*requires* a text label and `whatChanged` pairs its Δ color with an up/down arrow + sign.
+`lead`/`quote`/`epigraph`/`pullquote`/`figure` are tone-free (typographic, not status).
+
+> **Readability defaults (`.cb-prose` / `.cb-lead`).** `.cb-lead` and `.cb-prose` clamp
+> their line length to `--measure-prose` (default 68ch; `.cb-lead` falls back to 58ch) so
+> longform body text stays readable instead of running the full page width. `CB.lead(…,
+> {measure:false})` opts a paragraph out (full-bleed `.cb-bleed`) when you *want* it wide.
+> The measure is a Look knob (`--measure-prose`) — see `design-system.md`.
+
 ## A second skeleton: explainer / postmortem (NOT a dashboard)
 
 The template ships **one** worked demo — a payments/weekly-metrics dashboard. Don't let it
