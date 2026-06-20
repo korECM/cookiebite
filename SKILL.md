@@ -172,13 +172,32 @@ prebuilt Tailwind CSS, which is out of scope.
      (signup → activation → purchase); shows step-to-step + overall conversion %.
    - **gauge / progress ring** (`COOKIEBITE.gauge`) — one value against a target/max
      (SLA %, quota, completion); not for comparing series.
-   - **heatmap** (`COOKIEBITE.heatmap`) — a value per day over weeks/months (calendar
-     density, streaks, seasonality).
+   - **heatmap** (`COOKIEBITE.heatmap`) — **calendar only**: a value per day over
+     weeks/months (calendar density, streaks, seasonality).
+   - **matrix** (`COOKIEBITE.matrix`) — a non-calendar rows×cols grid (cohort/retention,
+     a confusion matrix, any relationship grid). The grid sibling of `heatmap` (which
+     stays calendar-only).
+   - **histogram** (`COOKIEBITE.shapes.histogram`) — the *distribution* / spread-and-shape
+     of one sample (auto-bins; optional mean line).
+   - **dumbbell / slope** (`COOKIEBITE.shapes.dumbbell` / `.slope`) — a *two-point change*
+     (before→after): `dumbbell` is the per-row capsule (many items), `slope` the two-axis
+     bump for a few series (`mode:'rank'` for rank shifts).
+   - **lollipop** (`COOKIEBITE.shapes.lollipop`) — a de-inked *ranking* where a full bar
+     is too heavy; `baseline` turns it into a deviation chart.
+   - **rangeDot** (`COOKIEBITE.shapes.rangeDot`) — where each item sits *within a range*
+     (a min–max capsule + value dot; optional p25–p75 band) — SLO/score bands.
+   - **stackedBar** (`COOKIEBITE.shapes.stackedBar`) — *composition* of each category
+     (`mode:'percent'` to normalize; `peer:true` for peer parts, else an ordered ramp).
+   - **threshold / annotate** (`COOKIEBITE.threshold` / `.annotate`) — *annotation*, not a
+     new chart: `threshold(option,…)` merges a reference line/band onto any option before
+     `CB.chart`; `annotate(sel,…)` pins a specific point (a peak, an incident) after init.
    - **mermaid** (`COOKIEBITE.mermaid`) — *structure*, not magnitude: who-calls-whom,
      a lifecycle, a decision tree, an ER shape. If you're describing it in three-plus
      sentences, draw it instead.
    - Avoid pie for >3 slices (use a horizontal bar) and avoid Sankey/treemap with long
      labels unless you've checked they don't collide.
+   - The full `CB.shapes.*` picker (by the reader's question) is in
+     `references/libraries.md` ("which chart-shape builder when").
 
    **Before building any chart/diagram, read `references/libraries.md`** — "Chart-type
    gotchas" (line 117; *long Korean labels are the #1 source of broken-looking charts*)
@@ -510,7 +529,7 @@ layout shell, and `<ul id="toc">` stay hand-authored Tailwind.
 | `COOKIEBITE.cardGrid(target, { items, caption? })` | responsive faceted card grid; builds a **wrap-or-scroll** filter chip row from the union of item `tags` (never a bare flex row) | `components.md` card grid + `interactions.md` filter chips |
 | `COOKIEBITE.ramp(n)` | array of `n` on-theme colors from **one** accent hue (varying L/S, bounded) for sequential / stacked data | — |
 | `COOKIEBITE.exportPNG(chartSelector, filename?)` | downloads a **registered** chart as PNG via echarts `getDataURL`; `CB.chart`'s `{ exportable: true }` injects a PNG button next to the view-toggle | — |
-| `COOKIEBITE.shapes.{waterfall,bullet,sparkline,scatter,radar}(cfg)` | **pure ECharts-`option` builders** — pass the returned option to `CB.chart` (which themes + registers it). waterfall (transparent-base ± deltas), bullet (KPI-vs-target), sparkline (axis-less cell line), scatter/bubble (size → area), radar (multi-series, `categoricalColors`) | `libraries.md` (chart-type gotchas) |
+| `COOKIEBITE.shapes.{waterfall,bullet,sparkline,scatter,radar}(cfg)` | **pure ECharts-`option` builders** — pass the returned option to `CB.chart` (which themes + registers it). waterfall (transparent-base ± deltas), bullet (KPI-vs-target), sparkline (axis-less cell line), scatter/bubble (size → area; optional per-point `group`/`tone`/`color` → one colored series + legend per category), radar (multi-series, `categoricalColors`) | `libraries.md` (chart-type gotchas) |
 | `COOKIEBITE.bigNumber(target, { value, label?, delta?, spark?, … })` | one oversized hero number (CountUp; a non-numeric string renders verbatim); reuses `deltaBadge` + spark; built-in empty-state | `components.md` "Stat / KPI card" |
 | `COOKIEBITE.steps(target, items[{label, status, detail?}], opts?)` | connected progress stepper (horizontal on sm+, vertical below); `done`→success check, `current`→accent ring, `pending`→hollow; `sr-only` status label per node | `helpers.md` (CB.steps) |
 | `COOKIEBITE.leaderboard(target, items[{label, value, deltaRank?, tone?}], opts?)` | numbered rows with value-proportional accent bars, right-aligned `tabular-nums` value, optional rank-change arrow; built-in empty-state | — |

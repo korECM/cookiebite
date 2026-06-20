@@ -101,6 +101,25 @@ td.gridjs-td .pos{ color:var(--c-positive); } td.gridjs-td .neg{ color:var(--c-c
 /* Grid.js paints its own surface; keep it on the report's surface token in dark too */
 .gridjs-container, .gridjs-wrapper, .gridjs-table{ background:var(--c-surface) !important; }
 .gridjs-search-input, input.gridjs-input{ background:var(--c-surface) !important; color:var(--c-primary) !important; }
+/* F03 — mobile horizontal-scroll affordance. Below ~480px a multi-column Grid.js table
+   crushed to its first column and read as broken (no hint that it scrolls). Let the WRAPPER
+   scroll horizontally (it already has overflow:auto) and stop the table from collapsing by
+   giving it a min-width, so the remaining columns stay reachable by swipe. A right-edge fade
+   on the CONTAINER (which wraps the wrapper) signals "more →" — it lives INSIDE .gridjs-container
+   so it never widens the page (won't trip verify-report's horizontalOverflow). The fade hides
+   itself once scrolled to the end is not feasible CSS-only, so it stays a constant soft hint. */
+@media (max-width:480px){
+  .gridjs-wrapper{ overflow-x:auto !important; -webkit-overflow-scrolling:touch; }
+  .gridjs-table{ min-width:540px; }                 /* keep columns at a legible width; wrapper scrolls */
+  .gridjs-container{ position:relative; }
+  .gridjs-container::after{
+    content:"";
+    position:absolute; top:0; right:0; bottom:0; width:28px;
+    /* fade to the surface token so it blends with the table background in light + dark */
+    background:linear-gradient(to right, transparent, var(--c-surface));
+    pointer-events:none;                            /* never blocks taps/scroll under it */
+  }
+}
 
 /* (6) print: hide interactive chrome, force the LIGHT token layer (so a
    dark-set machine still prints light), keep charts/cards whole across page
@@ -256,30 +275,68 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
 .cb-figcaption{ margin-top:8px; font-size:14px; line-height:1.5; color:var(--c-secondary); }
 .cb-figcaption::before{ content:"Fig. " counter(cb-fig) " · "; font-size:12px; letter-spacing:.04em; font-weight:700; text-transform:uppercase; color:var(--accent-strong); }
 
-/* --- .cb-statusdot — a tiny status pip (text/icon always accompanies it) ---- */
-.cb-statusdot{ display:inline-block; width:8px; height:8px; border-radius:50%; background:currentColor; vertical-align:baseline; margin-right:.1em; flex:0 0 auto; }
-/* pulse halo — reduced-motion users get a static dot (the keyframe is gated). */
+/* --- .cb-statusdot — a tiny status pip with a REQUIRED text label ------------
+   The wrapper is an inline-flex row of TWO children: the .cb-statusdot__dot pip and the
+   .cb-statusdot__label text (never color-alone). The wrapper must NOT itself be the dot —
+   it previously was (width/height/background on .cb-statusdot), which swallowed the label.
+   The tone modifier sets currentColor; the pip inherits it via background:currentColor, while
+   the label resets to the readable primary text color. Size is knobbed via --cb-statusdot-size. */
+.cb-statusdot{ display:inline-flex; align-items:center; gap:.4em; vertical-align:middle; }
+.cb-statusdot__dot{ width:var(--cb-statusdot-size,8px); height:var(--cb-statusdot-size,8px); border-radius:50%; background:currentColor; flex:0 0 auto; }
+.cb-statusdot__label{ color:var(--c-primary); line-height:1.2; }
+/* tone -> currentColor on the wrapper; the pip picks it up, the label overrides to primary */
+.cb-statusdot--neutral{ color:var(--c-secondary); }
+.cb-statusdot--info{ color:var(--c-informative); }
+.cb-statusdot--success{ color:var(--c-positive); }
+.cb-statusdot--warning{ color:var(--c-cautionary); }
+.cb-statusdot--critical{ color:var(--c-critical); }
+/* pulse halo around the PIP — reduced-motion users get a static dot (the keyframe is gated). */
 @media (prefers-reduced-motion: no-preference){
-  .cb-statusdot--pulse{ position:relative; }
-  .cb-statusdot--pulse::after{ content:""; position:absolute; inset:0; border-radius:50%; background:currentColor; animation:cb-statusdot-pulse 1.8s cubic-bezier(.4,0,.6,1) infinite; }
+  .cb-statusdot--pulse .cb-statusdot__dot{ position:relative; }
+  .cb-statusdot--pulse .cb-statusdot__dot::after{ content:""; position:absolute; inset:0; border-radius:50%; background:currentColor; animation:cb-statusdot-pulse 1.8s cubic-bezier(.4,0,.6,1) infinite; }
   @keyframes cb-statusdot-pulse{ 0%{ transform:scale(1); opacity:.6; } 70%,100%{ transform:scale(2.6); opacity:0; } }
 }
 
-/* --- .cb-trendchip — an inline ▲N% / ▼N% chip sitting on the text baseline -- */
-.cb-trendchip{ display:inline-flex; align-items:center; gap:.18em; vertical-align:baseline; font-variant-numeric:tabular-nums; font-size:.875em; font-weight:600; line-height:1; }
-.cb-trendchip svg, .cb-trendchip .cb-trendchip__glyph{ width:.9em; height:.9em; flex:0 0 auto; }
+/* --- CB.diff — code rows soft-wrap on mobile so long +/− lines stay readable ---
+   F03: a diff cell is whitespace-pre (clips long added/removed lines), which read as truncated
+   on a phone while pseudocode wrapped. Below ~480px switch the code cell to pre-wrap so a long
+   line wraps inside the row (leading indentation preserved) instead of clipping. The wrapper
+   keeps its overflow-x scroll for the desktop/medium case; the wrap is the mobile escape. */
+@media (max-width:480px){
+  .cb-diff-code{ white-space:pre-wrap !important; overflow-wrap:anywhere; word-break:break-word; }
+  .cb-diff-scroll{ overflow-x:visible; }  /* wrapping removes the need to scroll; avoid a stray scrollbar */
+}
 
-/* --- .cb-whatchanged — a from→to delta list (arrow column aligns) ----------- */
-.cb-whatchanged{ display:grid; grid-template-columns:max-content auto max-content; align-items:baseline; gap:6px 12px; margin:0 0 .9em; font-size:14px; }
-.cb-whatchanged__label{ color:var(--c-secondary); }
-.cb-whatchanged__from{ color:var(--c-secondary); text-align:right; }
-.cb-whatchanged__arrow{ color:var(--c-disabled); justify-self:center; }
+/* --- .cb-trendchip — an inline ▲N% / ▼N% chip sitting on the text baseline -- */
+/* inline-flex + align-items:center vertically centers the glyph/number/spark as a group;
+   vertical-align:middle sits that group on the text's x-height (baseline left the spark
+   floating ABOVE the glyph because a wide spark's box extended below the baseline). */
+.cb-trendchip{ display:inline-flex; align-items:center; gap:.18em; vertical-align:middle; font-variant-numeric:tabular-nums; font-size:.875em; font-weight:600; line-height:1; }
+/* the lucide direction glyph is a SQUARE icon — size it to the cap height. */
+.cb-trendchip__icon, .cb-trendchip .cb-trendchip__glyph{ width:.9em; height:.9em; flex:0 0 auto; }
+/* the sparkline is WIDE (≈40×14): size it by HEIGHT only and let width follow its aspect
+   ratio (auto) so the polyline maps into the SVG's full box instead of being crushed into a
+   .9em square (which pushed it up off the baseline). It centers with the chip's align-items. */
+.cb-trendchip__spark{ height:1.1em; width:auto; flex:0 0 auto; display:block; }
+
+/* --- .cb-whatchanged — a from→to delta list ---------------------------------
+   Wave A: the TITLE is a block header (.cb-whatchanged__title) ABOVE the rows; each row is a
+   COMPACT flex line — label · old(struck)→new · Δ — whose columns group on their CONTENT
+   width and sit LEFT (they no longer spread an old value to the far right of a stretchy grid
+   track). A column gap aligns labels across rows without forcing full-width tracks. */
+.cb-whatchanged-block{ margin:0 0 .9em; }
+.cb-whatchanged__title{ margin:0 0 6px; }
+.cb-whatchanged{ display:flex; flex-direction:column; gap:6px; font-size:14px; }
+/* one row: label, the old→new pair, the Δ badge — all content-width, left-grouped */
+.cb-whatchanged__row{ display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 8px; }
+.cb-whatchanged__label{ color:var(--c-secondary); min-width:8ch; }
+.cb-whatchanged__from{ color:var(--c-secondary); }
+.cb-whatchanged__arrow{ color:var(--c-disabled); }
 .cb-whatchanged__to{ color:var(--c-primary); font-weight:600; }
-.cb-whatchanged__row{ display:contents; }
-/* below sm: stack each row (label over from→to) instead of a 3-col grid that crushes */
+.cb-whatchanged__delta{ display:inline-flex; align-items:center; }  /* Δ badge trails the value, content-width, left-grouped (NOT pushed to the far right) */
+/* below sm: let the label own its own line; the value pair + Δ wrap beneath it cleanly */
 @media (max-width:640px){
-  .cb-whatchanged{ grid-template-columns:1fr; gap:2px 0; }
-  .cb-whatchanged__from{ text-align:left; }
+  .cb-whatchanged__label{ flex-basis:100%; min-width:0; }
 }
 
 /* --- .cb-epigraph / .cb-pullquote — display quotes ------------------------- */
@@ -301,8 +358,17 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
 
 /* --- .cb-legend — a wrapping chart/figure legend --------------------------- */
 .cb-legend{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:8px; font-size:12px; line-height:16px; color:var(--c-secondary); }
-.cb-legend__item{ display:inline-flex; align-items:center; gap:6px; }
-.cb-legend__swatch{ width:10px; height:10px; border-radius:3px; flex:0 0 auto; background:currentColor; }
+/* JS emits .cb-legend__row (a <div>) or .cb-legend__row--btn (an interactive <button>) per
+   item; both are the inline-flex swatch+label group. (.cb-legend__item kept as a back-compat
+   alias for any hand-authored legend.) */
+.cb-legend__row, .cb-legend__item{ display:inline-flex; align-items:center; gap:6px; }
+.cb-legend__row--btn{ border:0; background:none; padding:0; font:inherit; color:inherit; cursor:pointer; }
+.cb-legend__row--btn[aria-pressed="false"]{ opacity:.45; }  /* toggled-off series dims */
+/* the swatch MUST show its per-item color: JS writes it as --cb-swatch-color, so READ it here
+   (previously the swatch used currentColor and ignored the var, rendering a colorless dot). */
+.cb-legend__swatch{ width:10px; height:10px; border-radius:3px; flex:0 0 auto; background:var(--cb-swatch-color, currentColor); }
+.cb-legend__swatch--dot{ border-radius:50%; }
+.cb-legend__swatch--line{ height:3px; border-radius:2px; }
 /* narrow: collapse the legend into a single column so swatch+label pairs don't split */
 @media (max-width:480px){ .cb-legend{ flex-direction:column; gap:4px; } }
 

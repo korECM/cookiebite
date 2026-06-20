@@ -46,7 +46,9 @@ Omit `delta` entirely when no KPI has a baseline (a row of `—` reads as stray 
 ```text
 item: {
   tone,             // doubles as SEVERITY: critical->"Critical", warning->"High",
-                    //   info->"Medium", neutral->"Low" (locale-aware label)
+                    //   info->"Medium", neutral->"Low" (locale-aware label). `success`
+                    //   has no severity rank, so its badge reads "Note" (keeps its green
+                    //   tone) — use `label` to override any item's chip text.
   title,            // what's wrong (the scannable headline) — lead with the problem, not a vague noun
   where?,           // file:line / location, rendered monospace
   note?,            // one-line detail after `where`
@@ -372,9 +374,13 @@ CB.shapes.sparkline({ data, area? }) -> option
   // axis-less single accent line for inline/table cells; a single point renders one dot.
 
 CB.shapes.scatter({ points }) -> option
-  points: [ { x, y, size?, label? }, … ]
+  points: [ { x, y, size?, label?, group? }, … ]
   // auto-becomes a BUBBLE chart when any point has size (sqrt scale: symbol AREA ~ size).
   //   accent fill; label+size ride along into the tooltip.
+  // group? (aliases: tone/color) — when ANY point carries one, points split into one
+  //   series PER category, each a distinct CB.categoricalColors hue, and a legend is
+  //   emitted. With no group key the output is byte-for-byte the historical single-accent
+  //   series (backward-compatible).
 
 CB.shapes.radar({ indicators, series }) -> option
   indicators: [ { name, max }, … ]
@@ -518,7 +524,11 @@ A single-hue accent-alpha grid-heatmap for cohort / retention / confusion matric
 item: {
   title,
   owner?, due?,     // meta line
-  priority?,        // pill (tone-mapped)
+  priority?,        // pill — the string is shown VERBATIM as the pill label; its TONE is
+                    //   mapped (case-insensitively) from: p0/high/critical/urgent->critical,
+                    //   p1/med/medium->warning, p2/p3/low->neutral; any other word->neutral
+                    //   tone but still rendered as the label. So 'P0', 'High', 'blocker'
+                    //   all render; only the first two carry a critical tone.
   body?,            // collapsible <details> body
 }
 opts: {

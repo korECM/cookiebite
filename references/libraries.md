@@ -13,7 +13,7 @@ and offer an inline fallback.
 | Need | Library | CDN |
 |------|---------|-----|
 | Styling | Tailwind CSS Play CDN | `<script src="https://cdn.tailwindcss.com"></script>` |
-| Font | theme font (default Inter; WDS preset = Pretendard) | the theme's font `<link>` — see SKILL.md "Theming" |
+| Font | theme font (default Pretendard, the Persimmon preset; the `neutral` preset = Inter) | the theme's font `<link>` — see SKILL.md "Theming" |
 | Icons | Lucide | `<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>` then `lucide.createIcons()` |
 
 Tailwind Play CDN prints a console warning about production use — harmless for a
@@ -84,6 +84,14 @@ shape — and remember each owes a data-table (the suggested `table` shape is in
 | A **ranking** where a full bar is too heavy? | `CB.shapes.lollipop({ rows })` | stem + dot; `baseline` -> a deviation chart. |
 | Where does each item sit **in its range**? | `CB.shapes.rangeDot({ rows })` | min–max capsule + value dot; optional p25–p75 `band`. |
 | How is each category **composed**? | `CB.shapes.stackedBar({ categories, series })` | horizontal stack; `mode:'percent'` to normalize; `peer:true` -> categorical palette, else a `ramp`. |
+
+These two are **standalone helpers** (not `CB.shapes.*` builders — they render themselves,
+no `CB.chart` wrap), but belong in the same "which shape" decision:
+
+| Question | Helper | Notes |
+|----------|--------|-------|
+| A value per **day** over weeks/months? | `CB.heatmap({ data })` | the **calendar**-only density heatmap (streaks, seasonality). |
+| A **rows×cols** grid that isn't a calendar? | `CB.matrix({ rows, cols, data })` | cohort / retention / confusion / relationship grid — single-hue accent-alpha. The grid sibling of `heatmap`. |
 
 **Annotation, not a new chart:** to add a **threshold / target line** to *any* chart, don't
 build a new shape — call `CB.threshold(option, { value, tone, axis })` (a pure transformer

@@ -37,6 +37,11 @@
           critical: 'var(--c-critical)', cautionary: 'var(--c-cautionary)', positive: 'var(--c-positive)', informative: 'var(--c-informative)',
           accent: 'var(--accent)', 'accent-strong': 'var(--accent-strong)',
           'accent-weak': 'var(--accent-weak)', 'accent-on': 'var(--accent-on)',
+          // F02 — accent-AS-TEXT token. A preset can ship a darker, AA-safe --accent-text for
+          // text use (KPI hero numbers, outline-button labels) while keeping the brighter
+          // --accent for FILLS. Falls back to --accent when the preset omits it, so a report
+          // without --accent-text is byte-identical to today. Consumed via text-accent-text.
+          'accent-text': 'var(--accent-text, var(--accent))',
         },
         borderColor: { DEFAULT: 'var(--c-line-weak)' },
         borderRadius: { xxs: '4px', xs: '8px', small: '12px', medium: '16px', large: '24px', xlarge: '32px' },
@@ -75,7 +80,18 @@
   /* ---- locale-aware number helpers (driven by window.REPORT_LOCALE) ----
      REPORT_LOCALE is set synchronously in <head> BEFORE this file (head step 4c). */
   var L = window.REPORT_LOCALE || { number: 'en-US', currency: 'USD', symbol: '$', bigUnits: false };
-  var nf = new Intl.NumberFormat(L.number);
+  /* F01a: a bad REPORT_LOCALE.number (an invalid 'number' string, e.g. a typo) makes the
+     Intl.NumberFormat constructor THROW a RangeError, which would otherwise abort the entire
+     COOKIEBITE namespace init and leave the runtime unloaded. Guard it: on failure fall back
+     to a safe default formatter ('en-US'; and if even that is unavailable, a no-grouping
+     identity) so the rest of the runtime still loads. */
+  var nf;
+  try {
+    nf = new Intl.NumberFormat(L.number);
+  } catch (e) {
+    try { nf = new Intl.NumberFormat('en-US'); }
+    catch (e2) { nf = { format: function (n) { return String(n); } }; }
+  }
   var money = function (n) { return L.symbol + nf.format(n); };
   var moneyShort = function (n) {
     // band on the MAGNITUDE then re-apply the sign, so negatives short-form too.
@@ -433,11 +449,20 @@
   // prune registry entries whose DOM left the document (re-render replaced innerHTML
   // and orphaned the old echarts instance) — dispose them so canvases/ResizeObservers
   // are released and the registry self-heals instead of growing unbounded.
+  // F01b: disconnect a registry entry's ResizeObserver (CB.chart's narrow-width RO) so a
+  // re-render or disposal doesn't leak observers across renders. No-op if the entry never
+  // attached one (responsive:false, or no ResizeObserver support).
+  function disconnectRO(entry) {
+    var ro = entry && entry.ro;
+    if (ro && ro.disconnect) { try { ro.disconnect(); } catch (e) {} }
+  }
+
   function pruneCharts() {
     for (var i = charts.length - 1; i >= 0; i--) {
       var inst = charts[i] && charts[i].instance;
       var dom = inst && inst.getDom && inst.getDom();
       if (!dom || !document.contains(dom)) {
+        disconnectRO(charts[i]);
         try { if (inst && inst.dispose) inst.dispose(); } catch (e) {}
         charts.splice(i, 1);
       }
@@ -447,20 +472,24 @@
   // CB.disposeIn(scope) — dispose+unregister any chart whose DOM lives inside `scope`,
   // called BEFORE a helper replaces scope.innerHTML so re-running CB.chart/kpis/hydrate
   // on the same target doesn't leak the previous echarts instance into charts[].
+  // F01b: also disconnect the chart's narrow-width ResizeObserver so it doesn't leak.
   CB.disposeIn = function (scope) {
     if (!scope) return;
     for (var i = charts.length - 1; i >= 0; i--) {
       var inst = charts[i] && charts[i].instance;
       var dom = inst && inst.getDom && inst.getDom();
       if (dom && (scope === dom || (scope.contains && scope.contains(dom)))) {
+        disconnectRO(charts[i]);
         try { if (inst && inst.dispose) inst.dispose(); } catch (e) {}
         charts.splice(i, 1);
       }
     }
   };
 
-  CB.registerChart = function (instance, renderFn) {
-    charts.push({ instance: instance, renderFn: renderFn || null });
+  // registerChart(instance, renderFn, ro?) — ro is CB.chart's narrow-width ResizeObserver,
+  // tracked on the entry so disposeIn/pruneCharts can disconnect it (F01b).
+  CB.registerChart = function (instance, renderFn, ro) {
+    charts.push({ instance: instance, renderFn: renderFn || null, ro: ro || null });
     return instance;
   };
   CB.onThemeChange = function (cb) { if (typeof cb === 'function') themeCbs.push(cb); };
@@ -710,11 +739,13 @@
         // ("Healthy", "P1") that aren't numbers. The number<->string fork only
         // changes the inner figure; delta/spark/card wrapper below are shared.
         var verbatim = esc(pre) + esc(val);
+        // text-accent-text (F02): paints the hero figure in the accent-as-text token, which
+        // falls back to --accent when a preset ships no darker AA-safe --accent-text.
         numHtml = it.unit
-          ? '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' + verbatim +
+          ? '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap text-accent-text">' + verbatim +
             '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
             (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>'
-          : '<span class="text-headline-36 font-bold nums whitespace-nowrap">' + verbatim + esc(suf) + '</span>';
+          : '<span class="text-headline-36 font-bold nums whitespace-nowrap text-accent-text">' + verbatim + esc(suf) + '</span>';
       } else {
         // decimals: explicit item/opts wins; else INFER from how the literal value is
         // written (8.4 -> 1 decimal) so a count-up keeps the authored precision and
@@ -730,14 +761,16 @@
         if (it.unit) {
           // long figures: keep number big, unit small, never wrap. A suffix (when
           // also set) trails the unit in the same small style so unit + suffix coexist.
-          numHtml = '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap">' +
+          // text-accent-text (F02): accent-as-text on the figure; the unit/suffix sub-spans
+          // keep text-secondary so only the number takes the accent.
+          numHtml = '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap text-accent-text">' +
             esc(pre) + '<span ' + cuAttrs + '>0</span>' +
             '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
             (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') +
             '</span>';
         } else {
           // whitespace-nowrap so a prefix/suffix (e.g. "16 / 16", "₩4,120") never wraps mid-figure
-          numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap" ' + cuAttrs +
+          numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap text-accent-text" ' + cuAttrs +
             (pre ? ' data-prefix="' + esc(pre) + '"' : '') +
             (suf ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>';
         }
@@ -828,7 +861,13 @@
       // per-item filter value, and the chip set all agree for an unknown/custom tone.
       var sevTone = SEV_RANK[f.tone] != null ? f.tone : 'neutral';
       var t = tone(sevTone);
-      var badgeLabel = f.label || sevLabels[sevTone] || 'Note';
+      // F04b — a 'success' tone (positive finding) has no severity rung, so it normalizes to
+      // 'neutral' for FILTER purposes; but per the documented contract its badge reads 'Note'
+      // (locale-aware via insightNote), not 'Low'. Keep its green tone visuals so a positive
+      // finding still reads positive. An explicit per-item f.label still wins.
+      var isSuccess = f.tone === 'success';
+      if (isSuccess) t = tone('success');
+      var badgeLabel = f.label || (isSuccess ? CB.t('insightNote') : sevLabels[sevTone]) || 'Note';
       var show = withFilter ? ' x-show="sev===\'all\' || sev===\'' + sevTone + '\'"' : '';
       var where = f.where ? '<span class="font-mono">' + esc(f.where) + '</span>' : '';
       var note = f.note ? (where ? ' · ' : '') + esc(f.note) : '';
@@ -1036,14 +1075,20 @@
         host.style.overflowX = 'auto';
         var svg = host.querySelector('svg');
         if (svg) {
-          // SCALE-TO-FIT: drop the intrinsic px width and let the SVG shrink to the
-          // container (max-width:100%/width:100%/height:auto). A wide sequence diagram
-          // then shrinks gracefully instead of clipping on desktop / vanishing on mobile;
-          // the viewBox preserves the aspect ratio so labels scale, not crop.
+          // F01c — CAP, don't STRETCH. width:100% upscaled a small diagram to fill the host
+          // (huge, colliding labels on desktop). Instead: keep the SVG's INTRINSIC size when
+          // it's narrower than the host, and only shrink it when it's wider. We cap max-width
+          // at the intrinsic px width (read before clearing the attribute) so the viewBox
+          // can't grow it past its natural size; width:auto lets it take that intrinsic size;
+          // a wider-than-host diagram falls back to max-width:100% (shrink to fit). height:auto
+          // preserves aspect ratio either way; the host's overflow-x scroll is the last resort.
+          var intrinsic = parseFloat(svg.getAttribute('width')) || 0;
           svg.removeAttribute('width');
-          svg.style.width = '100%';
-          svg.style.maxWidth = '100%';
+          svg.style.width = 'auto';
           svg.style.height = 'auto';
+          svg.style.maxWidth = (intrinsic > 0 && (!host.clientWidth || intrinsic <= host.clientWidth))
+            ? intrinsic + 'px'  // smaller than host -> keep natural size (no upscale)
+            : '100%';           // wider than host (or unknown) -> shrink to fit
           // if it still overflows (a genuinely huge diagram), add a subtle scroll-hint so
           // the reader knows the host scrolls horizontally for the rest.
           if (host.scrollWidth > host.clientWidth + 1) {
@@ -1180,7 +1225,14 @@
       var headerNames = (config.columns || []).map(function (col) { return typeof col === 'string' ? col : (col.name || ''); });
       var csvCell = function (v) {
         if (v && typeof v === 'object' && v.label != null) v = v.label;
+        // remember whether the ORIGINAL value was a real number so we never quote-prefix it
+        var wasNumber = typeof v === 'number';
         var s = v == null ? '' : String(v);
+        // F01d — CSV formula-injection guard: a cell that BEGINS with = + - @ (or a tab/CR,
+        // which some apps treat as a cell-start) can be executed as a formula when opened in
+        // Excel/Sheets. Prefix a single quote so the spreadsheet treats it as literal text.
+        // Skip genuine numbers (typeof number) so '-5' / numeric values stay intact.
+        if (!wasNumber && /^[=+\-@\t\r]/.test(s)) s = "'" + s;
         return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
       };
       var toCsv = function () {
@@ -1373,7 +1425,6 @@
     var renderFn = config.render
       ? config.render
       : function (chart) { chart.setOption(deepMerge(CB.baseChart, lastOption), true); };
-    CB.registerChart(inst, renderFn);
 
     // F19 — narrow-width legibility. At phone widths a chart's axisName/grid eat the plot
     // area and a dual-axis chart's RIGHT axisName collides with the data. When the
@@ -1383,6 +1434,7 @@
     // on a dual-axis chart. Guarded so it only ever touches axis chrome, and only toggles
     // on an actual threshold CROSS (so a wide chart is never altered). opts.responsive:false
     // opts out. Skipped entirely when ResizeObserver is unavailable (older engines).
+    var ro = null; // F01b: tracked on the registry entry so disposeIn/pruneCharts can disconnect it
     if (config.responsive !== false && typeof ResizeObserver === 'function') {
       var narrow = null; // null = unknown, then true/false; only re-apply on a change
       var applyNarrow = function (isNarrow) {
@@ -1411,7 +1463,7 @@
         }
         try { inst.setOption(overlay); } catch (e) {}
       };
-      var ro = new ResizeObserver(function (entries) {
+      ro = new ResizeObserver(function (entries) {
         var w = entries[0] && entries[0].contentRect ? entries[0].contentRect.width : el.clientWidth;
         if (!w) return; // 0-width (hidden tab) — don't judge
         var isNarrow = w < 640;
@@ -1421,6 +1473,9 @@
       });
       try { ro.observe(el); } catch (e) {}
     }
+
+    // register AFTER the RO is built so the entry carries it (F01b: disposeIn can disconnect)
+    CB.registerChart(inst, renderFn, ro);
 
     CB.refreshIcons();
     return inst;
@@ -2033,9 +2088,13 @@
     };
   };
 
-  /* CB.shapes.scatter({ points:[{x,y,size?,label?}] }) -> option
+  /* CB.shapes.scatter({ points:[{x,y,size?,label?,group?}] }) -> option
      A scatter; becomes a BUBBLE chart when any point carries `size` (size -> symbolSize
-     via a sqrt scale so AREA ~ value). points read on-theme accent. */
+     via a sqrt scale so AREA ~ value). points read on-theme accent by default.
+     F04c — when any point carries a category key (`group`, or its aliases `tone`/`color`),
+     points are split into one series PER category, each painted a distinct on-theme color via
+     CB.categoricalColors, and a legend is emitted. With no category key the output is byte-for
+     -byte the historical single-accent series. */
   CB.shapes.scatter = function (cfg) {
     cfg = cfg || {};
     var pts = cfg.points || [];
@@ -2043,24 +2102,57 @@
     var sizes = pts.map(function (p) { return +((p && p.size) || 0); });
     var maxSize = sizes.reduce(function (m, s) { return Math.max(m, s); }, 0) || 1;
     var accent = CB.theme.ACCENT || '#E8552D';
-    return {
-      tooltip: {
-        trigger: 'item',
-        formatter: function (p) {
-          var d = p.data || [];
-          var nm = d[3] ? d[3] + '<br/>' : '';
-          return nm + 'x: ' + CB.nf.format(d[0]) + ', y: ' + CB.nf.format(d[1]) + (hasSize ? ', ' + CB.nf.format(d[2]) : '');
-        },
+    var symbolSize = hasSize
+      ? function (d) { return 8 + 36 * Math.sqrt((d[2] || 0) / maxSize); } // area-proportional
+      : 12;
+    var tooltip = {
+      trigger: 'item',
+      formatter: function (p) {
+        var d = p.data || [];
+        var nm = d[3] ? d[3] + '<br/>' : '';
+        return nm + 'x: ' + CB.nf.format(d[0]) + ', y: ' + CB.nf.format(d[1]) + (hasSize ? ', ' + CB.nf.format(d[2]) : '');
       },
+    };
+    var datum = function (p) { return [(p && p.x), (p && p.y), (p && p.size != null ? p.size : 0), (p && p.label) || '']; };
+
+    // categorical mode: a per-point group/tone/color splits points into colored series + legend
+    var groupKey = function (p) { return p && (p.group != null ? p.group : (p.tone != null ? p.tone : (p.color != null ? p.color : null))); };
+    var hasGroups = pts.some(function (p) { return groupKey(p) != null; });
+    if (hasGroups) {
+      var order = [];                 // category names in first-seen order (stable legend)
+      var buckets = {};
+      pts.forEach(function (p) {
+        var g = groupKey(p);
+        var key = g == null ? '' : String(g); // ungrouped points fall into one '' bucket
+        if (!buckets[key]) { buckets[key] = []; order.push(key); }
+        buckets[key].push(datum(p));
+      });
+      var colors = CB.categoricalColors(order.length || 1);
+      return {
+        tooltip: tooltip,
+        legend: { data: order, textStyle: { color: CB.theme.C_SECONDARY }, top: 0 },
+        xAxis: { type: 'value' },
+        yAxis: { type: 'value' },
+        series: order.map(function (key, i) {
+          var c = colors[i % colors.length];
+          return {
+            name: key, type: 'scatter', data: buckets[key], symbolSize: symbolSize,
+            itemStyle: { color: c, borderColor: c, borderWidth: 1 },
+          };
+        }),
+      };
+    }
+
+    // default (no groups): the historical single-accent series, unchanged
+    return {
+      tooltip: tooltip,
       xAxis: { type: 'value' },
       yAxis: { type: 'value' },
       series: [{
         type: 'scatter',
         // [x, y, size, label] — size+label ride along for the tooltip/symbolSize fn
-        data: pts.map(function (p) { return [(p && p.x), (p && p.y), (p && p.size != null ? p.size : 0), (p && p.label) || '']; }),
-        symbolSize: hasSize
-          ? function (d) { return 8 + 36 * Math.sqrt((d[2] || 0) / maxSize); } // area-proportional
-          : 12,
+        data: pts.map(datum),
+        symbolSize: symbolSize,
         itemStyle: { color: accentRgba(0.7), borderColor: accent, borderWidth: 1 },
       }],
     };
@@ -2633,13 +2725,15 @@
     var unitSpan = config.unit ? '<span class="text-title-24 text-secondary font-semibold">' + esc(config.unit) + '</span>' : '';
     var numHtml;
     if (typeof val === 'string') {
-      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap">' + esc(pre) + esc(val) + unitSpan +
+      // text-accent-text (F02): the hero figure consumes the accent-as-text token (falls back
+      // to --accent); unit/suffix sub-spans keep text-secondary so only the number is accented.
+      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap text-accent-text">' + esc(pre) + esc(val) + unitSpan +
         (suf ? '<span class="text-title-24 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>';
     } else {
       var inferDec = function (v) { var s = String(v); var dot = s.indexOf('.'); return dot < 0 ? 0 : s.length - dot - 1; };
       var dec = config.decimals != null ? config.decimals : inferDec(val);
       var cuAttrs = 'data-countup="' + val + '"' + (dec ? ' data-decimals="' + dec + '"' : '');
-      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap">' + esc(pre) +
+      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap text-accent-text">' + esc(pre) +
         '<span ' + cuAttrs + (suf && !config.unit ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>' + unitSpan +
         (config.unit && suf ? '<span class="text-title-24 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>';
     }
@@ -3057,7 +3151,7 @@
         '<td class="select-none text-right pr-8 pl-12 text-caption-12 ' + rt.txt + ' opacity-60 w-[1%] whitespace-nowrap">' + ol + '</td>' +
         '<td class="select-none text-right pr-8 text-caption-12 ' + rt.txt + ' opacity-60 w-[1%] whitespace-nowrap">' + nl + '</td>' +
         '<td class="select-none text-center px-4 ' + rt.txt + ' font-semibold w-[1%]">' + rt.sign + '</td>' +
-        '<td class="pr-12 whitespace-pre ' + (type === 'ctx' ? '' : rt.txt) + '">' + esc(ln && ln.text != null ? ln.text : '') + '</td>' +
+        '<td class="cb-diff-code pr-12 whitespace-pre ' + (type === 'ctx' ? '' : rt.txt) + '">' + esc(ln && ln.text != null ? ln.text : '') + '</td>' +
         '</tr>';
     }).join('');
 
@@ -3071,7 +3165,7 @@
     }
     host.innerHTML =
       '<div class="rounded-medium border border-line-weak bg-surface overflow-hidden">' + head +
-      '<div class="overflow-x-auto"><table class="w-full text-caption-12 font-mono leading-relaxed border-collapse">' +
+      '<div class="cb-diff-scroll overflow-x-auto"><table class="w-full text-caption-12 font-mono leading-relaxed border-collapse">' +
       '<tbody>' + body + '</tbody></table></div></div>';
     CB.refreshIcons();
   };
@@ -3809,9 +3903,18 @@
   function linkGlossary(map, scope) {
     if (!map || typeof map !== 'object') return;
     var terms = Object.keys(map).sort(function (a, b) { return b.length - a.length; });
-    var roots = scope
-      ? [resolveTarget(scope)].filter(Boolean)
-      : [].slice.call(document.querySelectorAll('[data-glossary]'));
+    // F04a — scope contract: an explicit scope narrows to one root; when scope is OMITTED the
+    // documented default is the whole DOCUMENT. Prefer the author's [data-glossary] regions
+    // when present (a report that tagged regions still gets per-region first-occurrence), but
+    // fall back to document.body so an UNTAGGED report links too instead of silently no-op'ing.
+    // The .gloss-ancestor skip below keeps either path idempotent (re-runs don't double-link).
+    var roots;
+    if (scope) {
+      roots = [resolveTarget(scope)].filter(Boolean);
+    } else {
+      roots = [].slice.call(document.querySelectorAll('[data-glossary]'));
+      if (!roots.length && document.body) roots = [document.body];
+    }
     // ASCII-word terms ('API', 'JWT') need a WORD BOUNDARY so they don't link inside a
     // larger word ('API' inside 'rapid'/'scraping'); CJK terms (no word boundaries in
     // the script) stay on plain substring match. A term counts as ASCII-word when it
@@ -4078,6 +4181,9 @@
 
     if (!items.length) { host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return; }
 
+    // Wave A: the title is a BLOCK HEADER above the rows (previously it landed inside the
+    // grid and shared the first row). It sits OUTSIDE .cb-whatchanged so the rows group on
+    // their own content width instead of the title stretching a grid track.
     var title = config.title != null
       ? '<p class="cb-whatchanged__title text-caption-12 font-semibold uppercase tracking-wide text-secondary">' + esc(config.title) + '</p>'
       : '';
@@ -4105,7 +4211,7 @@
         '<span class="cb-whatchanged__delta">' + badge + '</span></div>';
     }).join('');
 
-    host.innerHTML = '<div class="cb-whatchanged">' + title + rows + '</div>';
+    host.innerHTML = '<div class="cb-whatchanged-block">' + title + '<div class="cb-whatchanged">' + rows + '</div></div>';
     CB.refreshIcons(host);
   };
 

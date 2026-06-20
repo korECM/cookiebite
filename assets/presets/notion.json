@@ -10,6 +10,7 @@
   "colors": {
     "accent": "#5645D4",
     "accentStrong": "#4534B3",
+    "accentText": "#4534B3",
     "accentWeak": "#E6E0F5",
     "accentOn": "#FFFFFF",
     "bg": "#FAFAF9",

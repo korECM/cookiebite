@@ -285,6 +285,14 @@ def build_block(preset: dict) -> str:
         f"{COLOR_VARS[k]}:{colors[k]};" for k in
         ("accent", "accentStrong", "accentWeak", "accentOn")
     )
+    # ACCENT-TEXT CONTRACT: an optional preset hex used as the accent ONLY where the
+    # accent is rendered as TEXT on the light surface (the runtime consumes
+    # var(--accent-text)). Mirrors theme-studio's buildCSS. Emitted only when present
+    # so a preset without accentText stays byte-identical. apostrophe-safety n/a (color
+    # value, validated by is_valid_color); but guard it so junk can't be emitted.
+    accent_text = colors.get("accentText")
+    if accent_text and is_valid_color(accent_text):
+        accent += f"  --accent-text:{accent_text};"
     neutrals = "  ".join(
         f"{COLOR_VARS[k]}:{colors[k]};" for k in
         ("bg", "surface", "primary", "secondary", "disabled",

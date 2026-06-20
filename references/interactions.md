@@ -57,6 +57,45 @@ A small switch that flips a chart between, e.g., 금액 ↔ 건수, 누적 ↔ �
 </div>
 ```
 
+### Wiring a SECTIONS-slot control to a REPORT-SCRIPT-slot chart (the cross-slot bridge)
+The single most common dashboard interaction, and the one footgun the bare example above
+hides: in a cookiebite report the **Alpine control lives in the `COOKIEBITE:SECTIONS`
+markup**, but the chart instance is created later in `COOKIEBITE:REPORT-SCRIPT` — so the
+control's handler has no `chart` variable in scope. Bridge them with a tiny shared handle
+on `window`, and always push the update through **`inst.__cbUpdate(option)`** (not bare
+`setOption`) so the reader's selection survives a dark re-theme (see §3, last note).
+
+In `COOKIEBITE:SECTIONS` — the control + the chart host. The handler calls the bridge the
+script will publish (guard for the "clicked before init" race):
+```html
+<section id="trend">
+  <div class="flex flex-wrap gap-8" x-data="{ mode:'amount' }">
+    <button @click="mode='amount'; window.__trendUpdate?.('amount')"
+            :class="mode==='amount' ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
+            class="px-12 py-6 rounded-small text-body-14">금액</button>
+    <button @click="mode='count'; window.__trendUpdate?.('count')"
+            :class="mode==='count' ? 'bg-accent text-accent-on' : 'bg-disabled-bg text-secondary'"
+            class="px-12 py-6 rounded-small text-body-14">건수</button>
+  </div>
+  <div id="trendChart"></div>
+</section>
+```
+In `COOKIEBITE:REPORT-SCRIPT` — create the chart, then publish the bridge that re-feeds it
+through `__cbUpdate`:
+```js
+var trend = CB.chart('#trendChart', { ariaLabel:'주간 추이', option:{ /* … */ } });
+var SERIES = { amount: amt, count: cnt };
+window.__trendUpdate = function (mode) {
+  trend.__cbUpdate({ series: [{ data: SERIES[mode] }] });  // survives the dark toggle
+};
+```
+Two reasons this is the right shape over a global `chart` var: (1) it's explicit about the
+slot boundary, so deleting the section + its script block stays a clean pair (the
+SECTIONS-lockstep rule in `SKILL.md`); (2) the optional-chain guard (`?.`) means a click
+that lands before the script ran is a no-op, not a `ReferenceError`. For a chart and
+control that genuinely live in **one** Alpine scope, the bare `chart.__cbUpdate(...)`
+inline above is fine — reach for the bridge only across the slot boundary.
+
 ## 3. ECharts built-in interactivity (free, high-value)
 ECharts ships interactions you should turn ON rather than build:
 - **Legend toggle**: `legend:{}` lets readers click series on/off.
