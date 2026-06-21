@@ -1,0 +1,313 @@
+<!doctype html>
+<!--
+  cookiebite report template — SLIM. Invariant boilerplate (Tailwind config, number
+  helpers, baseChart, dark toggle, TOC observer, KPI hydration) lives in the hosted
+  runtime (assets/cookiebite.js + cookiebite.css), loaded via CDN or inlined by
+  scripts/inline.sh — 0 model tokens.
+
+  Author by:  cp assets/template.html my-report.html  →  surgical Edit into the
+  COOKIEBITE:* slot markers below. Use the fast-path helpers
+  (COOKIEBITE.kpis/findings/timeline/table/chart/pill/callout) for repetitive
+  sections; drop to raw HTML + exposed primitives (baseChart, css, accentRgba,
+  registerChart, the CSS-var tokens) for anything bespoke. Both share one accent
+  and a working dark toggle.
+
+  Re-theme the whole report by swapping the THEME block in <head> (design one with
+  assets/theme-studio.html and paste its "Copy CSS" output, or run
+  scripts/apply-theme.py).
+-->
+<!-- COOKIEBITE:LANG — for a non-Korean report you MUST localize 3 things by hand:
+     (1) this html lang below (en for English, etc. — affects screen-reader pronunciation
+     + hyphenation), (2) the '목차' TOC heading in COOKIEBITE:TOC (→ "Contents"/etc.), and
+     (3) window.REPORT_LOCALE below (the ko-KR/₩ default formats numbers/money + toggle
+     labels in Korean — set number/currency/symbol for your locale).
+     apply-theme.py rewrites lang + REPORT_LOCALE from the preset; the TOC heading is manual. -->
+<html lang="ko"><!-- /COOKIEBITE:LANG -->
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- COOKIEBITE:TITLE --><title>‹REPLACE› 주간 지표 리포트</title><!-- /COOKIEBITE:TITLE -->
+
+<!-- COOKIEBITE:HEAD-THEME -->
+<!-- THEME — preset: Persimmon. The ONLY model-authored theme tokens. Swap to re-theme
+     (assets/theme-studio.html / scripts/apply-theme.py rewrites this block).
+     Kept INLINE + synchronous so the correct accent+neutrals apply at first paint (FOUC-proof). -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+<style>
+  :root{
+    --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
+    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;  --accent-on-text:#2A1206;
+    --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
+    --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
+  }
+</style>
+<script>window.REPORT_LOCALE = {'number': 'ko-KR', 'currency': 'KRW', 'symbol': '₩', 'bigUnits': true};</script>
+<script>window.REPORT_LOOK = { bg:'wash', header:'banded', radiusScale:1.25 };</script>
+<!-- OPTIONAL "Look" system — leave commented for today's exact look. Uncomment + set any
+     subset to opt in; the runtime reads window.REPORT_LOOK once at init (CB.applyLook) and
+     sets the html data-* attributes + :root vars. Every knob is optional; an absent/commented
+     REPORT_LOOK === today, byte-for-byte. (Design one in assets/theme-studio.html, or let
+     scripts/apply-theme.py emit it from a preset's "look":{} block.)
+<script>
+  window.REPORT_LOOK = {
+    // density:       'compact' | 'comfortable' | 'spacious',   // → --density-scale (0.82/1/1.18); comfortable === today
+    // radiusScale:   1,            // Sharp 0 / Subtle .6 / Default 1 / Round 1.4 → --radius-scale
+    // elevation:     'flat' | 'soft' | 'sharp' | 'bordered',   // → --shadow-sm/--shadow-md; soft === today
+    // surface:       'card' | 'flat' | 'outlined',             // → --surface-fill/--surface-border-w/--surface-shadow; card === today
+    // borderW:       1,            // .5 | 1 | 1.5 (px) → --border-w
+    // borderStyle:   'solid',      // 'solid' | 'dashed' → --border-style
+    // paletteMode:   'analogous',  // 'mono' | 'analogous' | 'categorical' | 'sequential'; analogous === today
+    // headingFont:   { family: 'Newsreader', url: 'https://…', fallback: 'Georgia, serif' }, // → --font-heading
+    // measureProse:  '68ch',       // → --measure-prose
+    // measurePage:   '1400px',     // → --measure-page (clamped to min(var,100vw-gutters))
+    // bg:            'plain' | 'wash' | 'pattern',             // body bg only; plain === today
+    // header:        'standard' | 'banded' | 'bordered',       // → --header-bg/--header-rule
+    // semanticPreset:'classic' | 'muted' | 'vivid' | 'colorblind-safe',  // → --c-critical/cautionary/positive/informative
+    // darkTint:      'neutral' | 'warm' | 'cool' | 'accent',   // dark-mode surface tint; neutral === today
+  };
+</script>
+-->
+<!-- end THEME -->
+<!-- /COOKIEBITE:HEAD-THEME -->
+
+<!-- cookiebite runtime — DO NOT EDIT / DO NOT REORDER.
+     Tailwind Play CDN must load FIRST; cookiebite.js then sets tailwind.config (the CDN
+     reads it before its scan). cookiebite.js carries no defer/module so it runs in order.
+     These two cookiebite lines are PLACEHOLDERS: scripts/inline.sh folds the runtime in
+     from the skill's local assets/ to produce the self-contained deliverable. The raw
+     report is non-functional until inlined — always run inline.sh before handing over. -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="./assets/cookiebite.css" />
+<script src="./assets/cookiebite.js"></script>
+<!-- echarts powers charts + KPI sparklines; countup rolls up KPI numbers. Safe rule
+     first: a KPI/status report (uses COOKIEBITE.kpis) KEEPS countup (without it the
+     numbers render as a literal "0") and deletes only echarts (when there's no chart and
+     no KPI sparkline). DELETE BOTH lines only for a pure-prose explainer with no KPIs
+     and no charts. -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.js"></script>
+<!-- @alpinejs/collapse must load BEFORE Alpine core (defer preserves order) — COOKIEBITE.timeline uses x-collapse -->
+<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.1/dist/cdn.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+
+<!-- COOKIEBITE:HEAD-LIBS -->
+<!-- OPTIONAL libs — add/remove here. Remove if unused. -->
+<!-- Grid.js (COOKIEBITE.table needs this) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/theme/mermaid.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.umd.js"></script>
+<!-- Glossary tooltips (Tippy.js + Popper) — dotted-underline jargon → definition on hover/focus -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.css" />
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.umd.min.js"></script>
+<!-- Syntax highlighting (highlight.js) — for CB.code / CB.codeTabs and hand-authored
+     <pre><code class="language-*">. Themed via cookiebite.css's .hljs token layer (NOT
+     hljs's own stylesheet — do NOT add an hljs theme CSS, it would fight the tokens).
+     Remove this line for a report with no source code. -->
+<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
+<!-- /COOKIEBITE:HEAD-LIBS -->
+</head>
+<body class="bg-bg text-primary">
+<!-- light/dark toggle is injected by the runtime if absent; charts re-theme via the registry -->
+<!-- responsive gutter: phones reclaim ~16px (charts/tables need it), wide screens breathe -->
+<div class="mx-auto max-w-[1400px] px-16 sm:px-24 lg:px-40">
+  <!-- flex-row-reverse puts the TOC on the RIGHT while keeping it first in DOM order -->
+  <div class="flex flex-row-reverse gap-40">
+
+    <!-- ===== TOC sidebar — right rail (drop the whole <nav> if <3 sections) ===== -->
+    <nav class="hidden lg:block w-[190px] shrink-0">
+      <div class="sticky top-24 py-40">
+        <!-- COOKIEBITE:TOC -->
+        <p class="text-caption-12 text-text-disabled mb-12 pl-12">목차</p><!-- localize me for non-Korean reports → "Contents" / etc. -->
+        <ul id="toc" class="space-y-2 text-body-14">
+          <li><a href="#summary"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">요약</a></li>
+          <li><a href="#metrics"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">핵심 지표</a></li>
+          <li><a href="#targets"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">목표 대비</a></li>
+          <li><a href="#growth"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">성장 분석</a></li>
+          <li><a href="#funnel"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">전환 · 비용</a></li>
+          <li><a href="#risks"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">리스크</a></li>
+          <li><a href="#code"     class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">구현 노트</a></li>
+          <li><a href="#timeline" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">분기 타임라인</a></li>
+        </ul>
+        <!-- /COOKIEBITE:TOC -->
+      </div>
+    </nav>
+
+    <!-- ===== main column ===== -->
+    <main class="min-w-0 flex-1 py-40">
+
+      <!-- COOKIEBITE:HEADER -->
+      <header class="mb-40">
+        <div class="flex flex-wrap items-center gap-8 mb-16">
+          <span class="px-10 py-4 rounded-xxs bg-accent text-accent-on-text text-caption-12 font-semibold">Q2 리포트</span>
+          <span class="px-10 py-4 rounded-xxs bg-accent-weak text-accent-strong text-caption-12 nums">2026 Q2</span>
+          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12">데모 · 가상 데이터</span>
+        </div>
+        <h1 class="text-headline-36 font-bold tracking-tight">Acme Cloud — 2분기 성장 리포트</h1>
+        <div id="lead"></div>
+      </header>
+      <!-- /COOKIEBITE:HEADER -->
+
+      <!-- COOKIEBITE:SECTIONS -->
+
+      <!-- KEEP IN LOCKSTEP with COOKIEBITE:REPORT-SCRIPT by id. -->
+
+      <section id="summary" class="scroll-mt-24 mb-56">
+        <div id="takeaway"></div>
+      </section>
+
+      <section id="metrics" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="gauge" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">핵심 지표</h2></div>
+        <div id="hero" class="mb-24"></div>
+        <div id="kpiGrid"></div>
+      </section>
+
+      <section id="targets" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="target" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">목표 대비</h2></div>
+        <p class="text-body-15 text-secondary mb-16 cb-prose">SLA·분기 목표를 한눈에 — 가용성은 지난 분기 대비 <b style="color:var(--c-positive)">+0.5%p</b> 개선됐습니다.</p>
+        <div id="gauges"></div>
+      </section>
+
+      <section id="growth" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="trending-up" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">성장 분석</h2></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-24 mb-24">
+          <div id="waterfall"></div>
+          <div id="dumbbell"></div>
+        </div>
+        <div id="trend"></div>
+      </section>
+
+      <section id="funnel" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="filter" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">전환 · 비용</h2></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-24 mb-24">
+          <div id="fnl"></div>
+          <div id="costTree"></div>
+        </div>
+        <div id="leaders"></div>
+      </section>
+
+      <section id="risks" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="shield-alert" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">리스크 & 액션</h2></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 mb-20"><div id="note1"></div><div id="note2"></div></div>
+        <div id="findingsList"></div>
+      </section>
+
+      <section id="code" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="code" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">구현 노트</h2></div>
+        <p class="text-body-15 text-secondary mb-16 cb-prose">멱등 키 도입으로 이중 청구를 차단했습니다 — 핵심 변경을 탭으로 확인하세요.</p>
+        <div id="codeTabs" class="mb-20"></div>
+        <div id="pull"></div>
+      </section>
+
+      <section id="timeline" class="scroll-mt-24 mb-56">
+        <div class="flex items-center gap-8 mb-20"><i data-lucide="clock" class="w-20 h-20 text-accent"></i><h2 class="text-title-24 font-bold">분기 타임라인</h2></div>
+        <div id="tl"></div>
+      </section>
+
+      <!-- /COOKIEBITE:SECTIONS -->
+
+      <!-- COOKIEBITE:FOOTER — ⚠ this is DEMO content (and Korean): replace it like the
+           SECTIONS slot. For a non-Korean report, rewrite this line too (it's easy to leave
+           a stray '결제 데이터 웨어하우스' in an English report — caught only in the pixel check). -->
+      <footer class="pt-24 border-t border-line-weak text-caption-12 text-text-disabled">
+        Acme Cloud · 2026 Q2 성장 리포트 (데모 · 가상 데이터) · cookiebite v0.8.0 쇼케이스
+      </footer>
+      <!-- /COOKIEBITE:FOOTER -->
+    </main>
+  </div>
+</div>
+
+<!-- COOKIEBITE:REPORT-SCRIPT -->
+<script>
+  // Showcase report — exercises the v0.8.0 component set in one coherent (fictional) Q2 report.
+  document.addEventListener('DOMContentLoaded', function () {
+    var CB = window.COOKIEBITE;
+
+    // header standfirst + summary takeaway
+    document.getElementById('lead').innerHTML = CB.lead('2분기 ARR이 <b class="text-primary">₩18.4억</b>으로 전분기 대비 22% 성장했습니다. 성장은 엔터프라이즈 신규에서 왔고, 결제 안정성과 이탈이 다음 분기의 과제입니다.', { dropcap: true });
+    document.getElementById('takeaway').innerHTML = CB.takeaway([
+      '<b>ARR ₩18.4억</b> — 전분기 +22%, 엔터프라이즈 신규가 견인.',
+      '<b>순매출유지율(NRR) 112%</b> — 확장이 이탈을 상회.',
+      '<b>리스크</b> — 카드 결제 성공률이 임계값 아래로 하락(환불 경로 멱등성 이슈).',
+    ], { title: '한눈에' });
+
+    // hero + KPI row
+    CB.bigNumber('#hero', { value: 18.4, prefix: '₩', unit: '억', label: '연환산 매출 (ARR)', delta: { dir: 'up', tone: 'success', text: '+22%' }, caption: '2026 Q2 · 전분기 대비', spark: [12.1, 13.4, 14.0, 15.2, 16.1, 17.0, 18.4] });
+    CB.kpis('#kpiGrid', [
+      { label: '신규 MRR', value: 6200, prefix: '₩', unit: '만', delta: { dir: 'up', text: '+31%', tone: 'success' }, spark: [38, 41, 45, 48, 52, 58, 62] },
+      { label: 'NRR', value: 112, suffix: '%', delta: { dir: 'up', text: '+4%p', tone: 'success' }, spark: [104, 106, 107, 109, 110, 111, 112] },
+      { label: '활성 워크스페이스', value: 8420, suffix: '개', delta: { dir: 'up', text: '+12%', tone: 'success' }, spark: [6.9, 7.2, 7.5, 7.8, 8.0, 8.2, 8.42] },
+      { label: '월 이탈률', value: 2.4, suffix: '%', delta: { dir: 'up', text: '+0.3%p', tone: 'critical' }, spark: [1.9, 2.0, 2.0, 2.1, 2.2, 2.3, 2.4] },
+    ], { cols: '1-2-4' });
+
+    // targets — gaugeGrid (metric in the intro sentence is plain styled text, not a widget)
+    CB.gaugeGrid('#gauges', [
+      { label: 'API 가용성', value: 99.95, max: 100, target: 99.9, unit: '%' },
+      { label: '결제 성공률', value: 94.1, max: 100, target: 96, unit: '%', tone: 'warning' },
+      { label: '분기 매출 목표', value: 92, max: 100, target: 100, unit: '%' },
+      { label: 'NPS', value: 61, max: 100, target: 55, unit: '' },
+    ]);
+
+    // growth — waterfall (MRR bridge) + dumbbell (region before/after) + trend line w/ dataZoom
+    CB.chart('#waterfall', { height: 300, ariaLabel: 'MRR 워터폴', caption: 'MRR 브리지 — 확장이 이탈을 크게 상회.',
+      option: CB.shapes.waterfall({ categories: ['기초', '신규', '확장', '이탈', '기말'], deltas: [1520, 620, 410, -240], total: true }) });
+    CB.chart('#dumbbell', { height: 300, ariaLabel: '지역별 전후', caption: '지역별 ARR — 분기 초 → 분기 말.',
+      option: CB.shapes.dumbbell({ rows: [{ label: '북미', from: 720, to: 920 }, { label: '유럽', from: 410, to: 560 }, { label: '아시아', from: 300, to: 360 }], series: ['Q1', 'Q2'], showDelta: true, sortBy: 'delta' }) });
+    var months = ['1월', '2월', '3월', '4월', '5월', '6월'];
+    var mrr = [1520, 1610, 1700, 1810, 1920, 2310];
+    CB.chart('#trend', { height: 320, ariaLabel: '월별 MRR 추이', caption: '월별 MRR — 6월 엔터프라이즈 계약 2건으로 점프.',
+      option: { xAxis: { type: 'category', data: months }, yAxis: { type: 'value', name: '만원' },
+        dataZoom: [{ type: 'inside' }, { type: 'slider', height: 20, bottom: 6 }],
+        series: [{ type: 'line', data: mrr, smooth: true, symbol: 'circle', symbolSize: 7, lineStyle: { width: 2.5, color: CB.theme.ACCENT }, itemStyle: { color: CB.theme.ACCENT }, areaStyle: { color: CB.accentRgba(0.12) } }] },
+      table: { columns: ['월', 'MRR(만원)'], rows: months.map(function (m, i) { return [m, mrr[i]]; }) } });
+
+    // funnel + cost treemap + leaderboard
+    CB.funnel('#fnl', { caption: '가입 → 유료 전환', ariaLabel: '전환 퍼널', steps: [
+      { label: '방문', value: 42000 }, { label: '가입', value: 12400 }, { label: '활성화', value: 6800 }, { label: '유료 전환', value: 2100 } ] });
+    CB.treemap('#costTree', { caption: '비용 구성 (월)', ariaLabel: '비용 트리맵', tree: {
+      name: '총비용', children: [
+        { name: '인프라', children: [{ name: '컴퓨트', value: 3200 }, { name: '스토리지', value: 1400 }, { name: '네트워크', value: 600 }] },
+        { name: '인건비', value: 7800 }, { name: '마케팅', value: 2600 } ] } });
+    CB.leaderboard('#leaders', [
+      { label: 'Globex (엔터프라이즈)', value: 4200, deltaRank: 2 },
+      { label: 'Initech', value: 3100, deltaRank: 0 },
+      { label: 'Umbrella', value: 2750, deltaRank: -1 },
+      { label: 'Soylent', value: 1900, deltaRank: 1 },
+      { label: 'Hooli', value: 1240, tone: 'warning' },
+    ], { format: function (v) { return '₩' + CB.nf.format(v) + '만'; } });
+
+    // risks — callout family + findings
+    document.getElementById('note1').innerHTML = CB.warning('카드 결제 성공률이 94.1%로 임계값(96%) 아래입니다. 환불 경로 멱등성 패치를 우선 배포하세요.', { title: '주의' });
+    document.getElementById('note2').innerHTML = CB.tip('NRR 112%는 동종 SaaS 상위 25% 수준 — 확장 영업에 리소스를 더 배분할 여지가 있습니다.');
+    CB.findings('#findingsList', [
+      { tone: 'critical', title: '환불 경로에 멱등 키가 없어 재시도 시 이중 환불 가능', where: 'refund.ts:42', note: '재시도 미들웨어가 동일 요청을 두 번 커밋' },
+      { tone: 'warning', title: '카드 채널 성공률이 임계값(96%) 아래로 하락', where: 'psp/card.ts:118' },
+      { tone: 'info', title: '월 이탈률 2.4%로 소폭 상승 — 온보딩 개선 A/B 진행 중' },
+      { tone: 'success', title: '엔터프라이즈 SLA 99.95% 달성 — 목표 초과' },
+    ], { filter: true });
+
+    // implementation note — codeTabs (syntax highlighted) + pullquote
+    CB.codeTabs('#codeTabs', [
+      { label: '1 · 멱등 키 생성', lang: 'javascript', filename: 'refund.ts', code:
+        'function refundKey(req) {\n  // 동일 요청을 두 번 커밋하지 않도록 결정적 키 생성\n  return hash(`${req.orderId}:${req.amount}:${req.attempt}`);\n}' },
+      { label: '2 · 적용', lang: 'javascript', filename: 'psp.ts', code:
+        'await psp.refund(req.amount, {\n  idempotencyKey: refundKey(req),\n});' },
+      { label: '3 · 응답', lang: 'json', filename: 'response.json', code:
+        '{\n  "status": "refunded",\n  "idempotent_replayed": false,\n  "amount": 24000\n}' },
+    ]);
+    document.getElementById('pull').innerHTML = CB.pullquote('한 줄의 멱등 키가 분기 환불 손실의 80%를 막았다.');
+
+    // quarter timeline
+    CB.timeline('#tl', [
+      { t: '4월', kind: 'start', title: '엔터프라이즈 플랜 출시', sub: 'SSO · 감사로그 · 99.95% SLA' },
+      { t: '5월', kind: 'action', title: '온보딩 플로우 개편', detail: '활성화율 +6%p, A/B 테스트 통과 후 전량 배포.' },
+      { t: '6월', kind: 'cause', title: '카드 결제 성공률 하락 감지', detail: 'PSP 재시도 폭주 + 멱등성 부재로 이중 환불 리스크.' },
+      { t: '6월 말', kind: 'resolved', title: 'Globex 계약 체결', sub: '단일 계약 ARR +₩4.2억' },
+    ]);
+
+    CB.refreshIcons();
+  });
+</script>
+<!-- /COOKIEBITE:REPORT-SCRIPT -->
+</body>
+</html>
