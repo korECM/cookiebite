@@ -234,8 +234,12 @@ html[data-density] .gridjs-td, html[data-density] .gridjs-th{ padding-top:round(
 .cb-lead--dropcap::first-letter{ float:left; font-size:3.1em; line-height:.82; font-weight:700; color:var(--accent-strong); padding:.02em .08em 0 0; margin-top:.02em; }
 
 /* --- .cb-prose — a measured long-form text block --------------------------- */
-.cb-prose{ max-width:var(--measure-prose,68ch); color:var(--c-primary); }
-.cb-prose p{ line-height:1.65; margin-block:0 .9em; text-wrap:pretty; }
+/* word-break:keep-all = break Korean ONLY at spaces (eojeol), never mid-word (the default
+   lets CJK break between any two chars, which strands single syllables); overflow-wrap keeps
+   a very long unbroken token (URL) from overflowing. text-wrap:pretty also applies when the
+   .cb-prose class sits directly on the text element (not just a descendant <p>). */
+.cb-prose{ max-width:var(--measure-prose,68ch); color:var(--c-primary); word-break:keep-all; overflow-wrap:anywhere; text-wrap:pretty; }
+.cb-prose p{ line-height:1.65; margin-block:0 .9em; text-wrap:pretty; word-break:keep-all; overflow-wrap:anywhere; }
 .cb-prose h2, .cb-prose h3{ margin-top:2em; margin-bottom:.4em; text-wrap:balance; }
 .cb-prose h2:first-child, .cb-prose h3:first-child{ margin-top:0; }
 .cb-prose ul, .cb-prose ol{ margin-block:.4em .9em; padding-left:1.4em; }
