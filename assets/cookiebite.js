@@ -1384,6 +1384,28 @@
      ========================================================================== */
   var tableSeq = 0;
 
+  // Auto-floor a column's explicit px width so its sortable header can't clip.
+  // Grid.js renders table-layout:fixed and honors the given width EXACTLY; the
+  // mermaid theme's .gridjs-th has 24px×2 padding and a sortable header reserves
+  // 15px for the sort arrow (.gridjs-th-content { width: calc(100% - 15px) }). A
+  // width below the header's natural size therefore clips the label to a sliver
+  // with no warning — the #1 CB.table footgun (e.g. a 64px column eats a 2-char
+  // Korean header). We measure the header text in the table font and bump any
+  // too-narrow explicit width up to a floor that fits text + arrow + padding.
+  // Columns with no explicit px width are flex-distributed by Grid.js — untouched.
+  var thMeasureCanvas;
+  function floorColWidth(base, sortable) {
+    if (!base || typeof base.name !== 'string' || !base.name) return;
+    var m = typeof base.width === 'string' && /^(\d+(?:\.\d+)?)px$/.exec(base.width);
+    if (!m) return;                                   // only px widths; % / rem / auto left alone
+    thMeasureCanvas = thMeasureCanvas || document.createElement('canvas');
+    var ctx = thMeasureCanvas.getContext('2d');
+    ctx.font = '600 14px ' + (css('--font-family') || 'sans-serif');  // .gridjs-th: 14px / weight 600
+    var textW = ctx.measureText(base.name).width;
+    var floor = Math.ceil(textW) + 48 + (sortable ? 15 : 0) + 8;      // 24px×2 th padding + arrow + slack
+    if (parseFloat(m[1]) < floor) base.width = floor + 'px';
+  }
+
   CB.table = function (target, config) {
     var host = resolveTarget(target);
     if (!host || !window.gridjs) { if (!window.gridjs) console.warn('[cookiebite] COOKIEBITE.table needs Grid.js — add its CDN tags in the HEAD-LIBS slot.'); return null; }
@@ -1448,6 +1470,7 @@
           return typeof cell === 'number' ? CB.nf.format(cell) : cell;
         };
       }
+      floorColWidth(base, base.sort !== false);  // grid is sort:true; a column opts out via sort:false
       return base;
     });
 
