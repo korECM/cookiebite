@@ -780,11 +780,12 @@
       body = '<ul class="space-y-8">' + pointsOrHtml.map(function (p) {
         var dotTone = (p && typeof p === 'object' && p.tone) ? p.tone : 'neutral';
         var dot = TONE_DOT[dotTone] || 'bg-accent';
-        // { html } is TRUSTED author HTML (renders verbatim so inline bold/links/<a>
-        // survive); { text } (or a plain string) is ESCAPED. html wins when both present.
-        var inner = (p && typeof p === 'object' && p.html != null)
-          ? p.html
-          : esc((p && typeof p === 'object') ? p.text : p);
+        // CONSISTENT with CB.lead/callout/pullquote: a plain string (or { html }) is TRUSTED
+        // author HTML so inline <b>/<a> render — an AI naturally writes '<b>…</b>' here, and
+        // escaping it (the old default) leaked literal tags. Use { text } to force-escape.
+        var inner = (p && typeof p === 'object')
+          ? (p.html != null ? p.html : esc(p.text != null ? p.text : ''))
+          : (p == null ? '' : p);
         return '<li class="flex gap-8 text-body-14">' +
           '<span class="mt-6 w-8 h-8 rounded-full shrink-0 ' + dot + '"></span>' +
           '<span>' + inner + '</span></li>';
@@ -849,6 +850,9 @@
             chart.setOption({ series: [sparkSeries(d)] });
           };
         })(c, data));
+        // if the container's width hadn't settled at init (flex/centered layouts), ECharts
+        // measured it wrong and the line renders squished/offset — re-measure next frame.
+        if (window.requestAnimationFrame) requestAnimationFrame(function () { try { c.resize(); } catch (e) {} });
       });
     }
   };
@@ -969,7 +973,7 @@
       var deltaHtml;
       if (it.delta) {
         // canonical badge via the shared CB.deltaBadge; mb-6 aligns it to the figure's baseline
-        deltaHtml = CB.deltaBadge(it.delta.text, { dir: it.delta.dir, tone: it.delta.tone, className: 'mb-6' });
+        deltaHtml = CB.deltaBadge(it.delta.text, { dir: it.delta.dir, tone: it.delta.tone, className: 'mb-6 shrink-0' });
       } else if (it.delta === null) {
         // explicit null => show the "no baseline" sentinel
         deltaHtml = '<span class="mb-6 inline-flex items-center gap-2 text-caption-12 font-semibold text-secondary">—</span>';
@@ -992,7 +996,7 @@
 
       return '<div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">' +
         '<p class="text-body-14 text-secondary">' + label + '</p>' +
-        '<div class="flex items-end gap-8 mt-8">' + numHtml + deltaHtml + '</div>' +
+        '<div class="flex flex-wrap items-end gap-x-8 gap-y-2 mt-8">' + numHtml + deltaHtml + '</div>' +
         note + spark + '</div>';
     }).join('');
 
@@ -1718,12 +1722,14 @@
     // unset, on every (re-)render, so it follows the dark toggle. inside-zoom needs no styling.
     function themeZoom(opt) {
       var dz = opt && opt.dataZoom; if (!dz) return opt;
+      var slider = null;
       (Array.isArray(dz) ? dz : [dz]).forEach(function (z) {
         if (!z || z.type !== 'slider') return;
         // LIGHT touch only — accent handles + a faint accent window, and a thin data-shadow
         // OUTLINE (no solid fill). Over-filling these (filler + selected area both opaque) made
         // the slider read as a heavy salmon band, so keep every fill subtle/translucent.
         if (z.height == null) z.height = 18;
+        if (z.bottom == null) z.bottom = 8;
         if (z.fillerColor == null) z.fillerColor = accentRgba(0.10);
         if (z.borderColor == null) z.borderColor = 'transparent';
         if (z.handleStyle == null) z.handleStyle = { color: CB.theme.ACCENT, borderColor: CB.theme.ACCENT };
@@ -1731,7 +1737,15 @@
         if (z.textStyle == null) z.textStyle = { color: CB.theme.C_SECONDARY };
         if (z.dataBackground == null) z.dataBackground = { lineStyle: { color: CB.theme.C_LINE, width: 1 }, areaStyle: { color: 'transparent' } };
         if (z.selectedDataBackground == null) z.selectedDataBackground = { lineStyle: { color: CB.theme.ACCENT, width: 1 }, areaStyle: { color: accentRgba(0.06) } };
+        slider = z;
       });
+      // RESERVE room under the plot for the slider so it never overlaps the x-axis labels
+      // (the #1 dataZoom footgun — ECharts places the slider by `bottom` from the container
+      // edge but does NOT shrink the grid for it). Only grow the bottom margin, never shrink.
+      if (slider && opt.grid && !Array.isArray(opt.grid)) {
+        var need = (slider.bottom || 0) + (slider.height || 18) + 30;
+        if (!(opt.grid.bottom >= need)) opt.grid.bottom = need;
+      }
       return opt;
     }
 
@@ -3963,7 +3977,7 @@
     }
 
     var deltaHtml = config.delta
-      ? CB.deltaBadge(config.delta.text, { dir: config.delta.dir, tone: config.delta.tone, className: 'mb-8' })
+      ? CB.deltaBadge(config.delta.text, { dir: config.delta.dir, tone: config.delta.tone, className: 'mb-8 shrink-0' })
       : '';
     var spark = config.spark
       ? '<div class="h-40 mt-12 w-full max-w-[280px]" data-spark=\'' + esc(JSON.stringify(config.spark)) + '\'></div>'
@@ -3974,7 +3988,7 @@
 
     host.innerHTML =
       '<div class="flex flex-col ' + align + '">' + label +
-      '<div class="flex items-end gap-12 mt-4">' + numHtml + deltaHtml + '</div>' +
+      '<div class="flex flex-wrap items-end gap-x-12 gap-y-2 mt-4 ' + (config.align === 'left' ? '' : 'justify-center') + '">' + numHtml + deltaHtml + '</div>' +
       spark + caption + '</div>';
 
     CB.refreshIcons();
