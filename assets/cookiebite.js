@@ -2768,6 +2768,15 @@
       var badge = '<div class="h-20 mb-4">' + (opt.recommended
         ? '<span class="text-caption-12 text-accent-strong font-semibold">' + esc(recLabel) + '</span>'
         : '') + '</div>';
+      // optional free-text description under the option name (trusted HTML, like
+      // `recommendation`) — the botfarm-style "here's the approach" line above the
+      // attribute rows. Free-height: if only SOME columns carry a note, or notes run to
+      // different line counts, the <dl> rows below won't line up across columns — keep
+      // notes to a similar length, or give every option one, when strict row alignment
+      // matters. Omit it entirely and the grid stays a tight aligned matrix as before.
+      var note = opt.note
+        ? '<p class="mt-4 text-body-14 text-secondary">' + opt.note + '</p>'
+        : '';
       // one <dt>/<dd> per row, same order in every column so they line up
       var dl = rows.map(function (label, i) {
         var cell = values[i];
@@ -2778,7 +2787,7 @@
       }).join('');
       return '<div class="bg-surface border border-line-weak rounded-medium p-20' + ring + '">' +
         badge + '<h3 class="text-title-20 font-bold">' + esc(opt.name) + '</h3>' +
-        '<dl class="mt-12 space-y-8 text-body-14">' + dl + '</dl></div>';
+        note + '<dl class="mt-12 space-y-8 text-body-14">' + dl + '</dl></div>';
     }).join('');
 
     // columns = number of options; collapse to a single column below sm

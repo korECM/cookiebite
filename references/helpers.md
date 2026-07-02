@@ -133,11 +133,21 @@ option use resolved colors (`CB.accentRgba`, `CB.theme.ACCENT`), never
 ```text
 config: {
   rows,             // [ 'Effort', 'Risk', … ]  the attribute labels (one column of <dt>)
-  options: [ { name, recommended?, values: [ cell, … ] } ],  // values[i] aligns to rows[i]
-                    //   cell: 'text'  OR  { label, tone, icon? } (rendered via CB.pill)
+  options: [ { name, note?, recommended?, values: [ cell, … ] } ],  // values[i] aligns to rows[i]
+                    //   note?: trusted HTML — a one-line description under the option name
+                    //          (the "here's the approach" setup line above the attribute rows)
+                    //   cell:  'text'  OR  { label, tone, icon? } (rendered via CB.pill)
   recommendation?,  // trusted HTML -> a CB.callout below the grid
 }
 ```
+**`note` is free-height.** It renders between the option name and the `<dl>`, so if only
+*some* options carry one — or notes run to different line counts — the attribute rows
+below won't line up across columns. Give every option a similar-length `note` (or none)
+when strict row alignment matters; omit it and the grid stays a tight aligned matrix.
+Use it when each option needs a sentence of free-form framing that doesn't fit the shared
+`rows` axes (the botfarm-style "A. Cap 방식 / B. 고정 임계값" decision cards) — reach for
+the shared `rows` when the options answer the *same* attributes, and add `note` on top
+when they also need their own prose.
 **Row-major alternative** — instead of `rows:[string]` + per-option `values`, pass
 `rows` as objects that carry each row's cells inline (often easier to author so a row's
 data stays together):
