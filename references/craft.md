@@ -14,12 +14,26 @@ checklist re-encodes the must-pass items as checkboxes.
   fake zero). In `COOKIEBITE.kpis`, **omit** the `delta` key for no badge at all; pass
   `delta: null` to render the `—` sentinel. When *no* KPI has a baseline, omit it on all
   of them — a row of `—` reads as stray underscores, not data.
+- **Open each section with one plain-language line of orientation — *before* the
+  visuals.** A heading followed straight by a chart makes the reader reverse-engineer
+  what they're looking at. A single setup sentence under the heading ("동일한 알고리즘인데
+  두 게임의 cutoff가 극단적으로 벌어진다") tells them what's coming and why it matters. This
+  is the *setup*; the takeaway caption below is the *payoff* — a well-read section has
+  **both** (orient → show → conclude), not just the after-caption. `COOKIEBITE.lead`
+  emits the standfirst class for this opening line.
 - **Give every chart a one-line takeaway caption** above or below it that says what
   to *notice* ("금요일, 토요일에 매출이 몰리며 평균을 14% 상회"), not what is plotted. The
   chart shows the data; the caption delivers the point.
 - **Annotate charts** with reference lines — an average/target `markLine`, a
   threshold, an event `markArea`. A bare chart makes the reader do the comparison; an
   annotated one makes the point for them.
+- **Paired comparison charts must share a y-axis scale.** When you set two charts side
+  by side to compare A vs B (the same metric for two products, two cohorts), pin them to
+  the *same* `yAxis` range — otherwise a value 300× larger renders at the same bar/line
+  height and the side-by-side silently lies. If the magnitudes are genuinely far apart,
+  don't hide it behind two auto-scaled axes: say so and use a log scale, an indexed
+  ("= 100 at start") series, or a single overlaid chart. A shared axis is what makes
+  "put them next to each other" an honest comparison.
 - **Icons earn their keep — and stay small.** A small Lucide icon on each section
   header or stat card speeds scanning. Size them deliberately and consistently: ~16px
   inline with body text, ~18–20px on section headings, ~20–24px on a stat card. Give
