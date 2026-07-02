@@ -287,13 +287,17 @@ CB.glossary({
 CB.compare('#compareGrid', {
   rows: ['Effort', 'Risk', 'Cost', 'Reversible'],
   options: [
-    { name: 'Option A', recommended: true, values: [
+    { name: 'Option A', recommended: true,
+      note: 'Cap the statistical cutoff at a fixed ceiling — minimal change to today’s logic.',
+      values: [
       { label: 'Low', tone: 'success' },
       { label: 'Low', tone: 'success' },
       '$',
       { label: 'Yes', tone: 'success' },
     ] },
-    { name: 'Option B', values: [
+    { name: 'Option B',
+      note: 'Drop the statistical model for absolute per-pattern thresholds — simple, but blind to shifts.',
+      values: [
       { label: 'High', tone: 'critical' },
       { label: 'Med', tone: 'warning' },
       '$$$',
@@ -307,6 +311,34 @@ document.getElementById('noteCallout').innerHTML =
   CB.callout('Re-evaluate once traffic doubles — Option B may win at scale.',
     { tone: 'info', title: 'Note.' });
 ```
+
+The per-option `note` carries the free-form "here's the approach" line that doesn't fit
+the shared `rows` axes (`helpers.md` — CB.compare). Give every option one (similar length)
+or none, so the attribute rows still line up across columns.
+
+### comparison table — a `Δ` / ratio column, outlier flagged with a pill
+
+When you compare two series in a **table** (A vs B across several metrics), don't make the
+reader divide in their head — add a dedicated **ratio / difference** column, and flag the
+divergent row with a tone **pill** (`statusCol`) instead of a bare number. (Grid.js has no
+whole-row tint, so tone the ratio *cell* — it's the number that carries the point anyway.)
+
+```js
+CB.table('#gapTable', {
+  columns: ['Metric', 'CRG', 'CK', { name: 'Gap', sort: true }],
+  numericCols: [1, 2],           // raw Numbers -> right-aligned + thousands grouping
+  statusCol: 3,                  // the Gap cell is a { label, tone } pill
+  rows: [
+    ['IP cutoff (median)', 1735, 42.5, { label: '41×', tone: 'critical' }],
+    ['semi_device cutoff', 253,  5,    { label: '51×', tone: 'critical' }],
+    ['anonymous cutoff',   128,  5,    { label: '26×', tone: 'warning'  }],
+  ],
+});
+```
+The ratio column + the tone pill together are the comparison idiom: the reader sees the
+raw values, the computed gap, and *which* gaps are alarming — in one row. Pair it with the
+shared-y-axis rule for paired charts (`craft.md`): the table quantifies the gap, the chart
+shows its shape.
 
 ---
 
