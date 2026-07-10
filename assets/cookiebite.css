@@ -722,3 +722,8 @@ html[data-theme="dark"][data-dark-tint]{
 .cb-copyreport.is-copied{ color:var(--c-positive); border-color:color-mix(in srgb, var(--c-positive) 45%, var(--c-line-weak)); }
 @media (prefers-reduced-motion: reduce){ .cb-copyreport{ transition:none; } }
 @media print{ .cb-copyreport{ display:none !important; } }
+
+/* ---- altitude (CB.altitudeToggle): exec view hides the deep-dive sections the
+   author marked with data-altitude-detail, leaving claims/summary + hero visuals.
+   display:none (not visibility) so the layout genuinely collapses. */
+html[data-altitude="exec"] [data-altitude-detail] { display: none !important; }

@@ -339,7 +339,9 @@ slot('COOKIEBITE:FOOTER',
 html = html.replace('<html lang="ko">', '<html lang="en">', 1)
 html = html.replace(
     "window.REPORT_LOCALE = {'number': 'ko-KR', 'currency': 'KRW', 'symbol': '₩', 'bigUnits': true};",
-    "window.REPORT_LOCALE = {'number': 'en-US', 'currency': 'USD', 'symbol': '$', 'bigUnits': true};",
+    # bigUnits false: an en-US report banding money as "$3.5만" is the bug this fixes —
+    # 만/억 units belong to the East-Asian locales only.
+    "window.REPORT_LOCALE = {'number': 'en-US', 'currency': 'USD', 'symbol': '$', 'bigUnits': false};",
     1)
 
 open(os.environ['OUT'], 'w', encoding='utf-8').write(html)

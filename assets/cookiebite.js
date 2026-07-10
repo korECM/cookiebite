@@ -134,6 +134,50 @@
   CB.won = money;
   CB.wonShort = moneyShort;
 
+  /* CB.fmt(type, opts?) -> (value) => string — the SEMANTIC formatter factory.
+     Declare what a number MEANS and the right locale-driven rendering follows,
+     instead of hand-assembling nf/money/toFixed at every call site:
+       'count'        integer magnitude, thousands-grouped (nf)
+       'price'        currency: symbol + grouping; { short:true } -> ₩1.5억-style bands
+       'percent'      fixed-precision ratio: 97.1%  ({ decimals }, default 1)
+       'percentPoint' SIGNED percentage-POINT delta: +0.7%p (distinct from 'percent')
+       'delta'        signed count: +1,204 / −86
+       'duration'     milliseconds -> 840ms / 1.2s / 3m 20s / 2h 05m ({ unit:'s' } input)
+       'rank'         ordinal position: #3
+     Unknown types fall back to plain grouping, so a typo degrades gracefully.
+     Used standalone (table formatters, kpis) and by CB.chart's `semantics` config
+     (axis/tooltip formatting + rank-axis inversion). */
+  CB.fmt = function (type, opts) {
+    opts = opts || {};
+    var dec = opts.decimals != null ? opts.decimals : 1;
+    var sgn = function (n) { return n > 0 ? '+' : n < 0 ? '−' : ''; };
+    switch (type) {
+      case 'price': case 'money':
+        return opts.short
+          ? function (v) { return L.symbol + moneyShort(v); }
+          : function (v) { return money(v); };
+      case 'percent':
+        return function (v) { return (+v).toFixed(dec).replace(/\.0+$/, '') + '%'; };
+      case 'percentPoint':
+        return function (v) { return sgn(+v) + Math.abs(+v).toFixed(dec).replace(/\.0+$/, '') + '%p'; };
+      case 'delta':
+        return function (v) { return sgn(+v) + nf.format(Math.abs(+v)); };
+      case 'duration':
+        return function (v) {
+          var ms = opts.unit === 's' ? +v * 1000 : +v;
+          if (!isFinite(ms)) return String(v);
+          if (ms < 1000) return Math.round(ms) + 'ms';
+          if (ms < 60000) return (Math.round(ms / 100) / 10).toFixed(1).replace(/\.0$/, '') + 's';
+          if (ms < 3600000) return Math.floor(ms / 60000) + 'm ' + Math.round(ms % 60000 / 1000) + 's';
+          return Math.floor(ms / 3600000) + 'h ' + String(Math.round(ms % 3600000 / 60000)).padStart(2, '0') + 'm';
+        };
+      case 'rank':
+        return function (v) { return '#' + nf.format(v); };
+      case 'count': default:
+        return function (v) { return nf.format(v); };
+    }
+  };
+
   /* ---- F42 i18n string table (replaces the scattered /^ko/i string forks) ----
      Keyed by a 2-letter locale prefix; ko/en ship built-in (their strings are
      BYTE-IDENTICAL to the prior inline forks, so existing ko/en reports are
@@ -166,6 +210,7 @@
       figAbbr: 'Fig.',
       notesHeading: 'Notes', backToText: 'Back to text', minRead: ' min read', contents: 'Contents',
       medianWord: 'median', otherWord: 'Other',
+      altitude: 'Toggle executive view', prevStep: 'Previous step', nextStep: 'Next step', stepWord: 'Step',
     },
     ko: {
       noData: '데이터 없음',
@@ -190,6 +235,7 @@
       figAbbr: '그림',
       notesHeading: '주석', backToText: '본문으로', minRead: '분 분량', contents: '목차',
       medianWord: '중앙값', otherWord: '기타',
+      altitude: '요약 뷰 전환', prevStep: '이전 단계', nextStep: '다음 단계', stepWord: '단계',
     },
     /* ja ships ONLY the cells that differ from en where trivial; missing keys fall
        back to en via the t() resolver, so a ja report degrades gracefully. */
@@ -1706,6 +1752,21 @@
   }
   CB.markSpecs = markSpecs;
 
+  /* CB.__chartWarnings — the chart-level warning contract: helpers push structured
+     warnings (deduped by chart+code) and mirror them to console.warn, and
+     scripts/verify-report.sh folds the array into checks-desktop.json so the
+     self-check loop sees them without scraping the console. The point (borrowed
+     from compiler-style chart tooling): a chart that would MISLEAD should say so
+     at build time, not wait for a reviewer to notice. */
+  function chartWarn(chart, code, msg) {
+    var reg = CB.__chartWarnings = CB.__chartWarnings || [];
+    var key = chart + ':' + code;
+    for (var i = 0; i < reg.length; i++) if (reg[i].key === key) return;
+    reg.push({ key: key, chart: chart, code: code, msg: msg });
+    console.warn('[cookiebite] ' + chart + ': ' + msg);
+  }
+  CB.chartWarn = chartWarn; // exposed so hand-rolled charts can join the contract
+
   // all-zero/all-empty detection for the chart empty-state. Returns true ONLY when the
   // option carries inline series, EVERY series has a non-empty data array, and EVERY
   // datum across them is empty/zero. A datum can be a number, [x,y] pair, or {value}
@@ -1752,12 +1813,53 @@
     var host = resolveTarget(target);
     if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.chart needs echarts.'); return null; }
     config = config || {};
-    var height = config.height || 300;
     // ariaLabel becomes BOTH the SR label and the fallback data-table caption — the bare
     // word 'chart' is meaningless to a screen-reader user, so nudge the author instead of
     // shipping it silently.
     if (config.ariaLabel == null) console.warn('[cookiebite] COOKIEBITE.chart: pass ariaLabel describing what the chart shows — it becomes the screen-reader label and the data-table caption.');
     var aria = config.ariaLabel || 'chart';
+
+    // ELASTIC HEIGHT: a horizontal (category-y) chart's readable height is a function of
+    // its ROW COUNT, not a constant — n rows need a minimum band step or bars and labels
+    // crush together. With no author height, grow with the data (capped: past ~22 rows the
+    // data belongs in a top-N + CB.table). An explicit config.height always wins, but gets
+    // a crowding warning when it leaves under ~18px per row.
+    var catRows = 0;
+    (function () {
+      var ys = config.option && config.option.yAxis;
+      ys = Array.isArray(ys) ? ys : ys ? [ys] : [];
+      for (var yi = 0; yi < ys.length; yi++) {
+        if (ys[yi] && ys[yi].type === 'category' && Array.isArray(ys[yi].data)) catRows = Math.max(catRows, ys[yi].data.length);
+      }
+    })();
+    var height = config.height;
+    if (height == null) {
+      height = catRows ? Math.min(720, Math.max(300, catRows * 28 + 80)) : 300;
+      if (catRows * 28 + 80 > 720) chartWarn(aria, 'too-many-rows', catRows + ' category rows exceed one readable chart even at max height — show a top-N and put the full set in a CB.table.');
+    } else if (catRows && (height - 80) / catRows < 18) {
+      chartWarn(aria, 'crowded-bands', catRows + ' rows in ' + height + 'px leaves <18px per row — raise the height or cut rows.');
+    }
+
+    // ZERO-BASELINE HONESTY: length-encoded marks (bars, filled areas) lie when their
+    // value axis doesn't start at zero — part of every bar's length becomes fiction.
+    // ECharts bars default to a zero baseline, so this only fires when the author
+    // explicitly truncates with min. Position-encoded forms (plain line, dot/lollipop/
+    // rangeDot) are the honest way to zoom a range.
+    (function (opt) {
+      var series = opt && opt.series; if (!series) return;
+      var list = Array.isArray(series) ? series : [series];
+      var lengthy = list.some(function (s) { return s && (s.type === 'bar' || (s.type === 'line' && s.areaStyle)); });
+      if (!lengthy) return;
+      ['xAxis', 'yAxis'].forEach(function (k) {
+        var ax = opt[k]; ax = Array.isArray(ax) ? ax : ax ? [ax] : [];
+        ax.forEach(function (a) {
+          if (!a || a.type === 'category' || a.type === 'time') return;
+          if (a.min === 'dataMin' || (typeof a.min === 'number' && a.min > 0)) {
+            chartWarn(aria, 'truncated-baseline', 'bar/area rides a value axis with min=' + a.min + ' — length-encoded marks need a zero baseline. To zoom a range, switch to a position-encoded form (line, lollipop, rangeDot).');
+          }
+        });
+      });
+    })(config.option || {});
     var cid = 'cbChart' + (++chartSeq);
 
     CB.disposeIn(host); // re-run on the same target: dispose the prior chart instance
@@ -1866,7 +1968,7 @@
     // swapped via chart.__cbUpdate) then keeps its filtered state across the toggle
     // instead of snapping back to the initial series.
     var lastOption = config.option || {};
-    inst.setOption(markSpecs(themeZoom(deepMerge(CB.baseChart, lastOption))), true);
+    inst.setOption(markSpecs(applySemantics(themeZoom(deepMerge(CB.baseChart, lastOption)))), true);
     // chart.__cbUpdate(option): apply a new author option AND remember it, so the
     // next dark re-theme preserves it. Use this instead of raw setOption for updates
     // that should survive a theme toggle (e.g. reader filters/zoom on the data).
@@ -1876,7 +1978,7 @@
       // dataZoom persist, and the next dark re-theme still has the COMPLETE option. (Arrays
       // like series/dataZoom replace wholesale inside deepMerge, so swapping series data works.)
       lastOption = deepMerge(lastOption, opt || {});
-      inst.setOption(markSpecs(themeZoom(deepMerge(CB.baseChart, lastOption))), notMerge !== false);
+      inst.setOption(markSpecs(applySemantics(themeZoom(deepMerge(CB.baseChart, lastOption)))), notMerge !== false);
       return inst;
     };
 
@@ -1884,6 +1986,34 @@
     // the author's own dataZoom array, which REPLACES baseChart's on merge, so ECharts' default
     // blue slider showed through and stayed blue in dark). Fill only the colors the author left
     // unset, on every (re-)render, so it follows the dark toggle. inside-zoom needs no styling.
+    // applySemantics(opt): config.semantics = { x?, y? } declares what each channel's
+    // number MEANS ('price'|'percent'|'percentPoint'|'count'|'duration'|'rank'|…) and the
+    // right presentation follows: value-axis labels format via CB.fmt (price uses the
+    // short ₩1.5억-style bands — a full currency string is too long for a tick), and a
+    // 'rank' value axis inverts so rank 1 sits at the top. Author-set formatter/inverse
+    // always win; category/time axes are untouched. Clone-on-write like markSpecs so the
+    // author's option object is never mutated.
+    function applySemantics(opt) {
+      var sem = config.semantics;
+      if (!sem || !opt) return opt;
+      var apply = function (axisKey, chan) {
+        var type = sem[chan]; if (!type) return;
+        var ax = opt[axisKey]; if (!ax) return;
+        var list = Array.isArray(ax) ? ax : [ax];
+        var out = list.map(function (a) {
+          if (!a || a.type === 'category' || a.type === 'time') return a;
+          var c = Object.assign({}, a);
+          c.axisLabel = Object.assign({}, a.axisLabel);
+          if (c.axisLabel.formatter == null) c.axisLabel.formatter = CB.fmt(type, { short: type === 'price' || type === 'money' });
+          if (type === 'rank' && c.inverse == null) c.inverse = true; // rank 1 belongs at the top
+          return c;
+        });
+        opt[axisKey] = Array.isArray(ax) ? out : out[0];
+      };
+      apply('xAxis', 'x'); apply('yAxis', 'y');
+      return opt;
+    }
+
     function themeZoom(opt) {
       var dz = opt && opt.dataZoom; if (!dz) return opt;
       var slider = null;
@@ -1916,7 +2046,7 @@
     // register for dark re-theme: re-merge the LAST author option over fresh baseChart
     var renderFn = config.render
       ? config.render
-      : function (chart) { chart.setOption(markSpecs(themeZoom(deepMerge(CB.baseChart, lastOption))), true); };
+      : function (chart) { chart.setOption(markSpecs(applySemantics(themeZoom(deepMerge(CB.baseChart, lastOption)))), true); };
 
     // F19 — narrow-width legibility. At phone widths a chart's axisName/grid eat the plot
     // area and a dual-axis chart's RIGHT axisName collides with the data. When the
@@ -5076,6 +5206,166 @@
     });
     CB.refreshIcons();
     return btn;
+  };
+
+  /* ==========================================================================
+     COOKIEBITE.altitudeToggle() — opt-in chrome: a round button (stacked under the
+     theme/density toggles) that flips html[data-altitude] between the full report
+     and an EXECUTIVE view. The author marks deep-dive sections with
+     `data-altitude-detail`; exec mode hides them (cookiebite.css), leaving the
+     claims/summary + hero visuals. Same report, two reading altitudes — no second
+     document to maintain. Persists to localStorage; charts resize after the flip.
+     ========================================================================== */
+  CB.altitudeToggle = function () {
+    if (document.getElementById('cbAltitudeToggle')) return document.getElementById('cbAltitudeToggle');
+    if (!document.querySelector('[data-altitude-detail]')) {
+      console.warn('[cookiebite] altitudeToggle: no [data-altitude-detail] sections found — mark the deep-dive sections or the toggle does nothing.');
+    }
+    var saved = null;
+    try { saved = localStorage.getItem('report-altitude'); } catch (e) {}
+    function setAltitude(val) {
+      if (val === 'exec') document.documentElement.dataset.altitude = 'exec';
+      else delete document.documentElement.dataset.altitude;
+    }
+    if (saved) setAltitude(saved);
+    var btn = document.createElement('button');
+    btn.id = 'cbAltitudeToggle';
+    btn.type = 'button';
+    btn.setAttribute('aria-label', t('altitude'));
+    btn.setAttribute('aria-pressed', document.documentElement.dataset.altitude === 'exec' ? 'true' : 'false');
+    // stack below whichever toggles exist (theme at top-16, density at top-64)
+    var top = document.getElementById('cbDensityToggle') ? 'top-112' : 'top-64';
+    btn.className = 'fixed ' + top + ' right-16 z-50 inline-flex items-center justify-center w-40 h-40 rounded-full bg-surface border border-line-weak shadow-sm text-secondary hover:text-primary transition print:hidden';
+    btn.innerHTML = '<i data-lucide="list-collapse" class="w-20 h-20"></i>';
+    document.body.appendChild(btn);
+    btn.addEventListener('click', function () {
+      var next = document.documentElement.dataset.altitude === 'exec' ? 'full' : 'exec';
+      setAltitude(next);
+      btn.setAttribute('aria-pressed', next === 'exec' ? 'true' : 'false');
+      try { localStorage.setItem('report-altitude', next); } catch (e) {}
+      pruneCharts();
+      charts.forEach(function (c) { if (c.instance) { try { c.instance.resize(); } catch (e) {} } });
+    });
+    CB.refreshIcons();
+    return btn;
+  };
+
+  /* ==========================================================================
+     COOKIEBITE.claims(target, items, opts?) — the executive summary as CLAIMS
+     LINKED TO EVIDENCE, not a paragraph. Each row is one claim; when `evidence`
+     names a section id, the claim is an anchor into the section that proves it,
+     with an optional right-aligned value chip. The exec reads the claims; only a
+     doubted claim gets clicked into. items:
+       { claim, evidence?: '#section-id', value?, tone? (neutral|info|success|warning|critical) }
+     opts: { title? (default t('keyTakeaways')), emptyText? }
+     A claim without a matching real section is a filler smell — write fewer claims.
+     ========================================================================== */
+  var CLAIM_DOT = { success: '--c-positive', critical: '--c-critical', warning: '--c-cautionary', info: '--c-informative', neutral: '--c-disabled' };
+  CB.claims = function (target, items, opts) {
+    var host = resolveTarget(target);
+    if (!host) return;
+    items = items || []; opts = opts || {};
+    if (!items.length) { host.innerHTML = emptyState(opts.emptyText); CB.refreshIcons(); return; }
+    var rows = items.map(function (it) {
+      it = it || {};
+      var dotVar = CLAIM_DOT[it.tone] || CLAIM_DOT.neutral;
+      var dot = '<span class="inline-block w-8 h-8 rounded-full mt-6 shrink-0" style="background:var(' + dotVar + ')" aria-hidden="true"></span>';
+      var text = it.evidence
+        ? '<a href="' + esc(it.evidence) + '" class="text-body-16 font-medium text-primary hover:text-accent-strong no-underline">' + esc(it.claim) + '</a>'
+        : '<span class="text-body-16 font-medium text-primary">' + esc(it.claim) + '</span>';
+      var value = it.value != null
+        ? '<span class="nums tabular-nums text-body-14 font-semibold text-secondary shrink-0 whitespace-nowrap">' + esc(it.value) + '</span>'
+        : '';
+      return '<li class="flex items-start gap-12 py-10 border-b border-line-weak last:border-0">' + dot +
+        '<div class="flex-1 min-w-0">' + text + '</div>' + value + '</li>';
+    }).join('');
+    host.innerHTML =
+      '<div class="bg-accent-weak border border-line-weak rounded-medium p-20">' +
+      '<p class="text-caption-12 font-semibold text-accent-strong uppercase tracking-wide mb-8">' + esc(opts.title != null ? opts.title : t('keyTakeaways')) + '</p>' +
+      '<ol class="list-none m-0 p-0">' + rows + '</ol></div>';
+    CB.refreshIcons();
+  };
+
+  /* ==========================================================================
+     COOKIEBITE.storyline(target, cfg) — a guided walkthrough of ONE chart: the
+     reader steps through beats, and each beat re-shapes the same chart (emphasis,
+     annotation, zoom) while its caption says what to notice. The scrollytelling
+     idea, built on the existing seams (__cbUpdate + deepMerge) rather than a new
+     chart vocabulary. cfg:
+       chart:   a CB.chart instance (preferred) or a selector to its host
+       base?:   a partial option holding every key the steps touch, at its resting
+                value — each step applies deepMerge(base, step.option), so steps
+                stay order-independent and going BACK a step resets cleanly.
+       steps:   [{ title?, caption, option? }] — option is a partial ECharts option
+                (series arrays replace wholesale; use CB.categoricalColors
+                { mode:'emphasis' } color swaps, markPoint/markLine, dataZoom, …)
+       initial?: starting step index (default 0)
+     The caption region is aria-live so a screen reader hears each beat.
+     ========================================================================== */
+  CB.storyline = function (target, cfg) {
+    var host = resolveTarget(target);
+    if (!host) return null;
+    cfg = cfg || {};
+    var steps = cfg.steps || [];
+    if (!steps.length) { host.innerHTML = emptyState(cfg.emptyText); CB.refreshIcons(); return null; }
+
+    // resolve the chart: an instance (has setOption) or a host selector (same
+    // resolution as CB.annotate — a CB.chart host wraps the echarts dom in #cbChartN).
+    var inst = cfg.chart && cfg.chart.setOption ? cfg.chart : null;
+    if (!inst && cfg.chart) {
+      var el = resolveTarget(cfg.chart);
+      if (el && window.echarts) {
+        var dom = (el.matches && el.matches('[id^="cbChart"]')) ? el
+          : (el.querySelector ? el.querySelector('[id^="cbChart"]') : null) || el;
+        inst = window.echarts.getInstanceByDom(dom);
+      }
+    }
+    if (!inst) console.warn('[cookiebite] storyline: no chart resolved — steps will only swap captions.');
+
+    var base = cfg.base || {};
+    var dots = steps.map(function (s, i) {
+      return '<button type="button" data-cb-story-dot="' + i + '" aria-label="' + esc(t('stepWord')) + ' ' + (i + 1) + '" ' +
+        'class="w-8 h-8 rounded-full border-0 p-0 cursor-pointer transition"></button>';
+    }).join('');
+    host.innerHTML =
+      '<div class="flex items-center gap-12 mb-8">' +
+      '<button type="button" data-cb-story-prev aria-label="' + esc(t('prevStep')) + '" class="inline-flex items-center justify-center w-28 h-28 rounded-full bg-surface border border-line-weak text-secondary hover:text-primary disabled:opacity-40 disabled:cursor-default">&#8249;</button>' +
+      '<div class="flex items-center gap-8">' + dots + '</div>' +
+      '<button type="button" data-cb-story-next aria-label="' + esc(t('nextStep')) + '" class="inline-flex items-center justify-center w-28 h-28 rounded-full bg-surface border border-line-weak text-secondary hover:text-primary disabled:opacity-40 disabled:cursor-default">&#8250;</button>' +
+      '<span class="text-caption-12 text-secondary nums" data-cb-story-count></span>' +
+      '</div>' +
+      '<div aria-live="polite" data-cb-story-caption class="text-body-14 text-secondary prose-measure"></div>';
+
+    var prevBtn = host.querySelector('[data-cb-story-prev]');
+    var nextBtn = host.querySelector('[data-cb-story-next]');
+    var countEl = host.querySelector('[data-cb-story-count]');
+    var capEl = host.querySelector('[data-cb-story-caption]');
+    var dotEls = [].slice.call(host.querySelectorAll('[data-cb-story-dot]'));
+    var idx = -1;
+
+    function apply(i) {
+      if (i < 0 || i >= steps.length || i === idx) return;
+      idx = i;
+      var st = steps[i] || {};
+      if (inst) {
+        var delta = deepMerge(base, st.option || {});
+        if (inst.__cbUpdate) inst.__cbUpdate(delta);
+        else { try { inst.setOption(delta); } catch (e) {} }
+      }
+      capEl.innerHTML = (st.title ? '<strong class="text-primary">' + esc(st.title) + '</strong> — ' : '') + esc(st.caption || '');
+      countEl.textContent = (i + 1) + t('ofWord') + steps.length;
+      prevBtn.disabled = i === 0;
+      nextBtn.disabled = i === steps.length - 1;
+      dotEls.forEach(function (d, di) {
+        d.style.background = di === i ? 'var(--accent)' : 'var(--c-line)';
+        if (di === i) d.setAttribute('aria-current', 'step'); else d.removeAttribute('aria-current');
+      });
+    }
+    prevBtn.addEventListener('click', function () { apply(idx - 1); });
+    nextBtn.addEventListener('click', function () { apply(idx + 1); });
+    dotEls.forEach(function (d, di) { d.addEventListener('click', function () { apply(di); }); });
+    apply(cfg.initial || 0);
+    return { goTo: apply, next: function () { apply(idx + 1); }, prev: function () { apply(idx - 1); } };
   };
 
   /* ==========================================================================

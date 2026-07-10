@@ -148,6 +148,10 @@ capture(){
     containedClips: clipped.slice(0, 8).map(el =>
       el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '')
       + ' (' + el.scrollWidth + '>' + el.clientWidth + ')'),
+    // the runtime's chart-level warning contract (truncated baselines, crowded bands,
+    // too-many-rows, >8 peer series) — surfaced here so the reviewer needn't scrape console
+    chartWarnings: ((window.COOKIEBITE && window.COOKIEBITE.__chartWarnings) || [])
+      .map(w => w.chart + ': [' + w.code + '] ' + w.msg),
   }, null, 0);
 })()
 EOF
@@ -402,5 +406,7 @@ echo "Tailwind CDN, so the 12px icon/spacing scale was ignored (giant icons, col
 echo "fix the <head> order: load cdn.tailwindcss.com before cookiebite.js."
 echo "'palettes' holds the validate-palette.mjs verdicts for every palette the report generated:"
 echo "fix any FAIL; a CVD/contrast WARN needs its relief channel (direct labels / legend / table)."
+echo "'chartWarnings' lists the runtime's chart-honesty warnings (truncated zero-baseline,"
+echo "crowded bands, too many rows/series) — each one is a real defect; fix, don't dismiss."
 echo "desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."
