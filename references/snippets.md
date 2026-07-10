@@ -82,9 +82,17 @@ CB.table('#detailTable', {
 });
 ```
 
-### review — `findings` + `diff`/`code` + `actionItems`
+### review — `claims` verdict + `findings` + `diff`/`code` + `actionItems`
 
 ```html
+<section id="verdict" class="scroll-mt-24 mb-56">
+  <div class="flex items-center gap-8 mb-20">
+    <i data-lucide="gavel" class="w-20 h-20 text-accent"></i>
+    <h2 class="text-title-24 font-bold">Verdict</h2>
+  </div>
+  <div id="verdictBox"></div>
+</section>
+
 <section id="findings" class="scroll-mt-24 mb-56">
   <div class="flex items-center gap-8 mb-20">
     <i data-lucide="list-checks" class="w-20 h-20 text-accent"></i>
@@ -111,6 +119,14 @@ CB.table('#detailTable', {
 ```
 
 ```js
+// the verdict as claims anchored to their evidence sections — write only claims a
+// section actually backs (fewer claims, not thinner sections)
+CB.claims('#verdictBox', [
+  { claim: 'Blocks merge: the retry path can double-charge', evidence: '#findings', value: 'P0', tone: 'critical' },
+  { claim: 'The idempotency-key fix is correct and complete', evidence: '#change', tone: 'success' },
+  { claim: 'Two follow-ups are tracked, none blocking', evidence: '#actions', value: 'P1×2', tone: 'info' },
+], { title: 'Verdict' });
+
 CB.findings('#findingsList', [
   { tone: 'critical', title: 'Retry path can double-charge (no idempotency key)', where: 'refund.ts:42' },
   { tone: 'warning', title: 'Card channel success rate below threshold', where: 'psp/card.ts:118' },
@@ -135,7 +151,7 @@ CB.actionItems('#actionList', [
 ], { copy: true });
 ```
 
-### postmortem — `takeaway` + `timeline` + `findings` + `mermaid`
+### postmortem — `claims` + storyline impact chart + `timeline` + `mermaid` + `findings`
 
 ```html
 <section id="summary" class="scroll-mt-24 mb-56">
@@ -144,6 +160,15 @@ CB.actionItems('#actionList', [
     <h2 class="text-title-24 font-bold">Summary</h2>
   </div>
   <div id="summaryBox"></div>
+</section>
+
+<section id="impact" class="scroll-mt-24 mb-56">
+  <div class="flex items-center gap-8 mb-20">
+    <i data-lucide="activity" class="w-20 h-20 text-accent"></i>
+    <h2 class="text-title-24 font-bold">Impact</h2>
+  </div>
+  <div id="impactChart"></div>
+  <div id="impactStory" class="mt-12"></div>
 </section>
 
 <section id="timeline" class="scroll-mt-24 mb-56">
@@ -172,11 +197,39 @@ CB.actionItems('#actionList', [
 ```
 
 ```js
-document.getElementById('summaryBox').innerHTML = CB.takeaway([
-  { tone: 'critical', text: '33-minute payment latency spike (p95 1.2s → 4.8s)' },
-  { tone: 'warning', text: 'PSP connection pool exhausted under retry storm' },
-  { tone: 'success', text: 'Resolved by raising the pool + adding backoff' },
+// the summary as claims anchored to their evidence sections (CB.takeaway still fits
+// a plain bullet TL;DR — claims earn their place when each one HAS a proof section)
+CB.claims('#summaryBox', [
+  { claim: '33-minute payment latency spike (p95 1.2s → 4.8s)', evidence: '#impact', value: '33m', tone: 'critical' },
+  { claim: 'Root cause: PSP connection pool exhausted under a retry storm', evidence: '#cause', tone: 'warning' },
+  { claim: 'Resolved by raising the pool + adding backoff', evidence: '#timeline', value: '14:35', tone: 'success' },
 ], { title: 'Summary' });
+
+// the impact chart WALKED, not just shown — semantics:{y:'duration'} formats the
+// ms axis as 1.2s/4.8s; the storyline steps the reader through the one chart the
+// postmortem hangs on (3-5 beats; one storyline per report at most)
+var times = ['13:50', '14:00', '14:10', '14:20', '14:30', '14:40'];
+var p95 = [1200, 1300, 4800, 4100, 2200, 900];
+function impactSeries(extra) {
+  return [Object.assign({ type: 'line', name: 'p95', data: p95 }, extra || {})];
+}
+var impact = CB.chart('#impactChart', {
+  ariaLabel: 'p95 latency over the incident window', height: 260,
+  semantics: { y: 'duration' },
+  option: { xAxis: { type: 'category', data: times }, yAxis: {}, series: impactSeries() },
+  table: { columns: ['Time', 'p95 (ms)'], rows: times.map(function (t, i) { return [t, p95[i]]; }) },
+});
+CB.storyline('#impactStory', {
+  chart: impact,
+  base: { series: impactSeries() },
+  steps: [
+    { title: 'The window', caption: 'p95 across the incident, alert to recovery.' },
+    { title: 'The spike', caption: '14:10 — p95 peaks at 4.8s as the pool exhausts.',
+      option: { series: impactSeries({ markPoint: { data: [{ type: 'max', name: 'peak' }] } }) } },
+    { title: 'The recovery', caption: 'Mitigation lands 14:21; p95 back under 1s by 14:40.',
+      option: { series: impactSeries({ markLine: { symbol: 'none', data: [{ xAxis: '14:20', label: { formatter: 'mitigation' } }] } }) } },
+  ],
+});
 
 CB.timeline('#incidentTimeline', [
   { t: '14:02', kind: 'start', title: 'Latency alert fired', sub: 'p95 1.2s → 4.8s' },
@@ -472,7 +525,39 @@ CB.code('#srcCard', {
 });
 ```
 
+### A semantic axis + formatters — `semantics` / `CB.fmt`
+
+Declare what the numbers MEAN; formatting follows (locale-driven). `CB.fmt` also works
+standalone as a Grid.js column `formatter` or in tooltips.
+
+```js
+CB.chart('#latencyChart', {
+  ariaLabel: 'API latency', semantics: { y: 'duration' },   // ms ticks -> 1.2s / 4.8s
+  option: { /* … */ },
+});
+CB.table('#feeTable', {
+  columns: ['PSP', { name: 'Fee', formatter: (v) => CB.fmt('price')(v) },
+            { name: 'Δ', formatter: (v) => CB.fmt('percentPoint')(v) }],
+  numericCols: [1, 2], rows: [ /* raw numbers */ ],
+});
+```
+
+### Executive altitude — `data-altitude-detail` + `CB.altitudeToggle`
+
+One report, two reading depths: tag the deep-dive sections, add the toggle. Exec view
+keeps the claims/summary + hero visuals; the tagged sections disappear.
+
+```html
+<section id="deep-dive" data-altitude-detail class="scroll-mt-24 mb-56">
+  <!-- appendix-grade detail: full tables, per-host breakdowns, raw logs -->
+</section>
+```
+```js
+CB.altitudeToggle();   // pairs naturally with CB.claims as the exec view's spine
+```
+
 ---
 
-See `helpers.md` for every helper's full field reference, `components.md` for the static
-markup recipes, and `interactions.md` for worked filter/tab/copy patterns.
+See `helpers.md` for every helper's full field reference (incl. `claims`/`storyline`
+input shapes), `components.md` for the static markup recipes, and `interactions.md`
+for worked filter/tab/copy patterns.

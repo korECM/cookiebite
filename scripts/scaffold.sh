@@ -8,8 +8,8 @@
 # author keeps surgical-editing exactly as with the raw template.
 #
 #   dashboard   kpis + filtered chart + table          (status / metrics one-pager)
-#   review      findings + diff/code + actionItems      (code / design review)
-#   postmortem  takeaway + timeline + findings + mermaid (incident write-up)
+#   review      claims verdict + findings + diff + actionItems (code / design review)
+#   postmortem  claims + storyline impact chart + timeline + mermaid + findings
 #   explainer   takeaway + mermaid + codeTabs + glossary (teach a concept)
 #   comparison  compare + pill + callout                 (decision / options grid)
 #
@@ -170,13 +170,24 @@ SK['review'] = dict(
     header=header('‹REPLACE› Review', '‹REPLACE› PR #1234',
                   '‹REPLACE› Code Review',
                   '‹REPLACE› One-line verdict — what blocks merge and what is a follow-up.'),
-    toc=toc([('findings', 'Findings'), ('change', 'Change'), ('actions', 'Action items')]),
+    toc=toc([('verdict', 'Verdict'), ('findings', 'Findings'),
+             ('change', 'Change'), ('actions', 'Action items')]),
     sections='\n\n'.join([
+        section('verdict', 'gavel', '‹REPLACE› Verdict', '<div id="verdictBox"></div>'),
         section('findings', 'list-checks', '‹REPLACE› Findings', '<div id="findingsList"></div>'),
         section('change', 'file-diff', '‹REPLACE› Key change', '<div id="changeDiff"></div>'),
         section('actions', 'check-square', '‹REPLACE› Action items', '<div id="actionList"></div>'),
     ]),
     script=script("""
+    /* the verdict as CLAIMS anchored to their evidence sections — the reviewer's
+       conclusion up top; each claim links to the section that proves it. Write only
+       claims a section actually backs (fewer claims, not thinner sections). */
+    CB.claims('#verdictBox', [
+      { claim: '‹REPLACE› Blocks merge: the retry path can double-charge', evidence: '#findings', value: 'P0', tone: 'critical' },
+      { claim: '‹REPLACE› The idempotency-key fix is correct and complete', evidence: '#change', tone: 'success' },
+      { claim: '‹REPLACE› Two follow-ups are tracked, none blocking', evidence: '#actions', value: 'P1×2', tone: 'info' },
+    ], { title: '‹REPLACE› Verdict' });
+
     CB.findings('#findingsList', [
       { tone: 'critical', title: '‹REPLACE› Retry path can double-charge (no idempotency key)', where: 'refund.ts:42' },
       { tone: 'warning', title: '‹REPLACE› Card channel success rate below threshold', where: 'psp/card.ts:118' },
@@ -206,20 +217,51 @@ SK['postmortem'] = dict(
     header=header('‹REPLACE› Postmortem', '‹REPLACE› 2026-06-14',
                   '‹REPLACE› Incident Postmortem',
                   '‹REPLACE› One-line summary — impact, duration, and the root cause.'),
-    toc=toc([('summary', 'Summary'), ('timeline', 'Timeline'),
+    toc=toc([('summary', 'Summary'), ('impact', 'Impact'), ('timeline', 'Timeline'),
              ('cause', 'Root cause'), ('findings', 'Action items')]),
     sections='\n\n'.join([
         section('summary', 'flag', '‹REPLACE› Summary', '<div id="summaryBox"></div>'),
+        section('impact', 'activity', '‹REPLACE› Impact',
+                '<div id="impactChart"></div>\n'
+                '        <div id="impactStory" class="mt-12"></div>'),
         section('timeline', 'clock', '‹REPLACE› Timeline', '<div id="incidentTimeline"></div>'),
         section('cause', 'git-branch', '‹REPLACE› Root cause', '<div id="causeFlow"></div>'),
         section('findings', 'list-checks', '‹REPLACE› Action items', '<div id="findingsList"></div>'),
     ]),
     script=script("""
-    document.getElementById('summaryBox').innerHTML = CB.takeaway([
-      { tone: 'critical', text: '‹REPLACE› 33-minute payment latency spike (p95 1.2s → 4.8s)' },
-      { tone: 'warning', text: '‹REPLACE› PSP connection pool exhausted under retry storm' },
-      { tone: 'success', text: '‹REPLACE› Resolved by raising the pool + adding backoff' },
+    /* the summary as CLAIMS anchored to their evidence sections — the reader who
+       trusts them stops here; a doubted claim is one click from its proof. */
+    CB.claims('#summaryBox', [
+      { claim: '‹REPLACE› 33-minute payment latency spike (p95 1.2s → 4.8s)', evidence: '#impact', value: '33m', tone: 'critical' },
+      { claim: '‹REPLACE› Root cause: PSP connection pool exhausted under a retry storm', evidence: '#cause', tone: 'warning' },
+      { claim: '‹REPLACE› Resolved by raising the pool + adding backoff', evidence: '#timeline', value: '14:35', tone: 'success' },
     ], { title: '‹REPLACE› Summary' });
+
+    /* the impact chart WALKED, not just shown: a storyline steps the reader through
+       the one chart the postmortem hangs on. semantics:{y:'duration'} formats the
+       ms axis as 1.2s/4.8s. Keep beats to 3-5; one storyline per report at most. */
+    var times = ['13:50', '14:00', '14:10', '14:20', '14:30', '14:40'];
+    var p95 = [1200, 1300, 4800, 4100, 2200, 900];
+    function impactSeries(extra) {
+      return [Object.assign({ type: 'line', name: 'p95', data: p95 }, extra || {})];
+    }
+    var impact = CB.chart('#impactChart', {
+      ariaLabel: '‹REPLACE› p95 latency over the incident window', height: 260,
+      semantics: { y: 'duration' },
+      option: { xAxis: { type: 'category', data: times }, yAxis: {}, series: impactSeries() },
+      table: { columns: ['Time', 'p95 (ms)'], rows: times.map(function (t, i) { return [t, p95[i]]; }) },
+    });
+    CB.storyline('#impactStory', {
+      chart: impact,
+      base: { series: impactSeries() },
+      steps: [
+        { title: '‹REPLACE› The window', caption: '‹REPLACE› p95 across the incident, alert to recovery.' },
+        { title: '‹REPLACE› The spike', caption: '‹REPLACE› 14:10 — p95 peaks at 4.8s as the pool exhausts.',
+          option: { series: impactSeries({ markPoint: { data: [{ type: 'max', name: 'peak' }] } }) } },
+        { title: '‹REPLACE› The recovery', caption: '‹REPLACE› Mitigation lands 14:21; p95 back under 1s by 14:40.',
+          option: { series: impactSeries({ markLine: { symbol: 'none', data: [{ xAxis: '14:20', label: { formatter: '‹REPLACE› mitigation' } }] } }) } },
+      ],
+    });
 
     CB.timeline('#incidentTimeline', [
       { t: '14:02', kind: 'start', title: '‹REPLACE› Latency alert fired', sub: 'p95 1.2s → 4.8s' },
