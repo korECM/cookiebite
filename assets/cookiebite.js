@@ -447,7 +447,7 @@
   // back to 'analogous' so a typo never produces a rainbow.
   function resolvePaletteMode(opts) {
     var m = (opts && opts.mode) || window.PALETTE_MODE || 'analogous';
-    return (m === 'mono' || m === 'categorical' || m === 'sequential') ? m : 'analogous';
+    return (m === 'mono' || m === 'categorical' || m === 'sequential' || m === 'emphasis') ? m : 'analogous';
   }
 
   /* CB.categoricalColors(n, opts?) -> [color×n] for PEER series. Honors the active
@@ -456,6 +456,8 @@
        'mono'        — one hue; series separate by Lightness/Saturation only (quietest).
        'categorical' — wider, evenly-spaced hues with S/L locked near the accent (many peers).
        'sequential'  — perceptually-even light->dark on the accent hue (ordered peers).
+       'emphasis'    — opts.focus (default 0) keeps the accent; every other series recedes
+                       to near-gray. For "one series is the point, the rest are context".
      All re-read the live accent so a dark toggle re-themes for free. n<=1 -> just the accent. */
   CB.categoricalColors = function (n, opts) {
     n = n || 1;
@@ -463,6 +465,29 @@
     if (n <= 1) return [CB.theme.ACCENT || '#E8552D'];
     var hsl = rgbToHsl(r, g, b), baseH = hsl[0];
     var mode = resolvePaletteMode(opts);
+
+    // past ~8 peers no palette keeps series tellable-apart (colorblind or not) — the
+    // fix is structural, not more hues. Warn instead of silently generating a spectrum.
+    if (n > 8 && mode !== 'emphasis') console.warn('[cookiebite] categoricalColors(' + n + '): more than 8 peer series stop being distinguishable. Fold the tail into "Other", facet into small multiples, or use { mode:"emphasis" } to highlight the one that matters.');
+
+    if (mode === 'emphasis') {
+      // one series is the STORY, the rest are context: focus keeps the accent, every
+      // other slot recedes to a near-gray lightness step (hue held at the accent so the
+      // grays stay warm/cool-matched to the theme). This is the honest answer to "make
+      // this chart clearer" — not more hues. Dark mode flips the gray band so context
+      // series recede against the dark surface too.
+      var fi = opts && opts.focus != null ? opts.focus : 0;
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      var gLo = dark ? 0.32 : 0.60, gHi = dark ? 0.48 : 0.78;
+      var eo = [], ej = 0;
+      for (var ei = 0; ei < n; ei++) {
+        if (ei === fi) { eo.push(CB.theme.ACCENT || '#E8552D'); continue; }
+        var ef = n <= 2 ? 0 : ej / Math.max(1, n - 2);
+        eo.push('hsl(' + Math.round(baseH) + ',8%,' + Math.round((gLo + (gHi - gLo) * ef) * 100) + '%)');
+        ej++;
+      }
+      return eo;
+    }
 
     if (mode === 'mono') {
       // single accent hue; peers separate by a bounded L sweep (dark .. light) with a
@@ -562,6 +587,68 @@
     }
     return out;
   };
+
+  /* CB.diverging(n, opts?) -> [color×n]: a POLARITY palette — two opposing poles around
+     a NEUTRAL midpoint, for data that sits above/below a baseline (Δ vs target, Likert
+     agree↔disagree, hotter/colder). The positive pole is the accent family; the negative
+     pole is the accent's temperature opposite (hue+180°, or opts.negative — any CSS
+     color) so the two sides read as OPPOSITE, not as two categories. The midpoint is a
+     near-neutral gray, never a hue: a hue at the midpoint reads as a third category
+     instead of "nothing". Order: most-negative .. neutral .. most-positive; odd n puts
+     the exact neutral at the center, even n omits it (two lightest steps meet). Each arm
+     ramps lightness toward the center so magnitude reads as depth-of-color. Dark-aware
+     (the neutral + light ends flip band with html[data-theme]). */
+  CB.diverging = function (n, opts) {
+    n = n || 1;
+    opts = opts || {};
+    var hsl = accentHsl(), posH = Math.round(hsl[0]);
+    var negH = Math.round((posH + 180) % 360);
+    if (opts.negative) {
+      var nrgb = colorToRgb(opts.negative);
+      if (nrgb) negH = Math.round(rgbToHsl(nrgb[0], nrgb[1], nrgb[2])[0]);
+    }
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var s = Math.round(Math.max(0.45, Math.min(0.70, hsl[1])) * 100);
+    // pole = deepest color, near-center = lightest step of the same hue; the bands keep
+    // both ends legible on their surface (light surface: don't blow out to white;
+    // dark surface: don't sink to black).
+    var L_POLE = dark ? 0.56 : 0.42, L_NEAR = dark ? 0.34 : 0.78;
+    var NEUTRAL = dark ? 'hsl(' + posH + ',5%,28%)' : 'hsl(' + posH + ',5%,88%)';
+    if (n <= 1) return [NEUTRAL];
+    var half = Math.floor(n / 2), odd = n % 2 === 1;
+    var arm = function (h, count, reversed) {
+      // count steps from NEAR (index 0, lightest) to POLE (last, deepest)
+      var a = [];
+      for (var i = 0; i < count; i++) {
+        var f = count === 1 ? 1 : i / (count - 1);
+        a.push('hsl(' + h + ',' + s + '%,' + Math.round((L_NEAR + (L_POLE - L_NEAR) * f) * 100) + '%)');
+      }
+      return reversed ? a.reverse() : a;
+    };
+    return arm(negH, half, true).concat(odd ? [NEUTRAL] : [], arm(posH, half, false));
+  };
+
+  /* CB.__palettes — a small in-page log of every generated palette (fn, n, mode, colors),
+     read by scripts/verify-report.sh so scripts/validate-palette.mjs can judge the colors
+     a report ACTUALLY used (CVD separation, lightness band, contrast) instead of guessing.
+     Deduped by (fn, n, mode, theme); capped so a pathological loop can't grow it unbounded. */
+  function recordPalette(fn, n, mode, colors) {
+    var reg = CB.__palettes = CB.__palettes || [];
+    // the theme is part of the key: a dark re-theme regenerates different colors for the
+    // same (fn, n, mode) call, and the verify script judges each against ITS surface.
+    var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    var key = fn + ':' + n + ':' + (mode || '') + ':' + theme;
+    for (var i = 0; i < reg.length; i++) if (reg[i].key === key) return;
+    // the surface is captured at record time so the validator judges each palette against
+    // the surface it was actually generated for, regardless of the theme at verify time.
+    if (reg.length < 24) reg.push({ key: key, fn: fn, n: n, mode: mode, theme: theme, surface: cssColor('--c-surface', '#FFFFFF'), colors: colors.slice() });
+  }
+  (function () {
+    var cc = CB.categoricalColors, rp = CB.ramp, dv = CB.diverging;
+    CB.categoricalColors = function (n, opts) { var out = cc(n, opts); recordPalette('categoricalColors', n || 1, resolvePaletteMode(opts), out); return out; };
+    CB.ramp = function (n, opts) { var out = rp(n, opts); recordPalette('ramp', n || 1, resolvePaletteMode(opts), out); return out; };
+    CB.diverging = function (n, opts) { var out = dv(n, opts); recordPalette('diverging', n || 1, 'diverging', out); return out; };
+  })();
 
   /* accent as rgba (handles #RGB and #RRGGBB) — sparkline fills, gradient stops.
      Non-hex accents (rgb()/named/color-mix) resolve through the cssColor probe so
@@ -918,6 +1005,8 @@
       // them. Skip the coercion for /^0\d/ (no decimal point) so it renders verbatim.
       if (typeof val === 'string' && /^-?[\d.]+$/.test(val.trim()) && isFinite(Number(val)) && !/^0\d/.test(val.trim())) val = Number(val);
 
+      // display-size figures stay PROPORTIONAL (no .nums): equal-width digits make a
+      // big standalone "121" look loose. tabular-nums is for aligned columns only.
       var numHtml;
       if (typeof val === 'string') {
         // a STRING value renders VERBATIM (no CountUp) — for status/severity cards
@@ -927,10 +1016,10 @@
         // text-accent-text (F02): paints the hero figure in the accent-as-text token, which
         // falls back to --accent when a preset ships no darker AA-safe --accent-text.
         numHtml = it.unit
-          ? '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap text-accent-text">' + verbatim +
+          ? '<span class="text-headline-36 font-bold leading-none whitespace-nowrap text-accent-text">' + verbatim +
             '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
             (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>'
-          : '<span class="text-headline-36 font-bold nums whitespace-nowrap text-accent-text">' + verbatim + esc(suf) + '</span>';
+          : '<span class="text-headline-36 font-bold whitespace-nowrap text-accent-text">' + verbatim + esc(suf) + '</span>';
       } else {
         // decimals: explicit item/opts wins; else INFER from how the literal value is
         // written (8.4 -> 1 decimal) so a count-up keeps the authored precision and
@@ -952,14 +1041,14 @@
           // also set) trails the unit in the same small style so unit + suffix coexist.
           // text-accent-text (F02): accent-as-text on the figure; the unit/suffix sub-spans
           // keep text-secondary so only the number takes the accent.
-          numHtml = '<span class="text-headline-36 font-bold nums leading-none whitespace-nowrap text-accent-text">' +
+          numHtml = '<span class="text-headline-36 font-bold leading-none whitespace-nowrap text-accent-text">' +
             esc(pre) + '<span ' + cuAttrs + '>0</span>' +
             '<span class="text-title-20 text-secondary font-semibold">' + esc(it.unit) + '</span>' +
             (suf ? '<span class="text-title-20 text-secondary font-semibold">' + esc(suf) + '</span>' : '') +
             '</span>';
         } else {
           // whitespace-nowrap so a prefix/suffix (e.g. "16 / 16", "₩4,120") never wraps mid-figure
-          numHtml = '<span class="text-headline-36 font-bold nums whitespace-nowrap text-accent-text" ' + cuAttrs +
+          numHtml = '<span class="text-headline-36 font-bold whitespace-nowrap text-accent-text" ' + cuAttrs +
             (pre ? ' data-prefix="' + esc(pre) + '"' : '') +
             (suf ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>';
         }
@@ -1565,6 +1654,58 @@
   }
   CB.deepMerge = deepMerge; // exposed: hand charts may reuse the same merge semantics
 
+  /* markSpecs(option) -> option: quiet mark defaults, applied AFTER the baseChart merge
+     and ONLY where the author left the knob unset — the specs that make marks read thin
+     and separated instead of loud: bars cap at 24px with a 4px rounded DATA-END (square
+     at the baseline; skipped when the series has negative values, where "the data end"
+     flips per bar); stacked segments skip the rounding (it would round interior joints)
+     and instead get a 1px surface-color border — two touching segments = the 2px surface
+     gap that separates fills without a drawn stroke; line symbols default to 8px with a
+     2px surface ring so dots stay legible where lines cross. Series objects are CLONED
+     before touching (deepMerge passes arrays by reference — mutating would bake a light-
+     surface border into the author's option and survive the dark toggle stale). The
+     surface color is read live, so each re-render (incl. dark) gets the right gap color.
+     Exposed as CB.markSpecs for hand-rolled charts that call echarts.init directly. */
+  function markSpecs(opt) {
+    if (!opt || !opt.series) return opt;
+    var surface = cssColor('--c-surface', '#FFFFFF') || '#FFFFFF';
+    var yAxes = opt.yAxis ? (Array.isArray(opt.yAxis) ? opt.yAxis : [opt.yAxis]) : [];
+    var horizontal = yAxes.some(function (a) { return a && a.type === 'category'; });
+    var hasNegative = function (data) {
+      if (!Array.isArray(data)) return false;
+      return data.some(function (d) {
+        var v = d != null && typeof d === 'object' && !Array.isArray(d) ? d.value : d;
+        if (Array.isArray(v)) v = v[v.length - 1];
+        return typeof v === 'number' && v < 0;
+      });
+    };
+    var list = Array.isArray(opt.series) ? opt.series : [opt.series];
+    opt.series = list.map(function (s) {
+      if (!s || (s.type !== 'bar' && s.type !== 'line')) return s;
+      var c = Object.assign({}, s);
+      c.itemStyle = Object.assign({}, s.itemStyle);
+      if (c.type === 'bar') {
+        if (c.barMaxWidth == null) c.barMaxWidth = 24;
+        if (c.stack) {
+          if (s.itemStyle == null || (s.itemStyle.borderColor == null && s.itemStyle.borderWidth == null)) {
+            c.itemStyle.borderColor = surface; c.itemStyle.borderWidth = 1;
+          }
+        } else if (c.itemStyle.borderRadius == null && !hasNegative(c.data)) {
+          c.itemStyle.borderRadius = horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0];
+        }
+      } else { // line
+        if (c.symbolSize == null) c.symbolSize = 8;
+        if (s.itemStyle == null || s.itemStyle.borderColor == null) {
+          c.itemStyle.borderColor = surface;
+          if (c.itemStyle.borderWidth == null) c.itemStyle.borderWidth = 2;
+        }
+      }
+      return c;
+    });
+    return opt;
+  }
+  CB.markSpecs = markSpecs;
+
   // all-zero/all-empty detection for the chart empty-state. Returns true ONLY when the
   // option carries inline series, EVERY series has a non-empty data array, and EVERY
   // datum across them is empty/zero. A datum can be a number, [x,y] pair, or {value}
@@ -1725,7 +1866,7 @@
     // swapped via chart.__cbUpdate) then keeps its filtered state across the toggle
     // instead of snapping back to the initial series.
     var lastOption = config.option || {};
-    inst.setOption(themeZoom(deepMerge(CB.baseChart, lastOption)), true);
+    inst.setOption(markSpecs(themeZoom(deepMerge(CB.baseChart, lastOption))), true);
     // chart.__cbUpdate(option): apply a new author option AND remember it, so the
     // next dark re-theme preserves it. Use this instead of raw setOption for updates
     // that should survive a theme toggle (e.g. reader filters/zoom on the data).
@@ -1735,7 +1876,7 @@
       // dataZoom persist, and the next dark re-theme still has the COMPLETE option. (Arrays
       // like series/dataZoom replace wholesale inside deepMerge, so swapping series data works.)
       lastOption = deepMerge(lastOption, opt || {});
-      inst.setOption(themeZoom(deepMerge(CB.baseChart, lastOption)), notMerge !== false);
+      inst.setOption(markSpecs(themeZoom(deepMerge(CB.baseChart, lastOption))), notMerge !== false);
       return inst;
     };
 
@@ -1775,7 +1916,7 @@
     // register for dark re-theme: re-merge the LAST author option over fresh baseChart
     var renderFn = config.render
       ? config.render
-      : function (chart) { chart.setOption(themeZoom(deepMerge(CB.baseChart, lastOption)), true); };
+      : function (chart) { chart.setOption(markSpecs(themeZoom(deepMerge(CB.baseChart, lastOption))), true); };
 
     // F19 — narrow-width legibility. At phone widths a chart's axisName/grid eat the plot
     // area and a dual-axis chart's RIGHT axisName collides with the data. When the
@@ -3997,13 +4138,13 @@
     if (typeof val === 'string') {
       // text-accent-text (F02): the hero figure consumes the accent-as-text token (falls back
       // to --accent); unit/suffix sub-spans keep text-secondary so only the number is accented.
-      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap text-accent-text">' + esc(pre) + esc(val) + unitSpan +
+      numHtml = '<span class="text-headline-48 font-bold leading-none whitespace-nowrap text-accent-text">' + esc(pre) + esc(val) + unitSpan +
         (suf ? '<span class="text-title-24 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>';
     } else {
       var inferDec = function (v) { var s = String(v); var dot = s.indexOf('.'); return dot < 0 ? 0 : s.length - dot - 1; };
       var dec = config.decimals != null ? config.decimals : inferDec(val);
       var cuAttrs = 'data-countup="' + val + '"' + (dec ? ' data-decimals="' + dec + '"' : '');
-      numHtml = '<span class="text-headline-48 font-bold nums leading-none whitespace-nowrap text-accent-text">' + esc(pre) +
+      numHtml = '<span class="text-headline-48 font-bold leading-none whitespace-nowrap text-accent-text">' + esc(pre) +
         '<span ' + cuAttrs + (suf && !config.unit ? ' data-suffix="' + esc(suf) + '"' : '') + '>0</span>' + unitSpan +
         (config.unit && suf ? '<span class="text-title-24 text-secondary font-semibold">' + esc(suf) + '</span>' : '') + '</span>';
     }

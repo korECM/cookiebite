@@ -225,6 +225,83 @@ PY
   echo "[$label @ ${width}px] $i tiles + full-$label.png | checks: $(cat "$OUT/checks-$label.json" 2>/dev/null)"
 }
 
+# palette_check(label, theme): judge every palette the runtime generated (CB.__palettes)
+# with scripts/validate-palette.mjs against the LIVE surface color, and fold the results
+# into checks-<label>.json as a "palettes" key. The color part is computable, so compute
+# it — never eyeball colorblind safety. Policy by palette kind:
+#   categoricalColors 'analogous'/'mono' — one-family by DESIGN, so a CVD/contrast FAIL
+#     demotes to WARN + a note (the relief channels — legend, direct labels, CB.chart's
+#     data table — are the mitigation; 4+ peers should consider mode:'categorical'/'emphasis').
+#   categoricalColors 'categorical' — raw verdicts (a wide-arc identity palette must pass).
+#   ramp — validated as an ordered ramp (--ordinal); the categorical checks would
+#     FAIL a good ramp by design.
+#   'emphasis' / diverging — skipped (similar grays / V-shaped lightness are the point);
+#     structure is enforced at generation.
+palette_check(){
+  local label="$1"
+  command -v node >/dev/null 2>&1 || { echo "[palette] node not found — palette validation skipped" >&2; return 0; }
+  ab eval "JSON.stringify((window.COOKIEBITE&&window.COOKIEBITE.__palettes)||[])" > "$OUT/_pal-$label.json" 2>/dev/null || return 0
+  SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)" \
+  python3 - "$OUT" "$label" <<'PY' || true
+import json, os, subprocess, sys
+out, label = sys.argv[1], sys.argv[2]
+validator = os.path.join(os.environ["SCRIPT_DIR"], "validate-palette.mjs")
+def unwrap(path, default):
+    try:
+        raw = json.load(open(path))
+        while isinstance(raw, str):
+            try: raw = json.loads(raw)
+            except Exception: return raw
+        return raw
+    except Exception:
+        return default
+palettes = unwrap(os.path.join(out, f"_pal-{label}.json"), [])
+results = []
+for p in palettes:
+    theme = p.get("theme", "light")
+    surface = (p.get("surface") or "").strip()
+    entry = {k: p.get(k) for k in ("fn", "n", "mode", "theme", "colors")}
+    fn, mode = p.get("fn"), p.get("mode")
+    if mode == "emphasis" or fn == "diverging":
+        entry["skipped"] = "by policy: " + ("emphasis palettes carry identity via the accent + labels" if mode == "emphasis" else "diverging structure (poles + neutral midpoint) is enforced at generation")
+        results.append(entry); continue
+    cmd = ["node", validator, ",".join(p.get("colors") or []), "--mode", theme, "--json"]
+    if surface: cmd += ["--surface", surface]
+    if fn == "ramp": cmd += ["--ordinal"]
+    try:
+        run = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        entry["result"] = json.loads(run.stdout)
+    except Exception as exc:
+        entry["error"] = str(exc); results.append(entry); continue
+    if fn == "categoricalColors" and mode in ("analogous", "mono"):
+        for c in entry["result"].get("checks", []):
+            if c["id"] in ("cvd-separation", "surface-contrast", "lightness-band") and c["verdict"] == "FAIL":
+                c["verdict"] = "WARN"
+                note = ("lightness IS the separator in a one-family palette" if c["id"] == "lightness-band"
+                        else "one-family palette by design; relief channels (legend, direct labels, data table) required")
+                c["detail"] += f" — demoted: {note}. 4+ peers: consider mode:'categorical' or 'emphasis'."
+        vs = [c["verdict"] for c in entry["result"].get("checks", [])]
+        entry["result"]["verdict"] = "FAIL" if "FAIL" in vs else "WARN" if "WARN" in vs else "PASS"
+    results.append(entry)
+checks_path = os.path.join(out, f"checks-{label}.json")
+try:
+    checks = unwrap(checks_path, {})
+    checks["palettes"] = results
+    json.dump(json.dumps(checks, separators=(",", ":")), open(checks_path, "w"))
+except Exception:
+    pass
+for r in results:
+    tag = f'{r.get("fn")}({r.get("n")}, {r.get("mode")}, {r.get("theme")})'
+    if "skipped" in r: print(f"[palette:{label}] {tag} — skipped ({r['skipped']})")
+    elif "error" in r: print(f"[palette:{label}] {tag} — validator error: {r['error']}", file=sys.stderr)
+    else:
+        res = r["result"]
+        worst = "; ".join(f'{c["id"]} {c["verdict"]}' for c in res["checks"] if c["verdict"] != "PASS") or "all checks PASS"
+        print(f'[palette:{label}] {tag} -> {res["verdict"]} ({worst})')
+PY
+  rm -f "$OUT/_pal-$label.json"
+}
+
 # Desktop pass (primary) + narrow pass (catch mobile/stacking breakage).
 # Narrow is 390px (a real phone), NOT 768: Tailwind's md: breakpoint is exactly 768px,
 # so a 768 pass leaves md:grid-cols-* in their 2-col state and never tests the stacked
@@ -266,6 +343,11 @@ if [ "$HAS_DARK" = "true" ]; then
   capture dark 1280
   ab eval "window.applyTheme ? applyTheme('light') : (document.documentElement.dataset.theme='light')" >/dev/null 2>&1 || true
 fi
+
+# Palette validation — once, after every pass: each recorded palette carries the theme +
+# surface it was generated against, so one sweep judges them all; results fold into
+# checks-desktop.json (the primary checks file).
+palette_check desktop
 
 # Theme assert: the rendered --accent must equal the THEME block's declared value.
 # Catches the "source says Persimmon but it renders indigo" class of cascade bugs
@@ -318,5 +400,7 @@ echo "(narrow pageHeight >3x desktop) means columns collapsed into one tall stac
 echo "'customScaleApplied:false' (or 'oversizedIcons'>0) means cookiebite.js loaded BEFORE the"
 echo "Tailwind CDN, so the 12px icon/spacing scale was ignored (giant icons, collapsed layout) —"
 echo "fix the <head> order: load cdn.tailwindcss.com before cookiebite.js."
+echo "'palettes' holds the validate-palette.mjs verdicts for every palette the report generated:"
+echo "fix any FAIL; a CVD/contrast WARN needs its relief channel (direct labels / legend / table)."
 echo "desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."

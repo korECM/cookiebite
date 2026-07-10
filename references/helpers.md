@@ -1,9 +1,56 @@
-# Helper API — input shapes (field reference)
+# Helper API — the index, then input shapes (field reference)
 
-The fast-path helpers (`COOKIEBITE.*`, alias `CB.*`) do ~80% of a report. SKILL.md's
-table says what each one **emits**; this file is the other half — the **input** each one
-takes, field by field, so you don't have to reverse-engineer the shape from the one demo
-or read `cookiebite.js`.
+The fast-path helpers (`COOKIEBITE.*`, alias `CB.*`) do ~80% of a report. This file is
+the API reference: first the **index** (every helper, what it emits), then the **input
+shapes** field by field, so you don't have to reverse-engineer a shape from the one
+demo or read `cookiebite.js`.
+
+## The helper index (what each one emits)
+
+| Helper | Emits |
+| --- | --- |
+| `kpis(target, items, opts?)` | responsive KPI card grid: label + countup number + delta badge + sparkline; `opts.cols` overrides the auto column pick |
+| `bigNumber(target, cfg)` | ONE oversized hero figure (CountUp; non-numeric strings verbatim) + delta + spark |
+| `gauge(target, cfg)` / `gaugeGrid(target, items, opts?)` | pure-CSS progress ring vs a target/max; grid = one ring per metric (SLA/quota board) |
+| `deltaBadge(text, opts)` → string | the standalone up/down tone badge `kpis` uses |
+| `trendChip(value, opts?)` / `statusDot(tone, label, opts?)` → strings | inline trend chip + delta / tone dot with **required** label |
+| `chart(target, cfg)` → instance | **the seam**: view-toggle + data-table + aria scaffold around an author-written ECharts `option` (merged over `baseChart`, mark defaults applied, dark-registered). NEVER a `{kind}` |
+| `shapes.{waterfall,bullet,sparkline,scatter,radar,dumbbell,slope,lollipop,rangeDot,histogram,stackedBar,boxplot,densityArea,marimekko}(cfg)` | **pure ECharts-option builders** — pass the result to `CB.chart`; `shapes.fiveNum(values)` exposes boxplot rows |
+| `funnel(target, cfg)` | shrinking stage sequence, auto step/overall conversion %, accent ramp |
+| `heatmap(target, cfg)` | **calendar-only** value-per-day density map |
+| `matrix(target, cfg)` | non-calendar rows×cols grid-heatmap (cohort/retention/confusion) |
+| `treemap / sankey / gantt(target, cfg)` | **full-render heavies** (own card + data-table — do NOT wrap in `CB.chart`) |
+| `threshold(option, cfg)` / `annotate(chartSel, points)` | **transformers**: merge a themed reference line/band onto any option / pin labelled points on a registered chart |
+| `findings(target, items, opts?)` | ranked severity findings list + filter chips (`tone` doubles as the severity label) |
+| `timeline(target, items, opts?)` | vertical timeline (tone markers + expandable detail) |
+| `steps(target, items, opts?)` | connected progress stepper (done/current/pending) |
+| `leaderboard(target, items, opts?)` | numbered rows + value-proportional accent bars |
+| `compare(target, cfg)` | side-by-side decision grid; recommended column ringed; stacks on narrow |
+| `cardGrid(target, cfg)` | faceted card grid + tag-union filter chip row |
+| `actionItems(target, items, opts?)` | priority-pill action list + owner/due + collapsible body |
+| `whatChanged(target, items, opts?)` | per-row `old → new` value-diff + auto Δ badge |
+| `table(target, cfg)` | Grid.js with the footguns fixed (raw-number sort, auto search/pager, right-aligned numerics); `cellBar/cellHeat/cellSpark/cellMoney` column formatters |
+| `diff(target, cfg)` / `pseudocode(target, code, opts?)` / `code(target, cfg)` / `codeTabs(target, panels, opts?)` | diff view / annotated pseudocode / syntax-highlighted source card (needs the highlight.js tag) / the same in tabs |
+| `mermaid(target, def, opts?)` | text → themed dark-aware diagram (flowchart/sequence/state/ER/gantt; ELK layout, no CDN tag needed) |
+| `pill(label, opts)` / `callout(html, opts)` → strings | tone badge / left-accent insight box |
+| `note/tip/warning/danger/example(html, opts?)` / `quote(html, opts?)` → strings | the admonition family + inline blockquote |
+| `takeaway(points, opts?)` → string | prominent TL;DR / key-takeaway box |
+| `lead(html, opts?)` / `kicker(text, opts?)` / `epigraph(html, opts?)` / `pullquote(html)` → strings | standfirst / section eyebrow / opening epigraph / lift-out quote |
+| `figure(target, cfg)` | wraps the host in a numbered `Fig. N` + tiered figcaption |
+| `fn(noteHtml)` / `endnotes(target, opts?)` | footnotes with ids paired by construction; list or sidenote rendering |
+| `legend(target, items, opts?)` | standalone legend; `interactive:true` toggles series on a registered chart |
+| `toc(target, opts?)` | enriches the canonical hand-authored `#toc` from `section[id]` headings; **NO-OPs over a filled `#toc`** (`force:true` overrides) |
+| `search(opts?)` / `densityToggle()` / `permalinks(opts?)` / `copyReport(opts?)` / `readingProgress(opts?)` / `readTime(target, opts?)` | opt-in page chrome (sticky search, compact density, `#` permalinks, whole-report copy-as-markdown, scroll bar, "N min read") |
+| `scrollReveal(scope?, opts?)` | one IntersectionObserver for `[data-reveal]` + count-on-enter; reduced-motion-gated |
+| `tabs(target, panels, opts?)` / `reveal(...)` | vanilla tab shell with lazy `render(panelEl)` + `resize()` — the empty-chart-in-a-hidden-tab fix |
+| `connectFilter(buttonsSelector, onChange, opts?)` | wires a chip row to chart updates (aria-pressed, keyboard, default selection) |
+| `copyButton(target, label, builderFn, opts?)` / `sectionToMarkdown(selector)` | themed copy button / section → markdown serializer |
+| `glossary(map, scope?)` | merges into `window.GLOSSARY`, runs the linker + tippy late + idempotently (needs the Tippy tags) |
+| `exportPNG(chartSelector, filename?)` | downloads a registered chart as PNG |
+| `categoricalColors(n, opts?)` / `ramp(n, opts?)` / `diverging(n, opts?)` | identity/emphasis peers · ordered single-hue · polarity poles+neutral (see "Palette mode & color jobs") |
+| `markSpecs(option)` | the quiet mark defaults `CB.chart` applies (thin bars, rounded data-end, surface gaps, ringed dots) — call by hand for raw `echarts.init` charts |
+| `applyLook(look?)` | projects the Look knobs onto `html data-*` + `:root` vars (auto-runs from `window.REPORT_LOOK`) |
+| `print()` / `audit()` | print prep (force light, expand details) / dev-only a11y+contrast audit (`?audit=1`) |
 
 Conventions: `key?` = optional. `a | b` = either form accepted. `target` is a CSS
 selector string **or** an element. `tone` is always the five-name scale from
@@ -906,26 +953,53 @@ whole-axis reference line.
 
 ---
 
-## Palette mode (`categoricalColors` / `ramp` `opts.mode`)
+## Palette mode & color jobs (`categoricalColors` / `ramp` / `diverging`)
 
-`CB.categoricalColors(n, opts?)` and `CB.ramp(n, opts?)` now take an optional second
-arg. **Backward-compatible: existing 1-arg calls are byte-for-byte unchanged.**
+Every chart color does exactly one job — identity, emphasis, order, polarity, or
+status — and each job has one function. Misusing them (a ramp on nominal categories,
+full categorical color when one series is the story) is the most common "silently
+worse" chart; see `anti-patterns.md`.
 
 ```text
-CB.categoricalColors(n, { mode? }) -> string[]   // peer series (regions/vendors/plans)
-CB.ramp(n, { mode? })             -> string[]    // ordered/sequential series
-  mode: 'analogous' | 'mono' | 'categorical' | 'sequential'
+CB.categoricalColors(n, { mode?, focus? }) -> string[]  // IDENTITY (peer series) or EMPHASIS
+  mode: 'analogous' | 'mono' | 'categorical' | 'sequential' | 'emphasis'
   // resolution order: opts.mode > window.PALETTE_MODE > 'analogous'
+CB.ramp(n, { mode? })      -> string[]   // ORDER/MAGNITUDE (one hue, dark->light)
+CB.diverging(n, { negative? }) -> string[]  // POLARITY (two poles + neutral midpoint)
 ```
-- **`categoricalColors`** — `'analogous'` (default) is EXACTLY today's bounded-arc
-  output; `'mono'`/`'categorical'` widen/narrow the hue spread.
-- **`ramp`** — default/`'analogous'`/`'mono'`/`'categorical'` = today's exact dark→light
-  band; `'sequential'` = a perceptually-even **light→dark** ramp (`i=0` lightest).
-- Both re-read the **live accent**, so a dark re-theme is free; `n<=1` returns `[accent]`.
+- **`categoricalColors`** — `'analogous'` (default) is EXACTLY the historical
+  bounded-arc output; `'mono'`/`'categorical'` narrow/widen the hue spread;
+  **`'emphasis'`** keeps the accent on `opts.focus` (default 0) and recedes every other
+  series to near-gray — for "one series is the point, the rest are context".
+  Past **8 peers** it `console.warn`s: fold the tail into "Other", facet into small
+  multiples, or switch to emphasis — never generate more hues.
+- **`ramp`** — default = the historical dark→light band; `'sequential'` = a
+  perceptually-even **light→dark** ramp (`i=0` lightest). Ordered data only.
+- **`diverging`** — most-negative … neutral … most-positive. The positive pole is the
+  accent family; the negative pole is its temperature opposite (or `opts.negative`,
+  any CSS color); odd `n` puts the exact neutral center. For Δ-vs-baseline, Likert,
+  above/below data. The midpoint is a near-neutral gray by design — a hue there reads
+  as a third category.
+- All re-read the **live accent** (and light/dark state), so a dark re-theme is free;
+  `n<=1` returns `[accent]` (`diverging(1)` returns `[neutral]`).
+- Every generated palette is recorded on `CB.__palettes` (fn, n, mode, colors) so
+  `scripts/verify-report.sh` can judge the report's actual colors with
+  `scripts/validate-palette.mjs` — don't bypass the functions with hand hexes.
 
 Set the mode globally via `window.PALETTE_MODE` (or `REPORT_LOOK.paletteMode`, which
 `CB.applyLook` writes); a per-call `opts.mode` overrides it. Absent === `'analogous'` ===
-today. See `design-system.md` (Look system) for the theme.json `look.paletteMode` knob.
+the historical output. See `design-system.md` (Look system) for `look.paletteMode`.
+
+### `CB.markSpecs(option) -> option` — the quiet mark defaults
+
+Applied automatically by `CB.chart` after the `baseChart` merge, **only where the
+author left the knob unset**: bars cap at `barMaxWidth:24` with a 4px rounded
+**data-end** (square at the baseline; skipped for series with negative values);
+stacked segments get a 1px surface-color border (two touching segments = the 2px
+surface gap — separation without a drawn stroke); line series get `symbolSize:8` +
+a 2px surface ring so dots stay legible where lines cross. Author values always win —
+set the knob yourself to opt out. Call it by hand only for a raw `echarts.init`
+chart that bypasses `CB.chart`.
 
 ---
 
@@ -1303,3 +1377,15 @@ shift**) and fires CountUp inside `[data-count-on-enter]` the first time each is
 initial-hidden rule needs a guard class the JS adds *only* once reveal is running — never
 put it in static markup or no-JS renders would hide content (see `components.md` /
 `interactions.md` §7).
+
+---
+
+## Legacy `window.*` aliases (older hand-rolled reports only)
+
+Kept live for backward compatibility; **new reports use the `CB.*` names**:
+
+- `window.ACCENT` / `window.baseChart` / `window.readThemeVars` / `window.accentRgba`
+  / `window.css` → `CB.theme.ACCENT` / `CB.baseChart` / `CB.readThemeVars()` /
+  `CB.accentRgba()` / `CB.css()`
+- `CB.won` / `CB.wonShort` → `CB.money` / `CB.moneyShort` (locale-driven since
+  `REPORT_LOCALE`)

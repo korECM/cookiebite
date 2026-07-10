@@ -64,13 +64,30 @@ checklist re-encodes the must-pass items as checkboxes.
   lexically (ranking `'9,402'` after it); feed it raw `Number`s and format for display
   with a per-column `formatter` (`CB.money`/`CB.nf`). (`COOKIEBITE.table` does this for
   you via `numericCols`.)
-- **Align and digit-pad numbers.** Use `tabular-nums` (the `.nums` class) on anything
-  numeric and right-align numeric columns **together with their headers** so figures
-  line up and stay comparable — don't let a right-aligned header float over left-aligned
-  cells (Grid.js left-aligns by default; right-align the numeric columns explicitly).
+- **Tabular figures in columns; proportional figures on display sizes.** Use
+  `tabular-nums` (the `.nums` class) where numbers must **align vertically** — table
+  cells, axis ticks, delta columns — and right-align numeric columns **together with
+  their headers** (Grid.js left-aligns by default; `CB.table`'s `numericCols` does
+  both). But a **big standalone figure** (hero number, KPI value) stays on the font's
+  default proportional figures: equal-width digits make a display-size `121` look
+  loose. The helpers already do this — don't add `.nums` back onto a hero number.
+- **Label selectively — never a number on every point.** A value beside every dot or
+  segment is chaos and goes unread; direct labels work *because* they are sparing.
+  Label the endpoint, the extreme, or the one series the story is about; the axis,
+  tooltip, and data-table view carry the rest. A **single series needs no legend box**
+  (the title names it); at ≥2 series a legend is always present — never rely on the
+  reader color-matching lines to captions. And **text never wears the series color**:
+  labels/values/legends stay on text tokens, identity comes from the colored mark
+  beside them (a light series hue is illegible as text).
 - **Respect line length and rhythm.** Cap prose width (~68ch, the `.prose-measure`
   class) so paragraphs stay readable; keep consistent vertical spacing between
   sections; let whitespace separate groups instead of borders everywhere.
+- **Structure is information.** Numbering, eyebrows, dividers, and labels should
+  encode something **true** about the content, not decorate it: numbered markers
+  (01/02/03) only when the content actually is a sequence (a process, a timeline);
+  a kicker/eyebrow only when it names a real category. Decorative structure — plus
+  emoji as section markers, a gradient hero, everything centered — is exactly the
+  generic-AI look the token system exists to avoid.
 - **Hierarchy is shallow and obvious.** One headline, clear section titles, then
   content. Don't nest headings deeply — console-style reports read fast.
   - **Heading → token mapping** (so prose-heavy reports get a real hierarchy without

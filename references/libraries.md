@@ -232,13 +232,32 @@ same family getting darker:
 const colors = CB.ramp(steps.length);              // ['…','…',…] light -> dark
 chart.setOption({ series:[{ type:'bar', data: steps.map((v,i)=>({ value:v, itemStyle:{ color:colors[i] } })) }] });
 ```
-**Pick by relationship: `CB.categoricalColors(n)` for PEER series** (regions, vendors,
-plans — distinct but on-theme; now a bounded hue arc around the accent, not the full
-rainbow wheel) **vs. `CB.ramp(n)` for ORDERED series** (a sequence/magnitude). Misusing the
-categorical palette for ordered data is the most common "silently worse" chart. The
-`accentRgba` opacity-step approach above still works for a quick hand-rolled ramp; `CB.ramp`
-is the named one-call version. The new `CB.funnel` / `CB.heatmap` helpers (`helpers.md`)
-already ramp internally.
+**Pick by the color's JOB** (full contract in `helpers.md` → "Palette mode & color jobs"):
+- **Identity** (peer series — regions, vendors, plans): `CB.categoricalColors(n)` — a
+  bounded hue arc around the accent, not the full rainbow wheel.
+- **Emphasis** (one series is the story): `CB.categoricalColors(n, { mode:'emphasis',
+  focus:i })` — the story wears the accent, context recedes to gray. When a stakeholder
+  asks "make this chart clearer", this is usually the answer, not more hues.
+- **Order/magnitude** (a sequence): `CB.ramp(n)` — one hue, dark→light. A ramp on
+  *nominal* categories double-encodes what bar length already shows; don't.
+- **Polarity** (above/below a baseline, Likert): `CB.diverging(n)` — two opposing poles
+  around a neutral gray midpoint.
+Misusing the categorical palette for ordered data is the most common "silently worse"
+chart. The `accentRgba` opacity-step approach above still works for a quick hand-rolled
+ramp; `CB.funnel` / `CB.heatmap` already ramp internally.
+
+**The series-count ladder (identity palettes).** 1–3 peer series: color alone is
+comfortable; direct-label the ends. 4: colorblind separation gets tight — direct labels
+stop being a courtesy and become mandatory (the data-table view counts as relief, but
+visible labels read faster). 5–6: soft cap; lean on the legend or facet into small
+multiples. 7–8: the ceiling — past it `categoricalColors` warns, and the fix is
+structural: fold the tail into "Other", facet, or switch to emphasis. **Never solve
+"too many series" by generating more hues** — a 9th hue is indistinguishable from an
+existing one for colorblind readers. And **never a dual-axis chart** to cram two
+magnitudes into one plot: two y-scales invent a correlation (the alignment is
+arbitrary); use two charts, small multiples, or index both series to `=100` at t0.
+The verify script judges every generated palette with `scripts/validate-palette.mjs`
+(CVD ΔE, lightness band, contrast) — trust its FAILs over your eyes.
 
 **Keeping the "no rainbow" claim honest.** Two recent tightenings back the claim:
 - `categoricalColors`' default (`analogous`) arc was **narrowed** — it now spans only
