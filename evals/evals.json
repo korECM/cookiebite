@@ -1,0 +1,47 @@
+{
+  "skill_name": "cookiebite",
+  "comment": "LLM-tier evals (skill-creator compatible): run the skill end-to-end on realistic prompts with subagents, then grade the assertions against the produced .final.html + its .verify artifacts. The deterministic tier lives in evals/run.sh and needs no LLM.",
+  "evals": [
+    {
+      "id": 1,
+      "name": "weekly-metrics-dashboard",
+      "prompt": "지난주 우리 결제 지표야. 임원 공유용으로 보기 좋게 HTML 한 장으로 정리해줘.\n\n일별 매출(백만원): 월 102 / 화 108 / 수 96 / 목 111 / 금 208(프로모션) / 토 121 / 일 96\n스토어별 성공률: App 99.1, Play 96.1(목표 98.5 미달, 7/2 배포 이슈), ONE 98.7, Steam 98.9, Galaxy 99.0\n환불율: 1.9% (전주 2.2%)",
+      "expected_output": "단일 .final.html — claims 요약(근거 앵커), KPI, 추세 차트(가격 축 포맷), 스토어 품질은 목표 대비 여유(diverging), verify 통과",
+      "assertions": [
+        "The deliverable is one inlined .final.html that was opened for the user, plus a passing verify-report run (screenshots read, issues fixed)",
+        "The summary is CB.claims with evidence anchors into real sections (no orphan claims), not a prose paragraph",
+        "The revenue axis is formatted as currency bands (₩1억-style), not raw digits — semantics or explicit formatter",
+        "Store quality is NOT a raw-value bar on a truncated axis: either deviation-from-target (diverging) or an explicitly position-encoded form; checks-desktop.json chartWarnings is empty",
+        "The palette report in checks-desktop.json has no FAIL verdict; console errors are 0"
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "incident-postmortem",
+      "prompt": "어제 결제 지연 장애 포스트모템을 리포트로 만들어줘. 14:02 p95 1.2s→4.8s 알림, 14:09 PSP 커넥션 풀 고갈 확인(재시도 폭주), 14:21 풀 50→120 + 백오프 적용, 14:35 정상화(0.9s). 액션아이템: 서킷브레이커 추가(P0), 풀 포화 알림(P1).",
+      "expected_output": "postmortem 스켈레톤 기반 — claims 요약, storyline이 걸린 임팩트 차트(duration 축), 타임라인, 원인 다이어그램, findings",
+      "assertions": [
+        "Starts from the postmortem scaffold (or reproduces its spine): claims summary anchored to impact/cause/timeline sections",
+        "The impact chart's latency axis reads as durations (1.2s / 4.8s), not raw milliseconds",
+        "A storyline walks the impact chart in 3±1 beats and stepping actually changes the chart (markPoint/markLine per beat)",
+        "The root cause is drawn (mermaid or SVG flow), not described in a paragraph of prose",
+        "verify-report checks are clean: 0 console errors, no chartWarnings, dark pass renders"
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "anti-padding-restraint",
+      "prompt": "이번 주 상태 공유: 마이그레이션 진행률 62%(지난주 41%), 남은 블로커는 레거시 쿠폰 테이블 하나. 이걸 html로 만들어줘.",
+      "expected_output": "두 가지 사실만 담은 절제된 한 장 — 진행률 시각 1개 + 블로커 1개; 섹션을 부풀리지 않음",
+      "assertions": [
+        "The report has at most 3 content sections — no invented background, no chart restating another chart (the anti-padding rule)",
+        "Progress is a single figure/gauge against 100%, with the week-over-week delta shown against the real 41% baseline",
+        "No filter/search/tab controls were manufactured for data with nothing to slice (the interactivity tie-breaker)",
+        "verify-report run is clean and the inlined file opens standalone"
+      ],
+      "files": []
+    }
+  ]
+}

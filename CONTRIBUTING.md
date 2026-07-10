@@ -21,13 +21,28 @@ Thanks for taking a look. This is a small project, so the process is light.
 
 ## Before you open a PR
 
-Run the visual check on anything you touched that renders:
+Run the eval suite — it's the release gate:
+
+```bash
+bash evals/run.sh
+```
+
+It checks syntax, the palette validator's self-test, every TYPE scaffold, and renders
+a kitchen-sink fixture through `verify-report.sh`, asserting the checks JSON (console
+errors, overflow, palette verdicts, label clipping/overlap, and that the deliberate
+truncated-baseline bait still warns) plus real-browser interactions (filter chips,
+storyline, altitude, dark mode). See `evals/README.md`.
+
+Then run the visual check on anything you touched that renders and look at the
+screenshots yourself:
 
 ```bash
 bash scripts/verify-report.sh assets/template.html
 ```
 
-Then open the screenshots it writes and look at them. The script can't tell you a label is overlapping or a chart broke — only your eyes can. It needs [agent-browser](https://github.com/built-by-as/agent-browser) on your PATH.
+The automated `labelIssues` pass catches clipped/overlapping chart labels, but
+geometry, color, and caption↔visual mismatches still need your eyes. Both need
+[agent-browser](https://github.com/built-by-as/agent-browser) on your PATH.
 
 ## Style
 
