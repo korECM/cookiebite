@@ -69,6 +69,8 @@ Want your own palette? Open the theme studio. Pick a preset, nudge the accent, c
 
 The skill renders each report in a headless browser and screenshots it in slices — desktop and a narrow width — then reads those slices and checks them. Overlapping labels, clipped text, a collapsed chart, a layout that breaks on a phone: none of that shows up in the HTML source or a syntax check. The only way to catch it is to look, so the skill looks, fixes what it finds, and looks again. The screenshot tool it uses is [agent-browser](https://github.com/built-by-as/agent-browser).
 
+Colors get the same treatment, but computed instead of eyeballed: every palette a report generates is judged by a bundled validator — colorblind separation (Machado CVD simulation + CIEDE2000), lightness band, chroma floor, contrast against the actual surface — and the verdicts land in the same checks file the skill already reads. The finished report is also swept against a catalog of chart anti-patterns (dual axes, value-ramps on unordered categories, a number on every point, and friends) before it ships.
+
 ## Install
 
 Add it with the [skills](https://github.com/vercel-labs/skills) CLI — the standard way to install an agent skill:
