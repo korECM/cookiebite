@@ -117,6 +117,22 @@ capture(){
   // with the SVG renderer (cbrender=svg) every label is a <text> node, so we can measure
   // (a) CLIPPED labels poking past their chart box and (b) OVERLAPPING label pairs
   // (intersection > 35% of the smaller box — adjacent ticks touching don't count).
+  // TEXT CLIPS — the HTML sibling of the chart-label pass: an element that owns text
+  // and cuts it off (overflow hidden/clip or text-overflow ellipsis, scrollWidth past
+  // clientWidth) is silently losing words — KPI figures, chips, table headers. The
+  // 4px slack ignores subpixel noise; sr-only nodes are intentional.
+  var textClips = [];
+  Array.from(document.querySelectorAll('body *')).forEach(function (el) {
+    if (textClips.length >= 20) return;
+    if (el.scrollWidth <= el.clientWidth + 4 || el.clientWidth <= 1) return;
+    if (/\bsr-only\b/.test(el.className || '')) return;
+    var hasText = Array.from(el.childNodes).some(function (n) { return n.nodeType === 3 && n.textContent.trim(); });
+    if (!hasText) return;
+    var cs = getComputedStyle(el);
+    if (cs.overflowX === 'hidden' || cs.overflowX === 'clip' || cs.textOverflow === 'ellipsis') {
+      textClips.push(el.tagName.toLowerCase() + ': "' + el.textContent.trim().slice(0, 30) + '" (' + el.scrollWidth + '>' + el.clientWidth + ')');
+    }
+  });
   var labelIssues = [];
   Array.from(document.querySelectorAll('[id^="cbChart"], [_echarts_instance_]')).forEach(function (box) {
     if (labelIssues.length >= 40) return;
@@ -194,6 +210,8 @@ capture(){
       .map(w => w.chart + ': [' + w.code + '] ' + w.msg),
     labelIssueCount: labelIssues.length,
     labelIssues: labelIssues.slice(0, 12),
+    textClipCount: textClips.length,
+    textClips: textClips.slice(0, 8),
   }, null, 0);
 })()
 EOF
@@ -451,7 +469,8 @@ echo "fix any FAIL; a CVD/contrast WARN needs its relief channel (direct labels 
 echo "'chartWarnings' lists the runtime's chart-honesty warnings (truncated zero-baseline,"
 echo "crowded bands, too many rows/series) — each one is a real defect; fix, don't dismiss."
 echo "'labelIssues' is the AUTOMATED label pass (SVG-rendered charts): clipped labels poking"
-echo "past their chart box and overlapping label pairs. Fix every entry — these used to be"
-echo "catchable only by eyeballing tiles."
+echo "past their chart box and overlapping label pairs; 'textClips' is its HTML sibling —"
+echo "elements cutting off their own text (KPI figures, chips, headers). Fix every entry —"
+echo "these used to be catchable only by eyeballing tiles."
 echo "desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."

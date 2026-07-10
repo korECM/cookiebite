@@ -1822,6 +1822,13 @@
     var host = resolveTarget(target);
     if (!host || !window.echarts) { if (!window.echarts) console.warn('[cookiebite] COOKIEBITE.chart needs echarts.'); return null; }
     config = config || {};
+    // config.option may be a FUNCTION returning the option. The function form is the
+    // dark-safe way to derive colors: it re-runs on every re-theme, so palette calls
+    // (categoricalColors/ramp/diverging) inside it re-derive for the new surface instead
+    // of staying baked at their first-load values. Keep reader state (a filter key) in
+    // the closure the function reads, and it survives the toggle too.
+    var optionFn = typeof config.option === 'function' ? config.option : null;
+    var authoredOption = (optionFn ? optionFn() : config.option) || {};
     // ariaLabel becomes BOTH the SR label and the fallback data-table caption — the bare
     // word 'chart' is meaningless to a screen-reader user, so nudge the author instead of
     // shipping it silently.
@@ -1835,7 +1842,7 @@
     // a crowding warning when it leaves under ~18px per row.
     var catRows = 0;
     (function () {
-      var ys = config.option && config.option.yAxis;
+      var ys = authoredOption.yAxis;
       ys = Array.isArray(ys) ? ys : ys ? [ys] : [];
       for (var yi = 0; yi < ys.length; yi++) {
         if (ys[yi] && ys[yi].type === 'category' && Array.isArray(ys[yi].data)) catRows = Math.max(catRows, ys[yi].data.length);
@@ -1868,7 +1875,7 @@
           }
         });
       });
-    })(config.option || {});
+    })(authoredOption);
     var cid = 'cbChart' + (++chartSeq);
 
     CB.disposeIn(host); // re-run on the same target: dispose the prior chart instance
@@ -1877,7 +1884,7 @@
     // shows, instead of a blank axis canvas the reader can't tell from a broken chart.
     // Only fires when EVERY series has data AND every datum is empty/zero (a chart with
     // any real value, or one driven by dataset/no inline series, renders normally).
-    if (chartSeriesAllZero(config.option) && config.emptyOnZero !== false) {
+    if (chartSeriesAllZero(authoredOption) && config.emptyOnZero !== false) {
       host.innerHTML = emptyState(config.emptyText); CB.refreshIcons(); return null;
     }
 
@@ -1976,7 +1983,7 @@
     // the freshly-read baseChart — not the original. A reader-filtered chart (series
     // swapped via chart.__cbUpdate) then keeps its filtered state across the toggle
     // instead of snapping back to the initial series.
-    var lastOption = config.option || {};
+    var lastOption = authoredOption;
     inst.setOption(markSpecs(applySemantics(themeZoom(deepMerge(CB.baseChart, lastOption)))), true);
     // chart.__cbUpdate(option): apply a new author option AND remember it, so the
     // next dark re-theme preserves it. Use this instead of raw setOption for updates
@@ -2055,7 +2062,13 @@
     // register for dark re-theme: re-merge the LAST author option over fresh baseChart
     var renderFn = config.render
       ? config.render
-      : function (chart) { chart.setOption(markSpecs(applySemantics(themeZoom(deepMerge(CB.baseChart, lastOption)))), true); };
+      : function (chart) {
+          // function options re-evaluate so palette-derived colors re-derive for the new
+          // theme; plain-object options re-merge the tracked lastOption (baked colors —
+          // the documented tradeoff of the object form).
+          if (optionFn) lastOption = optionFn() || {};
+          chart.setOption(markSpecs(applySemantics(themeZoom(deepMerge(CB.baseChart, lastOption)))), true);
+        };
 
     // F19 — narrow-width legibility. At phone widths a chart's axisName/grid eat the plot
     // area and a dual-axis chart's RIGHT axisName collides with the data. When the

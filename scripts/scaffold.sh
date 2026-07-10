@@ -167,17 +167,22 @@ SK['dashboard'] = dict(
       { label: '‹REPLACE› Open issues', value: 12, delta: null },
     ]);
 
-    /* filtered chart — chip row drives the captured instance via __cbUpdate (F10, no window global) */
+    /* filtered chart — chip row drives the captured instance via __cbUpdate. The FUNCTION
+       option (reading `current` from the closure) is the dark-safe form: a theme toggle
+       re-runs opt(), so colors read from CB.theme/palette functions re-derive instead of
+       staying baked, and the reader's filter choice survives the toggle. */
     var days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     var data = { rev: [101, 108, 105, 112, 118, 121, 124], orders: [520, 545, 530, 580, 610, 600, 635] };
+    var current = 'rev';
     function opt(key) {
       return { xAxis: { type: 'category', data: days }, yAxis: { type: 'value' },
         series: [{ type: 'bar', data: data[key], barWidth: '48%',
           itemStyle: { color: CB.theme.ACCENT, borderRadius: [4, 4, 0, 0] } }] };
     }
-    var chart = CB.chart('#trendChart', { ariaLabel: '‹REPLACE› trend', option: opt('rev'),
+    var chart = CB.chart('#trendChart', { ariaLabel: '‹REPLACE› trend',
+      option: function () { return opt(current); },
       table: { columns: ['Day', 'Value'], rows: days.map(function (d, i) { return [d, data.rev[i]]; }) } });
-    CB.connectFilter('#trendFilter button', function (v) { chart.__cbUpdate(opt(v)); });
+    CB.connectFilter('#trendFilter button', function (v) { current = v; chart.__cbUpdate(opt(v)); });
 
     CB.gaugeGrid('#goalGrid', [
       { label: '‹REPLACE› Revenue goal', value: 84, unit: '%', target: 100, sub: 'vs $150k' },

@@ -110,16 +110,19 @@ slot('COOKIEBITE:REPORT-SCRIPT', r'''<script>
 
     /* connectFilter — 3 chips, EVERY one must wire (v0.12.1 regression) */
     var FDATA = { a: [5, 3, 4], b: [1, 2, 3], c: [9, 9, 9] };
-    // categoricalColors so CB.__palettes gets an entry — the suite asserts the palette
-    // pipeline records AND judges (an empty registry would pass "no FAILs" vacuously).
-    var FCOLORS = CB.categoricalColors(3);
+    // FUNCTION option + palette call INSIDE it: the dark-safe contract — every re-theme
+    // re-runs fOpt, so categoricalColors re-derives for the new surface AND records a
+    // palette entry per theme (the suite asserts both light and dark were judged).
+    var fkey = 'a';
     function fOpt(k) {
-      return { color: FCOLORS, xAxis: { type: 'category', data: ['x', 'y', 'z'] }, yAxis: {},
-        series: [{ type: 'bar', data: FDATA[k], itemStyle: { color: FCOLORS[0] } }] };
+      var colors = CB.categoricalColors(3);
+      return { color: colors, xAxis: { type: 'category', data: ['x', 'y', 'z'] }, yAxis: {},
+        series: [{ type: 'bar', data: FDATA[k], itemStyle: { color: colors[0] } }] };
     }
-    var fchart = CB.chart('#fxFilterChart', { ariaLabel: 'fixture filter chart', height: 180, option: fOpt('a'),
+    var fchart = CB.chart('#fxFilterChart', { ariaLabel: 'fixture filter chart', height: 180,
+      option: function () { return fOpt(fkey); },
       table: { columns: ['k', 'v'], rows: [['x', 5], ['y', 3], ['z', 4]] } });
-    CB.connectFilter('#fxFilter button', function (v) { fchart.__cbUpdate(fOpt(v), true); });
+    CB.connectFilter('#fxFilter button', function (v) { fkey = v; fchart.__cbUpdate(fOpt(v), true); });
 
     /* lollipop deviation (one row below baseline) + matrix */
     CB.chart('#fxLollipop', { ariaLabel: 'fixture lollipop', height: 160,

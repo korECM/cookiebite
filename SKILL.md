@@ -461,7 +461,9 @@ the same markup the references teach, so mixing both in one report is fine.
   `trendChip`, `statusDot`.
 - **Charts** — `chart` (**the seam**: §10 view-toggle + data-table + aria scaffold
   around an **always author-written** ECharts `option`, merged over `baseChart`,
-  registered for dark — never a `{kind}` enum; a `semantics:{x,y}` config declares
+  registered for dark — never a `{kind}` enum; pass a **function** returning the
+  option when it derives colors from the palette functions — it re-runs on every
+  re-theme so the colors re-derive instead of staying baked; a `semantics:{x,y}` config declares
   what each channel's number *means* — 'price'/'percent'/'rank'/… — and axis
   formatting + rank inversion follow; misleading charts get structured warnings on
   `CB.__chartWarnings`: truncated zero-baselines, crowded bands, too many rows — and

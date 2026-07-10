@@ -160,6 +160,10 @@ Requires the Grid.js CDN tags in HEAD-LIBS (the runtime does not bundle it).
 config: {
   option,           // ALWAYS an author-written ECharts option; merged over CB.baseChart
                     //   (deep-merge objects; series/dataZoom arrays REPLACE wholesale). NEVER a {kind}.
+                    //   May be a FUNCTION returning the option — the dark-safe form: it re-runs on
+                    //   every re-theme, so palette calls (categoricalColors/ramp/diverging) inside it
+                    //   re-derive for the new surface instead of staying baked. Keep reader state
+                    //   (a filter key) in the closure it reads and that survives the toggle too.
   height?,          // px, default 300
   caption?,         // one-line takeaway above the chart (escaped); captionHtml? for trusted HTML
   ariaLabel?,       // chart container aria-label (do set this)

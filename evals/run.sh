@@ -84,11 +84,15 @@ a('palettes were recorded + judged', len(pals) >= 1)
 bad = [p for p in pals if (p.get('result') or {}).get('verdict') == 'FAIL']
 a('no palette hard-FAILs', not bad, str([p.get('fn') for p in bad]))
 a('no label clipping/overlap (desktop)', c.get('labelIssueCount') == 0, str(c.get('labelIssues'))[:300])
+a('no HTML text clipping (desktop)', c.get('textClipCount') == 0, str(c.get('textClips'))[:300])
+themes = set(p.get('theme') for p in pals)
+a('palettes judged for BOTH themes (function-option re-derive)', {'light', 'dark'} <= themes, str(themes))
 import os
 narrow_path = os.path.join(os.path.dirname(sys.argv[1]), 'checks-narrow.json')
 try:
     n = unwrap(narrow_path)
     a('no label clipping/overlap (narrow)', n.get('labelIssueCount') == 0, str(n.get('labelIssues'))[:300])
+    a('no HTML text clipping (narrow)', n.get('textClipCount') == 0, str(n.get('textClips'))[:300])
 except Exception as e:
     a('no label clipping/overlap (narrow)', False, str(e))
 sys.exit(1 if fails else 0)
