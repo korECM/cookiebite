@@ -32,12 +32,20 @@ Why a bait chart: an assertion that everything is clean can rot silently — if 
 release breaks the warning machinery itself, "no warnings" still passes. The bait
 pins the machinery: it must fire on the bait and *only* on the bait.
 
-## LLM tier — `evals/evals.json`
+## LLM tier — `bash evals/run-llm.sh [id|all]`
 
-skill-creator-compatible prompts + assertions. Run them by giving a fresh agent the
-skill and one prompt each (see the skill-creator workflow: with-skill vs baseline,
-grader over the assertions). The three cases are chosen to probe the failure modes
-that matter, not happy paths only:
+Measures whether the **skill** (the model's judgment reading it), not just the
+runtime, produces good reports. For each case in `evals.json`, a fresh headless
+agent (`claude -p`) is pointed at SKILL.md and the prompt and builds the report
+end-to-end (including the skill's own verify loop); a second agent grades the
+artifacts against the assertions adversarially (no positive evidence = FAIL),
+emitting `grading.json` per eval and a `results.md` summary. Needs the `claude`
+CLI and `agent-browser`; costs real tokens and minutes per case — run it when the
+skill's *judgment* changes (workflow, chart guidance, narrative rules), not for
+runtime-only edits. `evals.json` stays skill-creator-compatible, so the
+skill-creator benchmark loop (with-skill vs baseline, viewer) also works on it.
+
+The three cases probe the failure modes that matter, not happy paths only:
 
 - **weekly-metrics-dashboard** — data-rich composition: claims spine, currency axis
   semantics, and the store-quality trap (raw values on a truncated axis vs
