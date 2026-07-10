@@ -7,7 +7,7 @@
 # uses the RIGHT helpers for the chosen report type. The slot markers stay intact, so the
 # author keeps surgical-editing exactly as with the raw template.
 #
-#   dashboard   kpis + filtered chart + table          (status / metrics one-pager)
+#   dashboard   kpis + bento grid (filtered chart + goal gauges) + table
 #   review      claims verdict + findings + diff + actionItems (code / design review)
 #   postmortem  claims + storyline impact chart + timeline + mermaid + findings
 #   explainer   takeaway + mermaid + codeTabs + glossary (teach a concept)
@@ -73,6 +73,26 @@ def section(sid, icon, title, host):
         '      </section>'
     ) % (sid, icon, title, host)
 
+def panel(sid, icon, title, host, span=''):
+    # a bento-grid PANEL: quieter title-20 header, no own bottom margin (the grid row
+    # owns spacing), optional col-span. Panels are still <section id>s so the TOC
+    # observer works unchanged.
+    cls = 'scroll-mt-24 min-w-0' + ((' ' + span) if span else '')
+    return (
+        '        <section id="%s" class="%s">\n'
+        '          <div class="flex items-center gap-8 mb-8">\n'
+        '            <i data-lucide="%s" class="w-18 h-18 text-accent"></i>\n'
+        '            <h2 class="text-title-20 font-bold">%s</h2>\n'
+        '          </div>\n'
+        '          %s\n'
+        '        </section>'
+    ) % (sid, cls, icon, title, host)
+
+def row(cols_class, *panels):
+    # one bento row: side-by-side on lg, stacked below (grid-cols-1)
+    return ('      <div class="grid grid-cols-1 %s gap-24 mb-56">\n%s\n      </div>'
+            % (cols_class, '\n\n'.join(panels)))
+
 def toc(items):
     lis = '\n'.join(
         '          <li><a href="#%s" class="block px-12 py-8 rounded-small '
@@ -118,16 +138,21 @@ SK['dashboard'] = dict(
     header=header('‹REPLACE› Status', '‹REPLACE› 2026-06-08 ~ 06-14',
                   '‹REPLACE› Weekly Dashboard',
                   '‹REPLACE› One-line summary of where the numbers landed this period.'),
-    toc=toc([('summary', 'KPIs'), ('trend', 'Trend'), ('detail', 'Breakdown')]),
+    toc=toc([('summary', 'KPIs'), ('trend', 'Trend'), ('goals', 'Goals'), ('detail', 'Breakdown')]),
+    # a dashboard is SCANNED, not read — the chart row is a bento grid (hero 2/3 + a
+    # goal-gauge side panel), not another full-width stack. Panels stack on narrow.
     sections='\n\n'.join([
         section('summary', 'gauge', '‹REPLACE› Key metrics', '<div id="kpiGrid"></div>'),
-        # filtered chart: a native chip row above the chart host (wired via CB.connectFilter)
-        section('trend', 'trending-up', '‹REPLACE› Trend',
-                '<div id="trendFilter" class="flex flex-wrap gap-8 mb-16">\n'
-                '          <button data-value="rev" class="px-12 py-6 rounded-small border border-line text-body-14">Revenue</button>\n'
-                '          <button data-value="orders" class="px-12 py-6 rounded-small border border-line text-body-14">Orders</button>\n'
-                '        </div>\n'
-                '        <div id="trendChart"></div>'),
+        row('lg:grid-cols-3',
+            # filtered chart: a native chip row above the chart host (wired via CB.connectFilter)
+            panel('trend', 'trending-up', '‹REPLACE› Trend',
+                  '<div id="trendFilter" class="flex flex-wrap gap-8 mb-12">\n'
+                  '            <button data-value="rev" class="px-12 py-6 rounded-small border border-line text-body-14">Revenue</button>\n'
+                  '            <button data-value="orders" class="px-12 py-6 rounded-small border border-line text-body-14">Orders</button>\n'
+                  '          </div>\n'
+                  '          <div id="trendChart"></div>',
+                  span='lg:col-span-2'),
+            panel('goals', 'target', '‹REPLACE› Goals', '<div id="goalGrid"></div>')),
         section('detail', 'table-2', '‹REPLACE› Breakdown', '<div id="detailTable"></div>'),
     ]),
     script=script("""
@@ -153,6 +178,11 @@ SK['dashboard'] = dict(
     var chart = CB.chart('#trendChart', { ariaLabel: '‹REPLACE› trend', option: opt('rev'),
       table: { columns: ['Day', 'Value'], rows: days.map(function (d, i) { return [d, data.rev[i]]; }) } });
     CB.connectFilter('#trendFilter button', function (v) { chart.__cbUpdate(opt(v)); });
+
+    CB.gaugeGrid('#goalGrid', [
+      { label: '‹REPLACE› Revenue goal', value: 84, unit: '%', target: 100, sub: 'vs $150k' },
+      { label: '‹REPLACE› Success rate', value: 97.1, unit: '%', target: 98.5, sub: 'target 98.5%' },
+    ], { cols: '1-2' });
 
     CB.table('#detailTable', {
       columns: ['‹REPLACE› Channel', 'Value', 'Status'],

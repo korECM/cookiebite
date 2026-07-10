@@ -24,7 +24,10 @@ case "$OUT" in
   /*) ;;
   *) if [ -d "$OUT" ]; then OUT="$(cd "$OUT" && pwd)"; else OUT="$PWD/$OUT"; fi ;;
 esac
-URL="file://$ABS"
+# cbrender=svg: the runtime renders every chart with the SVG renderer during verify,
+# turning chart labels into real <text> nodes the label-issue detector below can measure.
+QS="?cbrender=svg"
+URL="file://$ABS$QS"
 S="report-verify-$$"
 
 # Resolve an agent-browser runner: PATH binary first, then npx, then bunx.
@@ -57,7 +60,7 @@ if grep -qiE '<script[^>]+src=["'\''][^"'\'']*assets/cookiebite\.js' "$ABS" \
   SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
   # Capture inline.sh's stderr so a real failure is surfaced (not swallowed by 2>/dev/null).
   if INLINE_ERR="$(bash "$SCRIPT_DIR/inline.sh" "$ABS" -o "$OUT/_inlined.html" 2>&1)"; then
-    URL="file://$OUT/_inlined.html"
+    URL="file://$OUT/_inlined.html$QS"
     echo "[auto-inline] raw runtime placeholders folded into $OUT/_inlined.html (rendering that)."
     echo "  Deliverable stays explicit: bash scripts/inline.sh '$HTML' -o <report>.final.html"
   else
@@ -110,13 +113,50 @@ capture(){
   // renders 4x and flex layouts collapse. Measure a throwaway w-12: ~12px means the custom
   // scale applied; ~48px means the load-order contract was violated. Also count visibly
   // oversized rendered icons (svg/[data-lucide] taller than 32px) as a corroborating signal.
+  // LABEL ISSUES — the automated version of the 'read the pixels' pass for chart text:
+  // with the SVG renderer (cbrender=svg) every label is a <text> node, so we can measure
+  // (a) CLIPPED labels poking past their chart box and (b) OVERLAPPING label pairs
+  // (intersection > 35% of the smaller box — adjacent ticks touching don't count).
+  var labelIssues = [];
+  Array.from(document.querySelectorAll('[id^="cbChart"], [_echarts_instance_]')).forEach(function (box) {
+    if (labelIssues.length >= 40) return;
+    var svg = box.querySelector('svg'); if (!svg) return;
+    var bb = box.getBoundingClientRect(); if (!bb.width) return;
+    var name = box.getAttribute('aria-label') || box.id || 'chart';
+    var texts = Array.from(svg.querySelectorAll('text')).map(function (t) {
+      return { r: t.getBoundingClientRect(), s: (t.textContent || '').trim() };
+    }).filter(function (t) { return t.s && t.r.width > 0; });
+    texts.forEach(function (t) {
+      if (t.r.right > bb.right + 2 || t.r.left < bb.left - 2)
+        labelIssues.push(name + ': clipped "' + t.s.slice(0, 24) + '"');
+    });
+    for (var i = 0; i < texts.length; i++) {
+      if (labelIssues.length >= 40) break;
+      for (var j = i + 1; j < texts.length; j++) {
+        var a = texts[i].r, b = texts[j].r;
+        var ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+        var oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+        if (ox > 2 && oy > 2) {
+          var small = Math.min(a.width * a.height, b.width * b.height);
+          if (small > 0 && (ox * oy) / small > 0.35)
+            labelIssues.push(name + ': overlap "' + texts[i].s.slice(0, 16) + '" / "' + texts[j].s.slice(0, 16) + '"');
+        }
+      }
+    }
+  });
   var probe = document.createElement('div');
   probe.className = 'w-12';
   probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
   document.body.appendChild(probe);
   var w12 = probe.getBoundingClientRect().width;
   probe.remove();
-  var customScaleApplied = w12 > 0 && w12 < 24; // 12px expected; 48px = broken
+  // Play CDN generates classes it has SEEN: if nothing in the page uses w-12, the
+  // synchronous probe measures 0 (the MutationObserver can't emit CSS before we read).
+  // Fall back to the runtime-injected theme toggle (w-40 h-40, always present): ~40px
+  // means the px scale applied; ~160px (10rem) means the load-order contract broke.
+  var scaleToggle = document.getElementById('themeToggle');
+  var tw = scaleToggle ? scaleToggle.getBoundingClientRect().width : 0;
+  var customScaleApplied = (w12 > 0 && w12 < 24) || (w12 === 0 && tw > 0 && tw < 60);
   var oversizedIcons = Array.from(document.querySelectorAll('svg[data-lucide], [data-lucide] > svg, .lucide'))
     .filter(el => el.getBoundingClientRect().height > 32).length;
   // Contained-clip: an element whose own overflow-x is hidden/clip but whose content is far
@@ -152,6 +192,8 @@ capture(){
     // too-many-rows, >8 peer series) — surfaced here so the reviewer needn't scrape console
     chartWarnings: ((window.COOKIEBITE && window.COOKIEBITE.__chartWarnings) || [])
       .map(w => w.chart + ': [' + w.code + '] ' + w.msg),
+    labelIssueCount: labelIssues.length,
+    labelIssues: labelIssues.slice(0, 12),
   }, null, 0);
 })()
 EOF
@@ -408,5 +450,8 @@ echo "'palettes' holds the validate-palette.mjs verdicts for every palette the r
 echo "fix any FAIL; a CVD/contrast WARN needs its relief channel (direct labels / legend / table)."
 echo "'chartWarnings' lists the runtime's chart-honesty warnings (truncated zero-baseline,"
 echo "crowded bands, too many rows/series) — each one is a real defect; fix, don't dismiss."
+echo "'labelIssues' is the AUTOMATED label pass (SVG-rendered charts): clipped labels poking"
+echo "past their chart box and overlapping label pairs. Fix every entry — these used to be"
+echo "catchable only by eyeballing tiles."
 echo "desktop+narrow render LIGHT, dark is its own pass."
 echo "CLEANUP: these are throwaway artifacts — 'rm -rf $OUT' when done (it's regenerated each run)."

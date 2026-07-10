@@ -19,7 +19,11 @@ one, delete the other (template's lockstep rule).
 
 ## Type skeletons
 
-### dashboard — `kpis` + filtered `chart` + `table`
+### dashboard — `kpis` + bento row (filtered `chart` + `gaugeGrid`) + `table`
+
+> The scaffold's dashboard now emits its chart row as a **bento grid** (hero trend
+> `lg:col-span-2` + a goal-gauge side panel) — see "A bento row" under Standalone
+> snippets for the row markup. The blocks below stay valid as the per-panel content.
 
 ```html
 <section id="summary" class="scroll-mt-24 mb-56">
@@ -524,6 +528,38 @@ CB.code('#srcCard', {
   code: 'async function exchange(code) {\n  const res = await fetch(tokenUrl, { method: \'POST\', body: JSON.stringify({ code }) });\n  return (await res.json()).access_token;\n}',
 });
 ```
+
+### A bento row — dashboard panels side by side
+
+A dashboard is scanned, not read: put related panels in one grid row instead of
+stacking everything full-width. Panels stay `<section id>`s (TOC observer works);
+charts resize into their cells; narrow stacks to one column automatically.
+
+```html
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-24 mb-56">
+  <section id="trend" class="scroll-mt-24 min-w-0 lg:col-span-2">
+    <div class="flex items-center gap-8 mb-8">
+      <i data-lucide="trending-up" class="w-18 h-18 text-accent"></i>
+      <h2 class="text-title-20 font-bold">Trend</h2>
+    </div>
+    <div id="trendChart"></div>
+  </section>
+  <section id="goals" class="scroll-mt-24 min-w-0">
+    <div class="flex items-center gap-8 mb-8">
+      <i data-lucide="target" class="w-18 h-18 text-accent"></i>
+      <h2 class="text-title-20 font-bold">Goals</h2>
+    </div>
+    <div id="goalGrid"></div>
+  </section>
+</div>
+```
+
+Rules of thumb: quieter `title-20` panel headers (the row is one visual unit); pair
+similar-height charts; hero panel gets `lg:col-span-2`; `min-w-0` on every panel so
+grid cells can shrink; wide forms (marimekko, wide tables) stay full-width or get
+their own scroll container: `<div class="overflow-x-auto"><div id="mix"
+class="min-w-[720px]"></div></div>` — narrow screens scroll it instead of crushing
+its labels (the verify script's `labelIssues` pass catches the crushing).
 
 ### A semantic axis + formatters — `semantics` / `CB.fmt`
 

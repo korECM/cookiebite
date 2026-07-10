@@ -378,6 +378,15 @@
   CB.theme = { ACCENT: '', ACCENT_STRONG: '', C_LINE: '', C_SECONDARY: '', C_NEUTRAL: '', FONT: '' };
   CB.baseChart = {};
 
+  /* verify-time SVG rendering: scripts/verify-report.sh loads the page with ?cbrender=svg
+     so every chart label becomes a REAL DOM <text> node its label-issue detector can
+     measure — canvas text is invisible to any automated check, which is why label
+     clipping/overlap used to survive to the human pass. Never set in normal use; canvas
+     stays the default renderer. */
+  var RENDER_OPTS = /[?&#]cbrender=svg/i.test(location.search + location.hash) ? { renderer: 'svg' } : undefined;
+  function initChart(el) { return window.echarts.init(el, null, RENDER_OPTS); }
+  CB.initChart = initChart; // escape-hatch charts can share the verify-time renderer flag
+
   function readThemeVars() {
     var t = CB.theme;
     t.ACCENT = css('--accent');
@@ -957,7 +966,7 @@
         if (el.dataset.cbDone) return; el.dataset.cbDone = '1';
         var data;
         try { data = JSON.parse(el.dataset.spark); } catch (e) { return; }
-        var c = window.echarts.init(el);
+        var c = initChart(el);
         // a 1-point series with symbol:'none'+smooth draws nothing visible — force a
         // single end-dot so a lone data point still shows. multi-point keeps the clean
         // no-symbol line.
@@ -1962,7 +1971,7 @@
     }
 
     var el = host.querySelector('#' + cid);
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
     // track the LATEST author-applied option so a dark re-theme re-merges THAT over
     // the freshly-read baseChart — not the original. A reader-filtered chart (series
     // swapped via chart.__cbUpdate) then keeps its filtered state across the toggle
@@ -2141,7 +2150,7 @@
       '</div>';
 
     var el = host.querySelector('#' + cid);
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
     var top = steps[0].value || 0; // overall-conversion denominator (first/top step)
     // a 0-valued TOP step makes every conversion % a divide-by-zero — we skip just those
     // %s (steps still render with their raw values), but warn so the author notices the
@@ -2255,6 +2264,13 @@
     var hasTarget = config.target != null && isFinite(Number(config.target));
     var targetText = hasTarget ? (t('gaugeTarget', 'Target') + ' ' + CB.nf.format(Number(config.target)) + unit) : '';
     var maxText = config.showMax ? (' / ' + CB.nf.format(max) + unit) : '';
+    // auto-fit: a long value ('97.8% / 100%') at the default font pokes through the
+    // ring — shrink to the inner diameter instead of overflowing (digits ~0.62em wide).
+    var gSize = config.size || 170;
+    var gInner = gSize - thickness * 2 - 10;
+    var vText = CB.nf.format(value) + unit + maxText;
+    var vFont = config.valueFontSize || 26;
+    if (vText.length * vFont * 0.62 > gInner) vFont = Math.max(13, Math.floor(gInner / (vText.length * 0.62)));
     return {
       series: [{
         type: 'gauge', radius: '97%', center: ['50%', '50%'],
@@ -2270,7 +2286,7 @@
             return targetText ? ('{v|' + v + '}\n{t|' + targetText + '}') : ('{v|' + v + '}');
           },
           rich: {
-            v: { fontSize: config.valueFontSize || 26, fontWeight: 'bold', color: primary, fontFamily: CB.theme.FONT, lineHeight: 30 },
+            v: { fontSize: vFont, fontWeight: 'bold', color: primary, fontFamily: CB.theme.FONT, lineHeight: vFont + 4 },
             t: { fontSize: 12, color: secondary, fontFamily: CB.theme.FONT, padding: [4, 0, 0, 0] },
           },
         },
@@ -2280,7 +2296,7 @@
   }
   // init an ECharts gauge into `el` and register it for dark re-theme
   function renderGauge(el, config) {
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
     inst.setOption(gaugeOption(config));
     CB.registerChart(inst, function (c) { c.setOption(gaugeOption(config), true); });
     return inst;
@@ -2418,7 +2434,7 @@
     var maxVal = config.max != null ? config.max : data.reduce(function (m, d) { return Math.max(m, d.value); }, 0) || 1;
 
     var el = host.querySelector('#' + cid);
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
 
     // option re-reads accent live so a dark toggle re-themes the ramp + neutral cells.
     function option() {
@@ -2576,7 +2592,7 @@
       '</div>';
 
     var el = host.querySelector('#' + cid);
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
 
     // value→lightness ramp: collect every leaf+branch value, map the LARGEST to the
     // darkest accent shade. We bucket values across the ramp so big tiles read heavy.
@@ -2715,7 +2731,7 @@
       '</div>';
 
     var el = host.querySelector('#' + cid);
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
 
     function option(narrow) {
       var orient = config.orient || (narrow ? 'vertical' : 'horizontal');
@@ -2832,7 +2848,7 @@
       '</div></div>';
 
     var el = host.querySelector('#' + cid);
-    var inst = window.echarts.init(el);
+    var inst = initChart(el);
     var toMs = function (v) { var d = new Date(v); return isFinite(d.getTime()) ? d.getTime() : null; };
     var today = config.today != null ? toMs(config.today) : Date.now();
 
@@ -3444,7 +3460,7 @@
     return {
       legend: { data: ser, textStyle: { color: CB.theme.C_SECONDARY }, top: 0 },
       // extra right pad so the Δ label (position right of the to-dot) never clips.
-      grid: { left: 8, right: cfg.showDelta ? 64 : 24, top: 28, bottom: 8, containLabel: true },
+      grid: { left: 8, right: cfg.showDelta ? 64 : 36, top: 28, bottom: 8, containLabel: true },
       tooltip: {
         trigger: 'item',
         formatter: function (p) {
@@ -3717,7 +3733,7 @@
     var catAxis = { type: 'category', data: cats, axisTick: { show: false } };
     var valAxis = { type: 'value', scale: true };
     return {
-      grid: { left: 8, right: 28, top: 16, bottom: 8, containLabel: true },
+      grid: { left: 8, right: 40, top: 20, bottom: 8, containLabel: true },
       tooltip: {
         trigger: 'item',
         formatter: function (p) {
@@ -3742,12 +3758,21 @@
         { // end-dots + always-on value label
           type: 'scatter', symbolSize: 11, z: 2,
           itemStyle: { color: function (p) { return dotColor(rows[p.dataIndex]); } },
+          // 'top' beats every side position on a horizontal lollipop: a side label either
+          // strikes through its own stem (toward the baseline) or collides with the
+          // category axis / clips at the grid edge for extreme values — both caught by
+          // the automated label pass. Above the dot is always clear.
           label: {
-            show: true, position: horizontal ? 'right' : 'top', distance: 8,
+            show: true, position: 'top', distance: 6,
             color: CB.theme.C_SECONDARY, fontFamily: CB.theme.FONT, fontSize: 12,
             formatter: function (p) { return CB.nf.format(rows[p.dataIndex].value); },
           },
-          data: rows.map(function (r, i) { return horizontal ? [r.value, i] : [i, r.value]; }),
+          data: rows.map(function (r, i) {
+            var d = horizontal ? { value: [r.value, i] } : { value: [i, r.value] };
+            // vertical deviation: a below-baseline dot's stem rises ABOVE it — flip that label under
+            if (!horizontal && hasBaseline && r.value < baseline) d.label = { position: 'bottom' };
+            return d;
+          }),
           markLine: hasBaseline ? {
             symbol: 'none', silent: true,
             lineStyle: { color: stemColor, type: 'dashed', width: 1 },
@@ -4989,9 +5014,12 @@
       return '<tr><th scope="row" class="p-8 text-caption-12 font-medium text-secondary text-right whitespace-nowrap">' + esc(rowLabel) + '</th>' + cells + '</tr>';
     }).join('') + '</tbody>';
 
+    // w-full: a content-sized table left half the card empty on wide screens (dry-run
+    // finding); stretching fills the container, and the overflow-x-auto wrapper still
+    // handles the many-columns case by scrolling instead of squeezing.
     host.innerHTML = caption +
       '<div class="overflow-x-auto rounded-medium border border-line-weak bg-surface p-12">' +
-      '<table class="border-collapse" role="table" aria-label="' + esc(aria) + '">' +
+      '<table class="w-full border-collapse" role="table" aria-label="' + esc(aria) + '">' +
       '<caption class="sr-only">' + esc(aria) + '</caption>' + thead + tbody + '</table></div>';
     CB.refreshIcons();
   };

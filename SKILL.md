@@ -338,11 +338,17 @@ The `checks-*.json` files flag the cheap structural problems: `horizontalOverflo
 the primary layout-break signal (Grid.js's internally-scrolling tables are excluded),
 collapsed chart containers, the **palette report** — every palette the runtime
 generated (`CB.__palettes`), judged by `scripts/validate-palette.mjs` (CVD separation,
-lightness band, chroma, contrast vs the live surface) — and **`chartWarnings`**, the
+lightness band, chroma, contrast vs the live surface) — **`chartWarnings`**, the
 runtime's chart-honesty warnings (truncated zero-baseline, crowded bands, too many
-rows/series). Fix palette FAILs (a CVD WARN requires secondary encoding — direct
-labels / the data table; a contrast WARN requires visible labels or the table view),
-and treat every chartWarning as a real defect, not advice.
+rows/series) — and **`labelIssues`**, the automated label pass: verify loads the page
+with `?cbrender=svg` so every chart label is a real `<text>` node, then flags labels
+**clipped** past their chart box and **overlapping** label pairs, per pass
+(desktop/narrow/dark). Fix palette FAILs (a CVD WARN requires secondary encoding —
+direct labels / the data table; a contrast WARN requires visible labels or the table
+view), and treat every chartWarning and labelIssue as a real defect, not advice —
+label collisions used to be catchable only by eyeballing tiles; now the machine
+catches them first, and the tiles remain for what it can't see (geometry, color,
+caption↔visual mismatches).
 
 Then **Read `full-desktop.png` and every `desktop-tile-*.png`** at legible size,
 **skim the narrow and dark tiles**, and scan for:
@@ -506,7 +512,8 @@ on-theme: the CSS-var tokens, `CB.css()`, `CB.readThemeVars()`, `CB.baseChart` +
 `CB.theme` (accent at `CB.theme.ACCENT`), `CB.accentRgba()`, `nf`/`money`/
 `moneyShort`, `hydrate()`/`refreshIcons()`, `copy()`/`download()`,
 `dataTableToggle()` (the data-table alt a hand-written chart still owes), `deepMerge`,
-`markSpecs`, `MOTION_OK`. (Legacy `window.*` aliases exist for older reports — new
+`markSpecs`, `initChart()` (echarts.init that honours the verify-time `?cbrender=svg`
+flag — use it so hand charts join the automated label pass), `MOTION_OK`. (Legacy `window.*` aliases exist for older reports — new
 reports use the `CB.*` names; the list is at the end of `helpers.md`.)
 
 **The silent footguns live in `references/anti-patterns.md`** ("Runtime & helper
@@ -516,6 +523,18 @@ the self-check; skim it before authoring the report script.
 
 **Layout essentials** (hand-authored, kept quiet):
 
+- **Panel grid (bento) for scan surfaces.** A dashboard is scanned, not read — don't
+  stack every section full-width in one long column. Compose SECTIONS with grid
+  rows: `<div class="grid grid-cols-1 lg:grid-cols-3 gap-24 mb-56">` holding
+  `<section id="…" class="scroll-mt-24 min-w-0 lg:col-span-2">` panels with quieter
+  `title-20` headers. Panels stay `<section id>`s so the TOC observer keeps working;
+  `CB.chart` resizes into its cell; everything stacks to one column on narrow for
+  free. Pair similar-height charts; the hero chart takes `col-span-2`; keep wide
+  forms (marimekko, wide tables) full-width — or give a wide form its own
+  `overflow-x-auto` wrapper with a `min-w-[…px]` inner so narrow screens scroll it
+  instead of crushing its labels. Narrative reports (postmortem, explainer) stay a
+  single column — they're read in order, not scanned. The dashboard scaffold emits
+  a bento row; the recipe is in `references/snippets.md`.
 - **TOC sidebar**: include on any report with 3+ sections — a right rail
   (`sticky top-24`, `hidden lg:block`) beside a `flex flex-row-reverse` main column;
   author only the `<ul id="toc">` entries in the `COOKIEBITE:TOC` slot (the runtime's
