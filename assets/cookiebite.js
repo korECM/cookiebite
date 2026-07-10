@@ -4629,12 +4629,24 @@
        opts: { initial?, fire? } — fire:false suppresses the initial onChange call.
      ========================================================================== */
   CB.connectFilter = function (buttonsSelector, onChange, opts) {
-    var root = resolveTarget(buttonsSelector);
-    if (!root) return { select: function () {} };
     opts = opts || {};
-    // the chip set: every [data-value] button inside the row (or the row's own buttons)
-    var btns = [].slice.call(root.querySelectorAll('button[data-value]'));
-    if (!btns.length && root.tagName === 'BUTTON' && root.hasAttribute('data-value')) btns = [root];
+    // The documented form is '#row button' — a selector matching the BUTTONS THEMSELVES.
+    // resolveTarget alone (querySelector) returned only the FIRST match, silently wiring
+    // a single chip while the rest looked identical but did nothing. So: for a string
+    // selector, collect EVERY matching [data-value] button first; fall back to treating
+    // the match as a container ('#row') whose inner buttons are the chip set.
+    var btns = [];
+    if (typeof buttonsSelector === 'string') {
+      btns = [].slice.call(document.querySelectorAll(buttonsSelector)).filter(function (el) {
+        return el.tagName === 'BUTTON' && el.hasAttribute('data-value');
+      });
+    }
+    if (!btns.length) {
+      var root = resolveTarget(buttonsSelector);
+      if (!root) return { select: function () {} };
+      btns = [].slice.call(root.querySelectorAll('button[data-value]'));
+      if (!btns.length && root.tagName === 'BUTTON' && root.hasAttribute('data-value')) btns = [root];
+    }
     if (!btns.length) return { select: function () {} };
 
     function valueOf(b) { return b.getAttribute('data-value'); }
