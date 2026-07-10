@@ -147,11 +147,20 @@ at first paint. **The inlined file is the deliverable** — verify and open *tha
 
 ## Workflow
 
-1. **Find the story.** Skim the input and decide the 1–3 things the reader must take
-   away. Those become the headline visuals. Everything else supports them.
+1. **Find the story — in the data, never around it.** Decide the 1–3 claims the
+   reader must leave with; those become the headline visuals. Then order the sections
+   as an **argument, not an inventory**: each section's takeaway should feed one of
+   the headline claims, and a one-line bridge should hand the reader to the next
+   section. **Anti-padding rule:** the outline comes *from* the material — if the
+   data honestly supports two beats, the report has two sections. A section added to
+   look complete (background nobody asked for, a chart restating another chart)
+   dilutes the reader's trust in the rest; cut it instead of writing it.
 2. **Pick a structure.** Most reports want: a header (title + one-line takeaway +
    date/context), a row of key-stat cards, then sections — each led by a visual.
-   A short executive summary up top earns its place when the report is long.
+   When the report is long or the audience is mixed, open with `CB.claims` — the
+   executive summary as claims anchored to their evidence sections — and consider
+   marking deep-dive sections `data-altitude-detail` + `CB.altitudeToggle()` so one
+   document serves both the exec skim and the full read.
 3. **Pick the theme.** If the user asks for a specific theme/preset, use it. Otherwise,
    if a saved default exists at `assets/presets/default.json`, apply that; failing that,
    use the template's built-in **Persimmon** default. One accent per report; switch
@@ -259,7 +268,11 @@ three-number status), a static layout is correct — don't manufacture controls.
   The reader should be able to answer a question you didn't pre-chart.
 - **Narrative report** (postmortem, recap): an interactive timeline or flow
   (hover/click for detail), expandable detail rows for action items / causes /
-  findings, and tabbed or filtered sections when there are peer views.
+  findings, and tabbed or filtered sections when there are peer views. For the one
+  chart the whole story hangs on, consider `CB.storyline` — a stepped walkthrough
+  where each beat re-shapes the same chart (emphasis, annotation, zoom) while the
+  caption says what to notice. One storyline per report at most; on every chart it's
+  noise.
 - **Explainer**: a TL;DR box up top, collapsible sections so the reader controls
   depth, tabbed code samples where relevant (`CB.code` / `CB.codeTabs`), and glossary
   tooltips on jargon. **An explainer without a single diagram is a red flag** — for
@@ -323,11 +336,13 @@ hand-over). Desktop/narrow passes force the light theme; dark gets its own pass.
 
 The `checks-*.json` files flag the cheap structural problems: `horizontalOverflow` is
 the primary layout-break signal (Grid.js's internally-scrolling tables are excluded),
-collapsed chart containers, and the **palette report** — every palette the runtime
+collapsed chart containers, the **palette report** — every palette the runtime
 generated (`CB.__palettes`), judged by `scripts/validate-palette.mjs` (CVD separation,
-lightness band, chroma, contrast vs the live surface). Fix FAILs; a CVD WARN requires
-secondary encoding (direct labels / the data table); a contrast WARN requires visible
-labels or the table view. You can also run the validator by hand on any color list.
+lightness band, chroma, contrast vs the live surface) — and **`chartWarnings`**, the
+runtime's chart-honesty warnings (truncated zero-baseline, crowded bands, too many
+rows/series). Fix palette FAILs (a CVD WARN requires secondary encoding — direct
+labels / the data table; a contrast WARN requires visible labels or the table view),
+and treat every chartWarning as a real defect, not advice.
 
 Then **Read `full-desktop.png` and every `desktop-tile-*.png`** at legible size,
 **skim the narrow and dark tiles**, and scan for:
@@ -440,15 +455,22 @@ the same markup the references teach, so mixing both in one report is fine.
   `trendChip`, `statusDot`.
 - **Charts** — `chart` (**the seam**: §10 view-toggle + data-table + aria scaffold
   around an **always author-written** ECharts `option`, merged over `baseChart`,
-  registered for dark — never a `{kind}` enum); `shapes.*` (pure option builders:
+  registered for dark — never a `{kind}` enum; a `semantics:{x,y}` config declares
+  what each channel's number *means* — 'price'/'percent'/'rank'/… — and axis
+  formatting + rank inversion follow; misleading charts get structured warnings on
+  `CB.__chartWarnings`: truncated zero-baselines, crowded bands, too many rows — and
+  a category-row chart with no explicit height **grows with its row count**);
+  `shapes.*` (pure option builders:
   waterfall, bullet, sparkline, scatter, radar, dumbbell, slope, lollipop, rangeDot,
   histogram, stackedBar, boxplot, densityArea, marimekko — pass the result to
   `CB.chart`); `funnel`, `heatmap` (calendar), `matrix`, and the full-render heavies
   `treemap`/`sankey`/`gantt` (build their own card — do **not** wrap in `CB.chart`);
   `threshold`/`annotate` (transformers over any option/chart).
-- **Structure & narrative** — `findings` (severity list; `tone` doubles as the
-  severity label), `timeline`, `steps`, `leaderboard`, `compare` (decision grid),
-  `cardGrid`, `actionItems`, `whatChanged`, `table` (Grid.js with the footguns fixed;
+- **Structure & narrative** — `claims` (the exec summary as claims anchored to their
+  evidence sections), `storyline` (guided walkthrough stepper over one chart),
+  `findings` (severity list; `tone` doubles as the severity label), `timeline`,
+  `steps`, `leaderboard`, `compare` (decision grid), `cardGrid`, `actionItems`,
+  `whatChanged`, `table` (Grid.js with the footguns fixed;
   `cellBar`/`cellHeat`/`cellSpark`/`cellMoney` column formatters), `diff`,
   `pseudocode`, `code`/`codeTabs` (needs the highlight.js tag), `mermaid` (themed,
   dark-aware, ELK layout).
@@ -458,16 +480,18 @@ the same markup the references teach, so mixing both in one report is fine.
   (numbered figcaption), `fn`/`endnotes` (paired-by-construction footnotes),
   `legend`.
 - **Page chrome (opt-in)** — `toc` (enriches the hand-authored `#toc`; NO-OPs over
-  one you already filled), `search`, `densityToggle`, `permalinks`, `copyReport`,
-  `readingProgress`, `readTime`, `scrollReveal`, `print`, `audit`.
+  one you already filled), `search`, `densityToggle`, `altitudeToggle` (exec/full
+  reading altitude — hides `[data-altitude-detail]` sections), `permalinks`,
+  `copyReport`, `readingProgress`, `readTime`, `scrollReveal`, `print`, `audit`.
 - **Interaction & export** — `tabs`/`reveal` (lazy render + `resize()` — the fix for
   the empty-chart-in-a-hidden-tab footgun), `connectFilter` (chip row → chart
   updates; call the captured instance's `__cbUpdate(option)` in `onChange` so filters
   survive a dark re-theme — worked example in `interactions.md` §1), `copyButton`,
   `sectionToMarkdown`, `glossary` (needs the Tippy tags), `exportPNG`.
-- **Color & theme** — `categoricalColors(n, {mode})` (identity/emphasis peers),
-  `ramp(n)` (ordered), `diverging(n)` (polarity), `markSpecs` (the quiet mark
-  defaults — applied automatically by `CB.chart`), `applyLook`,
+- **Color, format & theme** — `categoricalColors(n, {mode})` (identity/emphasis
+  peers), `ramp(n)` (ordered), `diverging(n)` (polarity), `fmt(type)` (semantic
+  formatter: 'price'/'percent'/'percentPoint'/'delta'/'duration'/'rank'), `markSpecs`
+  (the quiet mark defaults — applied automatically by `CB.chart`), `applyLook`,
   `registerChart`/`onThemeChange`, and the primitives below.
 
 There is deliberately **no** `header()`/`page()` layout-shell helper and **no** chart
@@ -514,6 +538,9 @@ Before handing over, verify:
       third-party libs via CDN; no console errors that break rendering.
 - [ ] The main takeaway is visible within ~5 seconds — a headline number or chart,
       not buried in prose.
+- [ ] Sections read as an **argument**: each takeaway feeds a headline claim, bridges
+      connect them, and no section exists just to look complete (the anti-padding
+      rule — cut filler instead of writing it).
 - [ ] At least the key points are visualized (charts/cards/diagrams/timeline), not
       just listed as text.
 - [ ] Exactly one accent color; semantic colors only for status/feedback; every
@@ -522,7 +549,8 @@ Before handing over, verify:
 - [ ] Theme tokens applied consistently (font, accent, neutrals via CSS vars);
       type/spacing/radii/shadow on the template scales, no one-off hexes.
 - [ ] Charts are themed (no default rainbow), have titles/labels, a one-line takeaway
-      caption, and resize cleanly. No dual-axis chart anywhere.
+      caption, and resize cleanly. No dual-axis chart anywhere; `chartWarnings` in
+      the verify checks is empty (no truncated baseline / crowded bands / row cap).
 - [ ] Every wide / time-series chart has `dataZoom` (slider + inside).
 - [ ] No chart renders blank: charts inside tabs/accordions init lazily on show and
       `resize()` (clicked through in the visual check).

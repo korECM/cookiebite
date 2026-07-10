@@ -51,6 +51,11 @@ demo or read `cookiebite.js`.
 | `markSpecs(option)` | the quiet mark defaults `CB.chart` applies (thin bars, rounded data-end, surface gaps, ringed dots) — call by hand for raw `echarts.init` charts |
 | `applyLook(look?)` | projects the Look knobs onto `html data-*` + `:root` vars (auto-runs from `window.REPORT_LOOK`) |
 | `print()` / `audit()` | print prep (force light, expand details) / dev-only a11y+contrast audit (`?audit=1`) |
+| `fmt(type, opts?)` → fn | semantic formatter factory: `'count'`/`'price'`/`'percent'`/`'percentPoint'`/`'delta'`/`'duration'`/`'rank'` → locale-driven `(v) => string` |
+| `claims(target, items, opts?)` | the executive summary as CLAIMS anchored to their evidence sections, with value chips |
+| `storyline(target, cfg)` → controller | guided walkthrough stepper over ONE chart — each beat re-shapes it via `base`+step option deltas; aria-live caption |
+| `altitudeToggle()` | exec/full reading-altitude chrome toggle — hides `[data-altitude-detail]` sections in exec view |
+| `chartWarn(chart, code, msg)` | push a chart-honesty warning onto `CB.__chartWarnings` (deduped; verify-report folds them into checks JSON) |
 
 Conventions: `key?` = optional. `a | b` = either form accepted. `target` is a CSS
 selector string **or** an element. `tone` is always the five-name scale from
@@ -1377,6 +1382,110 @@ shift**) and fires CountUp inside `[data-count-on-enter]` the first time each is
 initial-hidden rule needs a guard class the JS adds *only* once reveal is running — never
 put it in static markup or no-JS renders would hide content (see `components.md` /
 `interactions.md` §7).
+
+---
+
+## Semantic formatting & chart honesty (the decision layer)
+
+The idea (borrowed from compiler-style chart tooling like flint): declare what a
+number **means** and let the runtime derive the presentation, and make a chart that
+would **mislead** say so at build time instead of waiting for a reviewer.
+
+### `CB.fmt(type, opts?) -> (value) => string` — semantic formatter factory
+
+```text
+type: 'count'         // thousands-grouped integer (nf)
+      'price'|'money' // symbol + grouping; opts.short -> ₩1.5억 / $1.2M bands
+      'percent'       // 97.1%   (opts.decimals, default 1)
+      'percentPoint'  // +0.7%p  — SIGNED percentage-POINT delta (≠ 'percent')
+      'delta'         // +1,204 / −86 (signed count)
+      'duration'      // ms -> 840ms / 1.2s / 3m 20s / 2h 05m (opts.unit:'s' for seconds input)
+      'rank'          // #3
+opts: { decimals?, short?, unit? }
+```
+Locale-driven via `REPORT_LOCALE`. Use as a Grid.js column `formatter`, in tooltips,
+or anywhere you'd otherwise hand-assemble `nf`/`money`/`toFixed`. Unknown types fall
+back to plain grouping.
+
+### `CB.chart` `semantics` config — declare the channels' meaning
+
+```text
+CB.chart(target, { option, semantics: { x?, y? }, … })
+  x / y: one of the CB.fmt types
+```
+Where the author left the knob unset: the channel's **value axis** labels format via
+`CB.fmt` (price uses the short bands — a full currency string is too long for a
+tick), and a `'rank'` value axis sets `inverse:true` so rank 1 sits at the top.
+Author-set `formatter`/`inverse` always win; category/time axes are untouched.
+
+### Chart warnings — `CB.__chartWarnings` / `CB.chartWarn(chart, code, msg)`
+
+`CB.chart` pushes structured, deduped warnings (also mirrored to `console.warn`) and
+`scripts/verify-report.sh` folds them into `checks-desktop.json` as `chartWarnings`:
+
+- **`truncated-baseline`** — a bar/area rides a value axis with `min` set (non-zero
+  or `'dataMin'`). Length-encoded marks need a zero baseline; to zoom a range, use a
+  position-encoded form (line, lollipop, rangeDot).
+- **`too-many-rows`** — a category axis carries more rows than one readable chart
+  holds even at max height; show a top-N and put the full set in `CB.table`.
+- **`crowded-bands`** — an explicit `height` leaves <18px per category row.
+
+**Elastic height**: when `config.height` is omitted and the chart has a category
+y-axis, the default height grows with the row count (~28px per row, capped at 720px)
+instead of staying a constant 300 — so a 15-row horizontal bar is born readable.
+An explicit `height` always wins. Hand-rolled charts can join the warning contract
+via `CB.chartWarn(label, code, msg)`.
+
+---
+
+## Narrative helpers (claims / storyline / altitude)
+
+### `CB.claims(target, items, opts?)` — the summary as claims linked to evidence
+
+```text
+item: {
+  claim,            // one-sentence claim (the thing the reader must believe)
+  evidence?,        // '#section-id' -> the claim renders as an anchor into its proof
+  value?,           // right-aligned metric chip ('+9.7%', '₩2.4억')
+  tone?,            // dot color: neutral | info | success | warning | critical
+}
+opts: { title?, emptyText? }   // title defaults to the locale 'Key takeaways'
+```
+The exec reads the claims; only a doubted claim gets clicked into. A claim with no
+real section behind it is a filler smell — write fewer claims, not thinner sections.
+
+### `CB.storyline(target, cfg)` — a guided walkthrough of one chart
+
+```text
+cfg: {
+  chart,            // the CB.chart INSTANCE (preferred) or a selector to its host
+  base?,            // partial option: every key any step touches, at its RESTING value
+  steps: [{
+    title?,         // bolded beat label
+    caption,        // what to notice at this beat (aria-live)
+    option?,        // partial ECharts option applied as deepMerge(base, option)
+  }],
+  initial?,         // starting index (default 0)
+}
+-> { goTo(i), next(), prev() }
+```
+Each beat re-shapes the SAME chart while the caption says what to notice — the
+scrollytelling idea on existing seams (`__cbUpdate`, so beats survive a dark
+re-theme). Because a step applies `deepMerge(base, step.option)`, steps are
+order-independent and stepping BACK resets cleanly — put any key a step touches into
+`base` at its resting value. Typical beats: swap the `color` array to
+`CB.categoricalColors(n, { mode:'emphasis', focus:i })`, add a `markPoint`/`markLine`
+via the series array, or set `dataZoom` to a window. Keep it to 3–5 beats and only on
+the one chart the story hangs on — a stepper on every chart is noise.
+
+### `CB.altitudeToggle()` — one report, two reading altitudes
+
+Marks nothing itself: the author tags deep-dive sections with
+`data-altitude-detail`, then calls `CB.altitudeToggle()`. The injected chrome button
+(stacked under the theme/density toggles) flips `html[data-altitude="exec"]`, which
+hides the tagged sections — leaving the claims/summary + hero visuals for an exec
+skim. Persists to `localStorage`; charts resize on flip. Pairs naturally with
+`CB.claims` as the exec view's spine.
 
 ---
 

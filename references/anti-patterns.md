@@ -60,6 +60,12 @@ luminance.
 
 ## Form
 
+**❌ A truncated bar baseline.** A bar/area whose value axis starts above zero —
+part of every bar's length becomes fiction, and small differences read as dramatic.
+`CB.chart` warns (`truncated-baseline`) when a `min` truncates a length-encoded mark.
+✅ Keep the zero baseline for bars/areas. To zoom into a range, switch to a
+position-encoded form: line, lollipop, rangeDot (position can float; length can't).
+
 **❌ A one-bar bar chart, or a two-slice pie.** The number is the chart.
 ✅ `CB.bigNumber` / a KPI card / `CB.gauge` against its target.
 
@@ -108,6 +114,11 @@ drop to tooltip/legend (the value stays in the table view).
 nested scroll.
 ✅ `grid:{ containLabel:true }` (baseChart default) + a height that includes the axis
 labels; let the container grow rather than clip.
+
+**❌ Thirty category rows crushed into a 300px chart.** Bars and labels merge into
+noise. `CB.chart` warns (`crowded-bands` / `too-many-rows`).
+✅ Omit `height` and let the elastic default grow with the row count (~28px/row,
+capped); past the cap, show a top-N and put the full set in `CB.table`.
 
 **❌ `tabular-nums` on a hero/KPI figure.** Equal-width digits make a big standalone
 `121` look loose at display sizes.
@@ -216,6 +227,14 @@ copy-must-match rule, craft.md).
 order; an eyebrow/divider that encodes nothing.
 ✅ Structural devices encode something true — number only sequences, label only
 categories that exist.
+
+**❌ Filler sections.** A background section nobody asked for, a chart restating the
+previous chart, a "considerations" list padding the outline to look complete —
+forced structure generates forced content, and every filler section dilutes the
+reader's trust in the real ones.
+✅ The outline comes from the material: two honest beats → two sections. A claim in
+the summary with no real evidence section behind it is the same smell — write fewer
+claims, not thinner sections.
 
 **❌ The generic-AI look.** Emoji as section markers, a gradient hero, everything
 centered, `rounded-lg` on everything, one-off hexes beside the tokens.
