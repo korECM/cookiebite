@@ -21,6 +21,8 @@ export type {
   RangeDotRow,
   RangeDotProps,
 } from './components.tsx';
+export { Table, Glossary } from './capability-components.tsx';
+export type { TableColumn, TableProps, GlossaryProps } from './capability-components.tsx';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';
 export { resetCollected, registerCall, registerCss, getCollected } from './collect.ts';
 export type { CapabilityCall, CapabilityName } from './collect.ts';
