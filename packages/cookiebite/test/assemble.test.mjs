@@ -13,6 +13,7 @@ test('assembled document carries the canonical block ids in order', () => {
     'id="cookiebite-core-css"',
     '<main><h1>제목</h1></main>',
     'id="cookiebite-dependency-summary"',
+    'id="cookiebite-theme-compiler"',
     'id="cookiebite-core-js"',
   ];
   let cursor = -1;
