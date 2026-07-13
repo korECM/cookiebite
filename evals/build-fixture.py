@@ -12,7 +12,9 @@
 import os, re, sys
 
 OUT = sys.argv[1]
-TPL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'template.html')
+# The legacy verification fixture exercises the full-runtime template, which is now
+# frozen as template-compat.html (assets/template.html became the freeform reading default).
+TPL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'template-compat.html')
 html = open(TPL, encoding='utf-8').read()
 
 def slot(name, body):
