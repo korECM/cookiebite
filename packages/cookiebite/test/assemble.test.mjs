@@ -44,6 +44,12 @@ test('dependency summary is core mode with no modules', () => {
   );
 });
 
+test('lang is attribute-escaped so it cannot inject markup', () => {
+  const html = assembleDocument({ ...base, lang: 'ko" onload="x' });
+  assert.doesNotMatch(html, /<html lang="ko" onload="x">/);
+  assert.match(html, /<html lang="ko&quot; onload=&quot;x">/);
+});
+
 test('a dark seed emits a data-theme scoped block', () => {
   const theme = { ...persimmon, dark: { background: '#111111', text: '#EDEDED' } };
   const html = assembleDocument({ ...base, theme });

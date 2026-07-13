@@ -3,7 +3,19 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { fromPreset, persimmon, neutral } from '../src/themes.ts';
+import {
+  fromPreset,
+  persimmon,
+  neutral,
+  stripe,
+  vercel,
+  linear,
+  notion,
+  supabase,
+  sentry,
+  resend,
+  raycast,
+} from '../src/themes.ts';
 import persimmonJson from '../vendor/presets/persimmon.json' with { type: 'json' };
 import neutralJson from '../vendor/presets/neutral.json' with { type: 'json' };
 
@@ -29,7 +41,20 @@ test('fromPreset carries the preset locale through', () => {
 });
 
 test('exported preset constants are compilable ThemeDocuments', () => {
-  for (const preset of [persimmon, neutral]) {
+  const presets = [
+    persimmon,
+    neutral,
+    stripe,
+    vercel,
+    linear,
+    notion,
+    supabase,
+    sentry,
+    resend,
+    raycast,
+  ];
+  assert.equal(presets.length, 10);
+  for (const preset of presets) {
     assert.equal(preset.schemaVersion, 1);
     const compiled = CookiebiteTheme.compile(preset);
     assert.match(compiled.css, /--cb-accent:/);

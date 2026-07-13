@@ -34,7 +34,7 @@ export function typecheckReport(reportPath) {
   };
   // ...WithColorAndContext emits the source line and prop declaration, so a JSX
   // attribute mismatch names the offending prop — the plain message would not.
-  return ts
-    .getPreEmitDiagnostics(program)
-    .map((d) => ts.formatDiagnosticsWithColorAndContext([d], host).trimEnd());
+  return ts.getPreEmitDiagnostics(program).map((d) =>
+    ts.formatDiagnosticsWithColorAndContext([d], host).replace(/\x1b\[[0-9;]*m/g, '').trimEnd(),
+  );
 }

@@ -1,6 +1,5 @@
 // packages/cookiebite/lib/build.mjs
 import { renameSync, writeFileSync } from 'node:fs';
-import path from 'node:path';
 import { assembleDocument } from './assemble.mjs';
 import { lintTokens } from './lint.mjs';
 import { BuildError, renderReport } from './render.mjs';
@@ -11,6 +10,7 @@ function parseArgs(args) {
   let out;
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === '-o' || args[i] === '--out') {
+      if (args[i + 1] === undefined) throw new BuildError('사용법: cookiebite build <report.tsx> [-o out.html]');
       out = args[i + 1];
       i += 1;
     } else {
@@ -19,6 +19,7 @@ function parseArgs(args) {
   }
   if (positional.length !== 1) throw new BuildError('사용법: cookiebite build <report.tsx> [-o out.html]');
   const report = positional[0];
+  if (!report.endsWith('.tsx')) throw new BuildError(`${report}: .tsx 파일만 빌드할 수 있습니다`);
   return { report, out: out ?? report.replace(/\.tsx$/, '.html') };
 }
 

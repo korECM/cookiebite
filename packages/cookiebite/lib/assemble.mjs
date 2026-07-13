@@ -11,7 +11,11 @@ const CORE_CSS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.cs
 const CORE_JS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.js'), 'utf8');
 
 function escapeHtml(text) {
-  return String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
 }
 
 export function assembleDocument({ markup, theme, title, lang }) {

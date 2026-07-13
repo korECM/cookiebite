@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { runCli } from './cli.test.mjs';
+import { runCli } from './helpers.mjs';
 
 test('new then build succeeds end to end', () => {
   const dir = mkdtempSync(path.join(tmpdir(), 'cb-new-'));

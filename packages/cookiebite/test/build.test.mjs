@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { runCli } from './cli.test.mjs';
+import { runCli } from './helpers.mjs';
 
 const fixture = (name) =>
   path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'fixtures', name);
@@ -24,6 +24,7 @@ test('a prop type error fails the build naming the prop', () => {
   const result = runCli(['build', fixture('bad-type.tsx'), '-o', out]);
   assert.equal(result.code, 1);
   assert.match(result.stderr, /title/);
+  assert.doesNotMatch(result.stderr, /\x1b\[/);
   assert.equal(existsSync(out), false);
 });
 
@@ -33,4 +34,16 @@ test('a color literal fails the build naming the literal', () => {
   assert.equal(result.code, 1);
   assert.match(result.stderr, /#FF0000/);
   assert.equal(existsSync(out), false);
+});
+
+test('-o without a value fails with usage', () => {
+  const result = runCli(['build', 'x.tsx', '-o']);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /사용법/);
+});
+
+test('a non-tsx input is refused to avoid overwriting a source', () => {
+  const result = runCli(['build', 'report.ts']);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /\.tsx/);
 });
