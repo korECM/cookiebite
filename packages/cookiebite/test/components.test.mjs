@@ -19,10 +19,13 @@ test('data components render semantic markup with token-only styling', async () 
   assert.match(result.collected.css, /\.cb-kpis/);
 });
 
-test('matrix ramps cells with token color-mix and flips ink past 55%', async () => {
+test('matrix ramps cells with a tokened accent overlay, ink stays --cb-text', async () => {
   const result = await renderReport(fixture('data-components.tsx'));
-  assert.match(result.markup, /color-mix\(in srgb, var\(--cb-accent\) \d+%, transparent\)/);
-  assert.match(result.markup, /color:var\(--cb-on-accent\)|color: var\(--cb-on-accent\)/);
+  // 강도는 accent 오버레이 불투명도로. td 자체 배경은 투명이라 대비 계측이 잉크 대 페이지 배경을 읽는다.
+  assert.match(result.markup, /<span class="cb-heat" style="opacity:[0-9.]+" aria-hidden="true">/);
+  assert.match(result.collected.css, /\.cb-heat \{[^}]*background: var\(--cb-accent\)/);
+  assert.doesNotMatch(result.markup, /color-mix/);
+  assert.doesNotMatch(result.markup, /--cb-on-accent/);
   assert.equal(lintTokens(result.markup).length, 0);
 });
 

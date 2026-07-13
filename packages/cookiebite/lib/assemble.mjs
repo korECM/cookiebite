@@ -9,6 +9,10 @@ const { CookiebiteTheme } = require(path.join(pkgRoot, 'vendor/theme-compiler.cj
 const pkg = JSON.parse(readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'));
 const CORE_CSS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.css'), 'utf8');
 const CORE_JS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.js'), 'utf8');
+// Core boot() calls window.CookiebiteTheme.compile at runtime, so the browser
+// theme compiler must load before core JS or CB never comes up (and declared
+// capabilities never wire onto their hosts).
+const THEME_COMPILER_JS = readFileSync(path.join(pkgRoot, 'vendor/theme-compiler.cjs'), 'utf8');
 
 const CALL_METHOD = { table: 'sortable', glossary: 'glossary' };
 
@@ -94,12 +98,15 @@ ${CORE_CSS}
 </head>
 <body>
 ${markup}
-<script id="cookiebite-core-js">
-${CORE_JS}
-</script>${bodyScripts ? `\n${bodyScripts}` : ''}
 <script type="application/json" id="cookiebite-dependency-summary">
 ${JSON.stringify(summary)}
 </script>
+<script id="cookiebite-theme-compiler">
+${THEME_COMPILER_JS}
+</script>
+<script id="cookiebite-core-js">
+${CORE_JS}
+</script>${bodyScripts ? `\n${bodyScripts}` : ''}
 </body>
 </html>
 `;

@@ -12,8 +12,8 @@ test('assembled document carries the canonical block ids in order', () => {
     'id="cookiebite-theme-css"',
     'id="cookiebite-core-css"',
     '<main><h1>제목</h1></main>',
-    'id="cookiebite-core-js"',
     'id="cookiebite-dependency-summary"',
+    'id="cookiebite-core-js"',
   ];
   let cursor = -1;
   for (const marker of order) {
@@ -76,8 +76,9 @@ test('collected capabilities emit marker, module, script, and summary', () => {
   const summary = JSON.parse(html.match(/id="cookiebite-dependency-summary">\s*([\s\S]*?)\s*<\/script>/)[1]);
   assert.deepEqual(summary.declared, ['glossary', 'table']);
   assert.deepEqual(summary.includedModules, ['glossary', 'table']);
-  // 순서: core-js → module → report-script → summary
-  const order = ['id="cookiebite-core-js"', 'id="cookiebite-module-glossary"', 'id="cookiebite-module-table"', 'id="cookiebite-report-script"', 'id="cookiebite-dependency-summary"'];
+  // 순서: summary → core-js → module → report-script.
+  // 요약 JSON은 core boot이 includedModules를 읽어야 하므로 core-js보다 앞서야 한다.
+  const order = ['id="cookiebite-dependency-summary"', 'id="cookiebite-core-js"', 'id="cookiebite-module-glossary"', 'id="cookiebite-module-table"', 'id="cookiebite-report-script"'];
   let cursor = -1;
   for (const marker of order) {
     const index = html.indexOf(marker);

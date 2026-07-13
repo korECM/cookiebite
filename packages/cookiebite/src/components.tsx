@@ -2,7 +2,7 @@
 //   KpiRow({ items: KpiItem[] })                             — KPI 카드 줄 (dl)
 //   Claims({ items: ClaimItem[], title? })                   — 주장→증거 앵커 목록
 //   Findings({ items: FindingItem[] })                       — 심각도 배지 발견 목록
-//   Matrix({ rows, cols, data, max?, format?, ariaLabel, caption? }) — accent-alpha 히트 테이블
+//   Matrix({ rows, cols, data, max?, format?, ariaLabel, caption? }) — accent 오버레이 히트 테이블
 //   RangeDot({ rows, domain?, format?, unit?, ariaLabel })   — min-max-value SVG figure
 //   (쉘: Report, Standfirst, Section, Sources / capability: Table, Glossary → capability-components.tsx)
 import { useId, type ReactNode } from 'react';
@@ -125,20 +125,21 @@ const CLAIMS_CSS = `.cb-claims { margin: 0; }
 .cb-claims ol { list-style: none; margin: 0; padding: 0;
   display: grid; gap: calc(var(--cb-space-unit) * 2px); }
 .cb-claim { display: flex; align-items: baseline; gap: calc(var(--cb-space-unit) * 2px);
-  padding-inline-start: calc(var(--cb-space-unit) * 3px); }
+  padding-inline-start: calc(var(--cb-space-unit) * 3px); color: var(--cb-text); }
 .cb-claim::before { content: ""; flex: none; align-self: center;
-  width: 0.5em; height: 0.5em; border-radius: 50%; background: currentColor; }
+  width: 0.5em; height: 0.5em; border-radius: 50%;
+  background: var(--cb-claim-dot, var(--cb-text-muted)); }
 .cb-claim a { color: inherit; }
 .cb-claim > a, .cb-claim > span:first-of-type { color: var(--cb-text); }
 .cb-claim-value { margin-inline-start: auto; color: var(--cb-text-muted);
   font-variant-numeric: tabular-nums; text-wrap: nowrap; }
-.cb-claim.cb-tone-neutral { color: var(--cb-text-muted); }
-.cb-claim.cb-tone-info { color: var(--cb-accent); }
-.cb-claim.cb-tone-success { color: var(--cb-accent-strong); }
-.cb-claim.cb-tone-warning { color: var(--cb-accent-strong); }
-.cb-claim.cb-tone-critical { color: var(--cb-accent-strong); font-weight: 600; }`;
+.cb-claim.cb-tone-neutral { --cb-claim-dot: var(--cb-text-muted); }
+.cb-claim.cb-tone-info { --cb-claim-dot: var(--cb-accent); }
+.cb-claim.cb-tone-success { --cb-claim-dot: var(--cb-accent-strong); }
+.cb-claim.cb-tone-warning { --cb-claim-dot: var(--cb-accent-strong); }
+.cb-claim.cb-tone-critical { --cb-claim-dot: var(--cb-accent-strong); font-weight: 600; }`;
 
-/** 핵심 주장 목록. 톤은 앞쪽 currentColor 도트로, 근거가 있으면 링크. */
+/** 핵심 주장 목록. 톤은 앞쪽 도트 색(--cb-claim-dot)으로, 근거가 있으면 링크. */
 export function Claims({ items, title }: { items: ClaimItem[]; title?: string }) {
   registerCss('claims', CLAIMS_CSS);
   return (
@@ -224,11 +225,14 @@ const MATRIX_CSS = `.cb-matrix { margin: 0; }
 .cb-matrix table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .cb-matrix th, .cb-matrix td { border: 1px solid var(--cb-divider);
   padding: calc(var(--cb-space-unit) * 2px); text-align: center; }
+.cb-matrix td { position: relative; isolation: isolate; color: var(--cb-text); }
+.cb-matrix .cb-heat { position: absolute; inset: 0; z-index: -1;
+  background: var(--cb-accent); }
 .cb-matrix th { color: var(--cb-text-muted); font-weight: 600; background: var(--cb-surface); }
 .cb-matrix figcaption { color: var(--cb-text-muted); font-size: 0.85em;
   margin-block-start: calc(var(--cb-space-unit) * 2px); }`;
 
-/** 히트맵 테이블. accent color-mix 램프로 셀 강도를 표현하고 55% 이상에서 잉크를 뒤집는다. */
+/** 히트맵 테이블. 셀마다 accent 오버레이 불투명도로 강도를 표현한다. 잉크는 항상 --cb-text. */
 export function Matrix({ rows, cols, data, max, format, ariaLabel, caption }: MatrixProps) {
   registerCss('matrix', MATRIX_CSS);
   const flat = data.flat();
@@ -253,15 +257,13 @@ export function Matrix({ rows, cols, data, max, format, ariaLabel, caption }: Ma
             <tr key={row}>
               <th scope="row">{row}</th>
               {(data[ri] ?? []).map((v, ci) => {
-                const pct =
-                  effectiveMax <= 0 ? 0 : Math.min(60, Math.max(0, Math.round((v / effectiveMax) * 60)));
-                const flip = effectiveMax > 0 && v / effectiveMax > 0.55;
-                const style: { background: string; color?: string } = {
-                  background: `color-mix(in srgb, var(--cb-accent) ${pct}%, transparent)`,
-                };
-                if (flip) style.color = 'var(--cb-on-accent)';
+                // 셀 강도는 accent 오버레이 불투명도로 표현한다(최대 0.6). td 자체 배경은
+                // 투명하게 두어 대비 계측이 실제 잉크 대 페이지 배경을 읽도록 한다.
+                const opacity =
+                  effectiveMax <= 0 ? 0 : Math.min(0.6, Math.max(0, (v / effectiveMax) * 0.6));
                 return (
-                  <td key={`${ri}-${ci}`} style={style}>
+                  <td key={`${ri}-${ci}`}>
+                    <span className="cb-heat" style={{ opacity }} aria-hidden="true" />
                     {format?.(v) ?? String(v)}
                   </td>
                 );
