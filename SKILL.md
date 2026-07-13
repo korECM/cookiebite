@@ -49,9 +49,9 @@ of truth for the freeform system (theme seed, token ABI, capabilities, verificat
 3. **Choose a theme seed** — edit the eight values in the `<script id="cookiebite-theme">`
    block, or paste a whole preset seed (see "Theme seed").
 4. **Declare behavior in the marker** only if you need it — e.g. `<!-- COOKIEBITE:USE chart
-   table -->`. Add the matching module `<script>`(s) to `COOKIEBITE:MODULES` and the author
-   calls to `COOKIEBITE:REPORT-SCRIPT`. A pure reading doc needs none of this (see
-   "Capabilities").
+   table -->`. Then just write the author calls in `COOKIEBITE:REPORT-SCRIPT`; the inliner
+   injects each declared module into `COOKIEBITE:MODULES` for you (leave that slot empty).
+   A pure reading doc needs none of this (see "Capabilities").
 5. **Inline selectively**: `bash scripts/inline.sh <report>.html -o <out>.html` — a
    marker-bearing report is routed through the assembler, which inlines **only** the
    dependencies you declared and emits a dependency summary (see "Inline").
@@ -144,8 +144,9 @@ support. `CB.theme.current()` returns the active compiled theme; `CB.theme.set('
 
 Behavior is **explicit in the marker** and nothing else: `<!-- COOKIEBITE:USE chart table
 -->`. Five capabilities exist. **Each enhances authored markup — none creates a card,
-section, control, or wrapper.** Add the module `<script>` to `COOKIEBITE:MODULES` and the
-author call to `COOKIEBITE:REPORT-SCRIPT`.
+section, control, or wrapper.** Write the author call in `COOKIEBITE:REPORT-SCRIPT`; the
+inliner injects each declared module into `COOKIEBITE:MODULES` (you may also write the
+module `<script src=".../capabilities/X.js">` yourself — the inliner inlines it in place).
 
 | Capability | Authored host + call | It must NOT create |
 | --- | --- | --- |
