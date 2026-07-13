@@ -5,6 +5,7 @@
 //   Findings({ items: FindingItem[] })                       — 심각도 배지 발견 목록
 //   Matrix({ rows, cols, data, max?, format?, ariaLabel, caption? }) — accent 오버레이 히트 테이블
 //   RangeDot({ rows, domain?, format?, unit?, ariaLabel })   — min-max-value SVG figure
+//   Chart({ type, data, semanticTypes, encodings, ariaLabel, height? }) — flint spec 차트 (chart.tsx, chart capability 등록)
 //   (쉘: Report, Standfirst, Section, Sources / capability: Table, Glossary → capability-components.tsx)
 import { useId, type ReactNode } from 'react';
 import type { ThemeDocument } from './themes.ts';
