@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Freeform primitive showcase</title>
+    <script type="application/json" id="cookiebite-theme">
+      {"schemaVersion":1,"seed":{"font":"Pretendard Variable, Pretendard, sans-serif","background":"#FAFAF9","text":"#1A1A1A","accent":"#E8503A","spaceUnit":4,"measure":"68ch","radius":12,"surface":"border"},"locale":{"number":"ko-KR"}}
+    </script>
+    <!-- COOKIEBITE:USE chart table glossary motion export -->
+    <link rel="stylesheet" href="./assets/core/cookiebite-core.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>Primitive showcase</p>
+        <h1>증거가 먼저, 상호작용은 필요한 만큼만</h1>
+        <p>작성한 문서 구조를 그대로 두고 필요한 행동만 연결하는 최소 계약입니다.</p>
+      </header>
+
+      <section aria-labelledby="signal-title">
+        <h2 id="signal-title">차트는 주장 하나를 뒷받침한다</h2>
+        <p>호스트와 설명은 문서가 소유하고, 차트 모듈은 데이터 대안만 호스트 안에 보강합니다.</p>
+        <figure>
+          <div id="traffic-chart" aria-label="시간대별 허용 요청 수"></div>
+          <figcaption>오전 9시 이후 허용 요청이 뚜렷하게 늘었다.</figcaption>
+        </figure>
+      </section>
+
+      <section aria-labelledby="table-title">
+        <h2 id="table-title">표는 이미 의미를 가진다</h2>
+        <table id="traffic-table">
+          <caption>시간대별 허용 요청</caption>
+          <thead><tr><th scope="col">시간</th><th scope="col">요청</th></tr></thead>
+          <tbody>
+            <tr><td>09:00</td><td>124</td></tr>
+            <tr><td>10:00</td><td>208</td></tr>
+            <tr><td>11:00</td><td>186</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="terms-title">
+        <h2 id="terms-title">용어는 문장 안에서 열린다</h2>
+        <p><dfn id="rate-limit-term" tabindex="0">rate limit</dfn>은 정해진 구간에서 허용할 요청 수를 제한한다.</p>
+      </section>
+
+      <section aria-labelledby="detail-title">
+        <h2 id="detail-title">움직임은 보조 설명일 뿐이다</h2>
+        <p id="motion-target">감소된 모션을 선호하면 이 문장은 움직이지 않는다.</p>
+      </section>
+
+      <footer data-cb-export-region id="report-region">
+        <p>출처: 운영 로그 집계 예시</p>
+      </footer>
+    </main>
+
+    <script src="./assets/core/cookiebite-core.js"></script>
+    <script src="./assets/capabilities/chart.js"></script>
+    <script src="./assets/capabilities/table.js"></script>
+    <script src="./assets/capabilities/glossary.js"></script>
+    <script src="./assets/capabilities/motion.js"></script>
+    <script src="./assets/capabilities/export.js"></script>
+    <script>
+      CB.chart('#traffic-chart', {
+        ariaLabel: '시간대별 허용 요청 수',
+        data: { columns: ['시간', '요청'], rows: [['09:00', 124], ['10:00', 208], ['11:00', 186]] },
+        option: ({ theme }) => ({
+          xAxis: { type: 'category', data: ['09:00', '10:00', '11:00'] },
+          yAxis: { type: 'value', min: 0 },
+          series: [{ type: 'bar', data: [124, 208, 186], itemStyle: { color: theme.accent } }]
+        })
+      });
+      CB.sortable('#traffic-table', { numericColumns: [1] });
+      CB.glossary('#rate-limit-term', { definition: '서비스가 특정 기간에 처리할 수 있도록 정한 요청 한도' });
+      CB.motion('#motion-target', { play: target => target.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 240 }) });
+      CB.export('#report-region', { format: 'html' });
+    </script>
+  </body>
+</html>
