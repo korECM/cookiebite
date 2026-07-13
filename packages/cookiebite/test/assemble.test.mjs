@@ -55,3 +55,39 @@ test('a dark seed emits a data-theme scoped block', () => {
   const html = assembleDocument({ ...base, theme });
   assert.match(html, /:root\[data-theme="dark"\] \{/);
 });
+
+test('collected capabilities emit marker, module, script, and summary', () => {
+  const collected = {
+    calls: [
+      { capability: 'table', hostId: 't1', options: { numericColumns: [1] } },
+      { capability: 'glossary', hostId: 'g1', options: { definition: '용어 </script> 정의' } },
+    ],
+    css: '.cb-kpis { border-color: var(--cb-divider); }',
+  };
+  const html = assembleDocument({ ...base, collected });
+  assert.match(html, /<!-- COOKIEBITE:USE glossary table -->/);
+  assert.match(html, /id="cookiebite-components-css">[\s\S]*--cb-divider/);
+  assert.match(html, /id="cookiebite-module-table"/);
+  assert.match(html, /id="cookiebite-module-glossary"/);
+  const script = html.match(/id="cookiebite-report-script">([\s\S]*?)<\/script>/)[1];
+  assert.match(script, /CB\.sortable\(document\.getElementById\("t1"\), \{"numericColumns":\[1\]\}\)/);
+  assert.match(script, /CB\.glossary\(/);
+  assert.doesNotMatch(script, /<\/script>/i);
+  const summary = JSON.parse(html.match(/id="cookiebite-dependency-summary">\s*([\s\S]*?)\s*<\/script>/)[1]);
+  assert.deepEqual(summary.declared, ['glossary', 'table']);
+  assert.deepEqual(summary.includedModules, ['glossary', 'table']);
+  // 순서: core-js → module → report-script → summary
+  const order = ['id="cookiebite-core-js"', 'id="cookiebite-module-glossary"', 'id="cookiebite-module-table"', 'id="cookiebite-report-script"', 'id="cookiebite-dependency-summary"'];
+  let cursor = -1;
+  for (const marker of order) {
+    const index = html.indexOf(marker);
+    assert.ok(index > cursor, `${marker} in order`);
+    cursor = index;
+  }
+});
+
+test('omitted collected keeps the phase 1 document shape', () => {
+  const html = assembleDocument(base);
+  assert.match(html, /<!-- COOKIEBITE:USE -->/);
+  assert.doesNotMatch(html, /cookiebite-components-css|cookiebite-module-|cookiebite-report-script/);
+});

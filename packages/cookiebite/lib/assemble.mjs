@@ -10,6 +10,8 @@ const pkg = JSON.parse(readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'))
 const CORE_CSS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.css'), 'utf8');
 const CORE_JS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.js'), 'utf8');
 
+const CALL_METHOD = { table: 'sortable', glossary: 'glossary' };
+
 function escapeHtml(text) {
   return String(text)
     .replaceAll('&', '&amp;')
@@ -18,7 +20,17 @@ function escapeHtml(text) {
     .replaceAll('"', '&quot;');
 }
 
-export function assembleDocument({ markup, theme, title, lang }) {
+function scriptSafeJson(value) {
+  return JSON.stringify(value).replace(/</g, '\\u003c');
+}
+
+export function assembleDocument({ markup, theme, title, lang, collected }) {
+  const { calls = [], css: componentCss = '' } = collected ?? {};
+  const capabilities = [...new Set(calls.map((c) => c.capability))].sort();
+  for (const c of capabilities) {
+    if (!CALL_METHOD[c]) throw new Error(`unknown capability '${c}'`);
+  }
+
   const compiled = CookiebiteTheme.compile(theme);
   let themeCss = compiled.css;
   if (compiled.dark) {
@@ -28,14 +40,40 @@ export function assembleDocument({ markup, theme, title, lang }) {
   const fontLinks = (compiled.resources?.fontStylesheets ?? [])
     .map((href) => `  <link rel="stylesheet" href="${href}">`)
     .join('\n');
+
+  const useMarker = `<!-- COOKIEBITE:USE${capabilities.length ? ` ${capabilities.join(' ')}` : ''} -->`;
+  const componentsCssBlock = componentCss
+    ? `\n  <style id="cookiebite-components-css">\n${componentCss}\n  </style>`
+    : '';
+  const moduleBlocks = capabilities
+    .map(
+      (c) =>
+        `<script id="cookiebite-module-${c}">\n${readFileSync(path.join(pkgRoot, `vendor/capabilities/${c}.js`), 'utf8')}\n</script>`,
+    )
+    .join('\n');
+  const reportScript = calls.length
+    ? `<script id="cookiebite-report-script">
+(function init() {
+  if (!window.CB) { window.addEventListener('cookiebite:core-ready', init, { once: true }); return; }
+${calls
+  .map(
+    (c) =>
+      `  window.CB.${CALL_METHOD[c.capability]}(document.getElementById(${scriptSafeJson(c.hostId)}), ${scriptSafeJson(c.options)});`,
+  )
+  .join('\n')}
+}());
+</script>`
+    : '';
+
   const summary = {
     schemaVersion: 1,
     mode: 'core',
-    declared: [],
-    includedModules: [],
+    declared: capabilities,
+    includedModules: capabilities,
     externalResources: [],
     versions: { cookiebite: pkg.version },
   };
+  const bodyScripts = [moduleBlocks, reportScript].filter(Boolean).join('\n');
   return `<!doctype html>
 <html lang="${escapeHtml(lang)}">
 <head>
@@ -45,20 +83,20 @@ export function assembleDocument({ markup, theme, title, lang }) {
   <script type="application/json" id="cookiebite-theme">
 ${CookiebiteTheme.escapeJsonForHtml(theme)}
   </script>
-  <!-- COOKIEBITE:USE -->
+  ${useMarker}
   <style id="cookiebite-theme-css">
 ${themeCss}
   </style>
 ${fontLinks}
   <style id="cookiebite-core-css">
 ${CORE_CSS}
-  </style>
+  </style>${componentsCssBlock}
 </head>
 <body>
 ${markup}
 <script id="cookiebite-core-js">
 ${CORE_JS}
-</script>
+</script>${bodyScripts ? `\n${bodyScripts}` : ''}
 <script type="application/json" id="cookiebite-dependency-summary">
 ${JSON.stringify(summary)}
 </script>

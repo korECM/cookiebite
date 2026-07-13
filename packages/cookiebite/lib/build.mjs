@@ -31,7 +31,7 @@ export async function buildCommand(args) {
     throw new BuildError(`typecheck 실패 (${diagnostics.length}건):\n${diagnostics.join('\n')}`);
   }
 
-  const { markup, theme, title, lang } = await renderReport(report);
+  const { markup, theme, title, lang, collected } = await renderReport(report);
 
   const violations = lintTokens(markup);
   if (violations.length > 0) {
@@ -41,7 +41,7 @@ export async function buildCommand(args) {
     );
   }
 
-  const html = assembleDocument({ markup, theme, title, lang });
+  const html = assembleDocument({ markup, theme, title, lang, collected });
   const tmp = `${out}.tmp`;
   writeFileSync(tmp, html);
   renameSync(tmp, out); // 원자적 교체: 부분 산출물이 배포되는 사고를 막는다
