@@ -15,11 +15,11 @@ test('kitchen-sink build wires capabilities end to end', () => {
   const result = runCli(['build', fixture('kitchen-sink.tsx'), '-o', out]);
   assert.equal(result.code, 0, result.stderr);
   const html = readFileSync(out, 'utf8');
-  assert.match(html, /<!-- COOKIEBITE:USE glossary table -->/);
+  assert.match(html, /<!-- COOKIEBITE:USE chart glossary table -->/);
   assert.match(html, /id="cookiebite-module-table"/);
   assert.match(html, /CB\.sortable\(document\.getElementById\(/);
   const summary = JSON.parse(html.match(/id="cookiebite-dependency-summary">\s*([\s\S]*?)\s*<\/script>/)[1]);
-  assert.deepEqual(summary.declared, ['glossary', 'table']);
+  assert.deepEqual(summary.declared, ['chart', 'glossary', 'table']);
 });
 
 test('a non-sortable table registers no capability', async () => {

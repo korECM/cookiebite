@@ -9,6 +9,7 @@ import {
   Matrix,
   RangeDot,
   Table,
+  Chart,
   Glossary,
 } from 'cookiebite';
 import { persimmon } from 'cookiebite/themes';
@@ -94,6 +95,24 @@ export default (
             label: '잘된 점',
           },
         ]}
+      />
+    </Section>
+
+    <Section title="요일별 중복 승인 건수">
+      <Chart
+        type="Bar Chart"
+        data={[
+          { day: '월', count: 42 },
+          { day: '화', count: 55 },
+          { day: '수', count: 48 },
+          { day: '목', count: 31 },
+          { day: '금', count: 18 },
+          { day: '토', count: 14 },
+          { day: '일', count: 12 },
+        ]}
+        semanticTypes={{ day: 'Category', count: 'Quantity' }}
+        encodings={{ x: 'day', y: 'count' }}
+        ariaLabel="요일별 중복 승인 건수 막대 차트"
       />
     </Section>
 
