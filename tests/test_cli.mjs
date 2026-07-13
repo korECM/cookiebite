@@ -85,6 +85,19 @@ test('a pure reading report assembles with no modules and no ECharts', () => {
   assert.deepEqual(summary.declared, []);
 });
 
+test('a declared dark seed compiles to a data-theme-scoped token block', () => {
+  let html = readFileSync(path.join(root, 'assets/template.html'), 'utf8');
+  html = html.replace(/"surface":"border"\}/, '"surface":"border"},"dark":{"background":"#1A1A1A","text":"#F5F5F4"}');
+  html = html.replace(/<!--\s*COOKIEBITE:USE\s*-->/, '<!-- COOKIEBITE:USE -->');
+  const p = path.join(work, `dark-${seq += 1}.html`);
+  writeFileSync(p, html);
+  const r = assemble(p);
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.html, /:root\s*\{/); // light tokens
+  assert.match(r.html, /:root\[data-theme="dark"\]\s*\{/); // dark tokens scoped
+  assert.match(r.html, /--cb-background:\s*#1A1A1A/i); // authored dark background present
+});
+
 test('a direct undeclared call fails before any output is written', () => {
   const report = makeReport('chart', TABLE_CALL, CHART_TABLE_BODY); // calls sortable, declares only chart
   const r = assemble(report);

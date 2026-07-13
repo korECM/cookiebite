@@ -62,6 +62,12 @@
         if (next === 'dark' && !compiled.dark) throw new CoreError('this theme does not declare a dark mode');
         if (next === mode) return;
         mode = next;
+        // Toggle the attribute the compiled dark CSS is scoped to, so the switch
+        // actually re-paints. Light is the default (no attribute).
+        if (typeof globalThis.document !== 'undefined' && globalThis.document.documentElement) {
+          if (mode === 'dark') globalThis.document.documentElement.setAttribute('data-theme', 'dark');
+          else globalThis.document.documentElement.removeAttribute('data-theme');
+        }
         for (const fn of subscribers) fn(mode);
       },
       onChange(fn) { subscribers.add(fn); return () => subscribers.delete(fn); },

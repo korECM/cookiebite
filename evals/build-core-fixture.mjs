@@ -26,6 +26,9 @@ CB.sortable('#traffic-table', { numericColumns: [1] });
 </script>`;
 
 let html = readFileSync(path.join(root, 'assets/template.html'), 'utf8');
+// Declare a dark seed (a DOCUMENT-level sibling of seed) so the release fixture also
+// exercises the verifier's dark pass.
+html = html.replace(/"surface":"border"\}/, '"surface":"border"},"dark":{"background":"#1A1A1A","text":"#F5F5F4"}');
 html = html.replace(/<!--\s*COOKIEBITE:USE\s*-->/, '<!-- COOKIEBITE:USE chart table -->');
 html = html.replace(/(<!--\s*COOKIEBITE:SECTIONS\s*-->)[\s\S]*?(<!--\s*\/COOKIEBITE:SECTIONS\s*-->)/, `$1\n${SECTIONS}\n$2`);
 html = html.replace(/(<!--\s*COOKIEBITE:REPORT-SCRIPT\s*-->)[\s\S]*?(<!--\s*\/COOKIEBITE:REPORT-SCRIPT\s*-->)/, `$1\n${SCRIPT}\n$2`);

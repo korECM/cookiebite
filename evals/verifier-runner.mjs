@@ -49,6 +49,17 @@ for (const [w, h] of [[390, 900], [1280, 900]]) {
   const view = evalPage(dom);
   if (view && typeof view === 'object') viewports.push(view);
 }
+// Dark pass — only when the seed declares dark (DESIGN §6). CB.theme.set('dark')
+// toggles data-theme so the inlined dark tokens paint; dom.js then tags theme='dark'.
+const declaresDark = evalPage(`(function(){var s=document.getElementById('cookiebite-theme');if(!s)return false;try{return !!JSON.parse(s.textContent).dark;}catch(e){return false;}})()`);
+if (declaresDark === true) {
+  ab('viewport', '1280', '900');
+  ab('wait', '200');
+  evalPage("(function(){try{window.CB.theme.set('dark');return 1;}catch(e){return 0;}})()");
+  ab('wait', '200');
+  const darkView = evalPage(dom);
+  if (darkView && typeof darkView === 'object') viewports.push(darkView);
+}
 const report = evalPage(`(function(){var s=document.getElementById('cookiebite-dependency-summary');var d=s?JSON.parse(s.textContent):{};d.calledAtRuntime=(window.CB&&CB.calls)?[...new Set(CB.calls.filter(function(c){return c.type==='call';}).map(function(c){return c.capability;}))]:[];return JSON.stringify(d);})()`);
 ab('close');
 

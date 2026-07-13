@@ -99,7 +99,11 @@ function assemble(html) {
   let output = html;
 
   // 1. theme CSS — inject a resolved <style> right after the theme JSON block.
-  const themeCss = `<style id="cookiebite-theme-css">\n${compiled.css}\n</style>`;
+  // When the seed declares dark, scope its tokens to [data-theme="dark"] so
+  // CB.theme.set('dark') (which toggles that attribute) actually re-paints.
+  let themeCssBody = compiled.css;
+  if (compiled.dark) themeCssBody += `\n${compiled.dark.css.replace(':root {', ':root[data-theme="dark"] {')}`;
+  const themeCss = `<style id="cookiebite-theme-css">\n${themeCssBody}\n</style>`;
   const fontLinks = (compiled.resources.fontStylesheets || [])
     .map((url) => `<link rel="stylesheet" href="${url}">`).join('\n  ');
   output = output.replace(
