@@ -19,3 +19,7 @@ tmp/
 # generated reports (dogfooding artifacts, not shipped)
 cookiebite-audit-*.html
 *.final.html
+
+# generated verifier fixtures
+evals/fixtures/verifier/clean.html
+evals/fixtures/verifier/clean.src.html

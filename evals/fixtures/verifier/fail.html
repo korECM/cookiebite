@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Deliberate verifier failure fixture</title>
+  <style>
+    body { background: #ffffff; color: #111111; font-family: system-ui, sans-serif; margin: 0; padding: 24px; }
+    /* Intentionally low contrast (~2.3:1) — must trip text-contrast. */
+    .low-contrast { color: #b8b8b8; }
+    /* Intentionally wider than any viewport — must trip horizontal-overflow. */
+    .too-wide { width: 2000px; height: 24px; background: #eee; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>고의 실패 fixture</h1>
+    <p class="low-contrast">이 문단은 대비가 낮아 hard finding으로 잡혀야 한다.</p>
+    <div class="too-wide">이 요소는 가로 오버플로를 유발한다.</div>
+    <!-- A chart host with NO accessible name and NO data alternative. -->
+    <figure><div id="bad-chart" role="img" style="width:320px;height:200px;background:#f4f4f4"></div></figure>
+  </main>
+</body>
+</html>
