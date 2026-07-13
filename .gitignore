@@ -23,3 +23,6 @@ cookiebite-audit-*.html
 # generated verifier fixtures
 evals/fixtures/verifier/clean.html
 evals/fixtures/verifier/clean.src.html
+
+# tsx package
+packages/cookiebite/node_modules/
