@@ -10,10 +10,11 @@ export function lintTokens(markup) {
     const hit = value.match(COLOR_LITERAL);
     if (hit) violations.push({ source, literal: hit[0], context: value.trim().slice(0, 120) });
   };
-  for (const [, value] of markup.matchAll(/\bstyle="([^"]*)"/g)) scan('style', value);
-  for (const [, attr, value] of markup.matchAll(/\b(fill|stroke|stop-color|flood-color|color)="([^"]*)"/g)) {
-    if (!SAFE_VALUE.test(value)) scan(attr, value);
+  for (const [, dq, sq] of markup.matchAll(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) scan('style', dq ?? sq);
+  for (const [, attr, dq, sq] of markup.matchAll(/\b(fill|stroke|stop-color|flood-color|color)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+    const value = dq ?? sq;
+    if (!SAFE_VALUE.test(value)) scan(attr.toLowerCase(), value);
   }
-  for (const [, css] of markup.matchAll(/<style>([\s\S]*?)<\/style>/g)) scan('style-block', css);
+  for (const [, css] of markup.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) scan('style-block', css);
   return violations;
 }

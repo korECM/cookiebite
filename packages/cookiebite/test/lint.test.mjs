@@ -17,6 +17,15 @@ test('flags color literals in svg paint attributes and style blocks', () => {
   assert.equal(lintTokens('<path fill="red"></path>').length, 1);
 });
 
+test('flags single-quoted and uppercase attributes', () => {
+  const sq = lintTokens("<div style='color: #666666'>x</div>");
+  assert.equal(sq.length, 1);
+  assert.equal(sq[0].literal, '#666666');
+  const upper = lintTokens('<rect FILL="#FF0000"></rect>');
+  assert.equal(upper.length, 1);
+  assert.equal(upper[0].source, 'fill');
+});
+
 test('allows tokens, keywords, and non-color hash usage', () => {
   assert.equal(lintTokens('<rect fill="var(--cb-accent)"></rect>').length, 0);
   assert.equal(lintTokens('<div style="gap: calc(var(--cb-space-unit) * 4)">x</div>').length, 0);
