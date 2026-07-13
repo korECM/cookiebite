@@ -27,6 +27,7 @@ export async function renderReport(reportPath) {
       format: 'esm',
       platform: 'node',
       jsx: 'automatic',
+      nodePaths: [path.join(pkgRoot, 'node_modules')], // 패키지 밖에 있는 리포트도 react를 찾게 한다
       alias: {
         'cookiebite/themes': path.join(pkgRoot, 'src/themes.ts'),
         cookiebite: path.join(pkgRoot, 'src/index.ts'),
