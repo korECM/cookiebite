@@ -1,4 +1,47 @@
-{ "name":"resend","label":"Resend","source":"voltagent/awesome-design-md",
-  "font":{"family":"Inter","url":"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap","fallback":"-apple-system, system-ui, sans-serif"},
-  "colors":{"accent":"#1A1A1A","accentDark":"#FAFAFA","accentOnDark":"#111111","accentStrong":"#000000","accentWeak":"#F4F4F5","accentOn":"#FFFFFF","bg":"#FCFCFD","surface":"#FFFFFF","primary":"#0A0A0A","secondary":"#6B7280","disabled":"#9CA3AF","placeholder":"#A1A4A5","line":"#E5E7EB","lineWeak":"#F1F3F5","disabledBg":"#F4F4F5","critical":"#DC2626","cautionary":"#D97706","positive":"#16A34A","informative":"#2563EB"},
-  "locale":{"number":"en-US","currency":"USD","symbol":"$","bigUnits":false} }
+{
+  "name": "resend",
+  "label": "Resend",
+  "font": {
+    "family": "Inter",
+    "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#1A1A1A",
+    "accentDark": "#FAFAFA",
+    "accentOnDark": "#111111",
+    "accentStrong": "#000000",
+    "accentWeak": "#F4F4F5",
+    "accentOn": "#FFFFFF",
+    "bg": "#FCFCFD",
+    "surface": "#FFFFFF",
+    "primary": "#0A0A0A",
+    "secondary": "#6B7280",
+    "disabled": "#9CA3AF",
+    "placeholder": "#A1A4A5",
+    "line": "#E5E7EB",
+    "lineWeak": "#F1F3F5",
+    "disabledBg": "#F4F4F5",
+    "critical": "#DC2626",
+    "cautionary": "#D97706",
+    "positive": "#16A34A",
+    "informative": "#2563EB"
+  },
+  "seed": {
+    "font": "Inter, -apple-system, system-ui, sans-serif",
+    "background": "#FCFCFD",
+    "text": "#0A0A0A",
+    "accent": "#1A1A1A",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "source": "voltagent/awesome-design-md",
+  "locale": {
+    "number": "en-US",
+    "currency": "USD",
+    "symbol": "$",
+    "bigUnits": false
+  }
+}

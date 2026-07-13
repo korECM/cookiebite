@@ -1,7 +1,6 @@
 {
   "name": "notion",
   "label": "Notion",
-  "source": "voltagent/awesome-design-md",
   "font": {
     "family": "Inter",
     "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
@@ -27,6 +26,17 @@
     "positive": "#1AAE39",
     "informative": "#0075DE"
   },
+  "seed": {
+    "font": "Inter, -apple-system, system-ui, sans-serif",
+    "background": "#FAFAF9",
+    "text": "#1A1A1A",
+    "accent": "#5645D4",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "source": "voltagent/awesome-design-md",
   "locale": {
     "number": "en-US",
     "currency": "USD",

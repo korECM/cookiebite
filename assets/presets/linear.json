@@ -1,4 +1,45 @@
-{ "name":"linear","label":"Linear","source":"voltagent/awesome-design-md",
-  "font":{"family":"Inter","url":"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap","fallback":"-apple-system, system-ui, sans-serif"},
-  "colors":{"accent":"#5E6AD2","accentStrong":"#5360B8","accentWeak":"#EEF0FB","accentOn":"#FFFFFF","bg":"#FCFCFD","surface":"#FFFFFF","primary":"#0F1011","secondary":"#62666D","disabled":"#A0A4AD","placeholder":"#8A8F98","line":"#E4E6EB","lineWeak":"#F0F1F4","disabledBg":"#F5F6F7","critical":"#DC2626","cautionary":"#D97706","positive":"#27A644","informative":"#2563EB"},
-  "locale":{"number":"en-US","currency":"USD","symbol":"$","bigUnits":false} }
+{
+  "name": "linear",
+  "label": "Linear",
+  "font": {
+    "family": "Inter",
+    "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#5E6AD2",
+    "accentStrong": "#5360B8",
+    "accentWeak": "#EEF0FB",
+    "accentOn": "#FFFFFF",
+    "bg": "#FCFCFD",
+    "surface": "#FFFFFF",
+    "primary": "#0F1011",
+    "secondary": "#62666D",
+    "disabled": "#A0A4AD",
+    "placeholder": "#8A8F98",
+    "line": "#E4E6EB",
+    "lineWeak": "#F0F1F4",
+    "disabledBg": "#F5F6F7",
+    "critical": "#DC2626",
+    "cautionary": "#D97706",
+    "positive": "#27A644",
+    "informative": "#2563EB"
+  },
+  "seed": {
+    "font": "Inter, -apple-system, system-ui, sans-serif",
+    "background": "#FCFCFD",
+    "text": "#0F1011",
+    "accent": "#5E6AD2",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "source": "voltagent/awesome-design-md",
+  "locale": {
+    "number": "en-US",
+    "currency": "USD",
+    "symbol": "$",
+    "bigUnits": false
+  }
+}

@@ -27,6 +27,16 @@
     "positive": "#3E9B4F",
     "informative": "#0588F0"
   },
+  "seed": {
+    "font": "Pretendard, -apple-system, system-ui, sans-serif",
+    "background": "#FCFCFC",
+    "text": "#222222",
+    "accent": "#FA4D02",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
   "locale": {
     "number": "ko-KR",
     "currency": "KRW",

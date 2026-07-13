@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cookiebite theme seed",
+  "type": "object",
+  "required": ["schemaVersion", "seed"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "seed": {
+      "type": "object",
+      "required": ["font", "background", "text", "accent", "spaceUnit", "measure", "radius", "surface"]
+    }
+  }
+}
