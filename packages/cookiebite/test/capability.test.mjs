@@ -27,3 +27,10 @@ test('a non-sortable table registers no capability', async () => {
   assert.deepEqual(result.collected.calls, []);
   assert.match(result.markup, /<table[^>]*class="cb-table"/);
 });
+
+test('empty Glossary definition fails the build naming definition', () => {
+  const out = path.join(mkdtempSync(path.join(tmpdir(), 'cb-cap-')), 'empty.html');
+  const result = runCli(['build', fixture('empty-glossary.tsx'), '-o', out]);
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stderr, /definition/);
+});

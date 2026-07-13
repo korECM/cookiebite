@@ -66,8 +66,14 @@ export interface GlossaryProps {
 /**
  * 용어 정의. .cb-glossary-def 팝오버 스타일은 vendor core CSS에 이미 있으므로
  * registerCss는 생략한다.
+ * definition이 비어 있으면 render 시점에 throw — 조용한 skip 금지.
  */
 export function Glossary({ term, definition }: GlossaryProps): ReactNode {
+  if (definition.trim() === '') {
+    throw new Error(
+      'Glossary: definition이 비어 있습니다 — 용어 정의를 채우거나 컴포넌트를 제거하세요.',
+    );
+  }
   const id = useId();
   registerCall({ capability: 'glossary', hostId: id, options: { definition } });
   return (

@@ -36,3 +36,10 @@ test('rangedot renders one svg with capsule, dot, and hidden data table', async 
   assert.match(result.markup, /fill="var\(--cb-accent\)"/);
   assert.match(result.markup, /cb-visually-hidden/);
 });
+
+test('Section id pins section and h2 anchors for Claims evidence', async () => {
+  const result = await renderReport(fixture('section-id.tsx'));
+  assert.match(result.markup, /<section id="cause"/);
+  assert.match(result.markup, /id="cause-title"/);
+  assert.match(result.markup, /aria-labelledby="cause-title"/);
+});

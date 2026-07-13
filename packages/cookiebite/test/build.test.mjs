@@ -36,6 +36,14 @@ test('a color literal fails the build naming the literal', () => {
   assert.equal(existsSync(out), false);
 });
 
+test('a color literal in collected.css fails the build naming the literal', () => {
+  const out = path.join(mkdtempSync(path.join(tmpdir(), 'cb-build-')), 'bad-css.html');
+  const result = runCli(['build', fixture('bad-css.tsx'), '-o', out]);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /#FF0000/);
+  assert.equal(existsSync(out), false);
+});
+
 test('-o without a value fails with usage', () => {
   const result = runCli(['build', 'x.tsx', '-o']);
   assert.equal(result.code, 1);

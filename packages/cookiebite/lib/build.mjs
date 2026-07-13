@@ -34,6 +34,9 @@ export async function buildCommand(args) {
   const { markup, theme, title, lang, collected } = await renderReport(report);
 
   const violations = lintTokens(markup);
+  if (collected.css) {
+    violations.push(...lintTokens(`<style>${collected.css}</style>`));
+  }
   if (violations.length > 0) {
     const lines = violations.map((v) => `  [${v.source}] ${v.literal} — ${v.context}`);
     throw new BuildError(

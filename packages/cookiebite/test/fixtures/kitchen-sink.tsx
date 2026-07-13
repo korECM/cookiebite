@@ -56,7 +56,7 @@ export default (
         items={[
           {
             claim: '재시도 로직이 중복 승인을 만들었다',
-            evidence: 'https://logs.example.com/pay-gateway/retry',
+            evidence: '#cause',
             value: '중복 12건',
             tone: 'critical',
           },
@@ -73,7 +73,7 @@ export default (
       />
     </Section>
 
-    <Section title="발견">
+    <Section id="cause" title="발견">
       <Findings
         items={[
           {

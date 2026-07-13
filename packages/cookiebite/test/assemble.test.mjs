@@ -74,6 +74,15 @@ test('collected capabilities emit marker, module, script, and summary', () => {
   assert.match(script, /CB\.sortable\(document\.getElementById\("t1"\), \{"numericColumns":\[1\]\}\)/);
   assert.match(script, /CB\.glossary\(/);
   assert.doesNotMatch(script, /<\/script>/i);
+  // 호출별 try/catch 격리 — 첫 호출이 throw해도 둘째가 실행된다.
+  assert.match(
+    script,
+    /try \{\s*window\.CB\.sortable\([\s\S]*?\}\s*catch \(error\) \{\s*console\.error\('cookiebite capability failed:', error\);\s*\}/,
+  );
+  assert.match(
+    script,
+    /try \{\s*window\.CB\.glossary\([\s\S]*?\}\s*catch \(error\) \{\s*console\.error\('cookiebite capability failed:', error\);\s*\}/,
+  );
   const summary = JSON.parse(html.match(/id="cookiebite-dependency-summary">\s*([\s\S]*?)\s*<\/script>/)[1]);
   assert.deepEqual(summary.declared, ['glossary', 'table']);
   assert.deepEqual(summary.includedModules, ['glossary', 'table']);
@@ -86,6 +95,27 @@ test('collected capabilities emit marker, module, script, and summary', () => {
     assert.ok(index > cursor, `${marker} in order`);
     cursor = index;
   }
+});
+
+test('each capability call is wrapped in its own try/catch so one throw does not stop the next', () => {
+  const collected = {
+    calls: [
+      { capability: 'table', hostId: 't1', options: {} },
+      { capability: 'glossary', hostId: 'g1', options: { definition: '정의' } },
+    ],
+  };
+  const html = assembleDocument({ ...base, collected });
+  const script = html.match(/id="cookiebite-report-script">([\s\S]*?)<\/script>/)[1];
+  const tryBlocks = [...script.matchAll(/try \{/g)];
+  assert.equal(tryBlocks.length, 2);
+  assert.match(script, /cookiebite:core-ready/);
+  assert.match(script, /console\.error\('cookiebite capability failed:', error\)/);
+  // 두 호출이 각각 try 안에 있고, sortable 실패 뒤에도 glossary 호출이 남아 있다.
+  const sortableIdx = script.indexOf('CB.sortable');
+  const glossaryIdx = script.indexOf('CB.glossary');
+  assert.ok(sortableIdx > 0 && glossaryIdx > sortableIdx);
+  const firstCatch = script.indexOf("console.error('cookiebite capability failed:'");
+  assert.ok(firstCatch > sortableIdx && firstCatch < glossaryIdx);
 });
 
 test('omitted collected keeps the phase 1 document shape', () => {

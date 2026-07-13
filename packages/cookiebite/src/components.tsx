@@ -1,6 +1,7 @@
 // 컴포넌트 인덱스 (1줄 시그니처):
+//   Section({ title, children, id? })                        — 섹션 (id 주면 section/h2 앵커 고정)
 //   KpiRow({ items: KpiItem[] })                             — KPI 카드 줄 (dl)
-//   Claims({ items: ClaimItem[], title? })                   — 주장→증거 앵커 목록
+//   Claims({ items: ClaimItem[], title? })                   — 주장→증거 앵커 목록 (evidence: '#section-id')
 //   Findings({ items: FindingItem[] })                       — 심각도 배지 발견 목록
 //   Matrix({ rows, cols, data, max?, format?, ariaLabel, caption? }) — accent 오버레이 히트 테이블
 //   RangeDot({ rows, domain?, format?, unit?, ariaLabel })   — min-max-value SVG figure
@@ -41,12 +42,15 @@ export function Standfirst({ kicker, headline, children }: StandfirstProps) {
 export interface SectionProps {
   title: string;
   children: ReactNode;
+  /** 주어지면 section id와 h2 id(`${id}-title`)를 고정해 Claims evidence 앵커로 쓴다. */
+  id?: string;
 }
 
-export function Section({ title, children }: SectionProps) {
-  const headingId = useId();
+export function Section({ title, children, id }: SectionProps) {
+  const autoId = useId();
+  const headingId = id === undefined ? autoId : `${id}-title`;
   return (
-    <section aria-labelledby={headingId}>
+    <section id={id} aria-labelledby={headingId}>
       <h2 id={headingId}>{title}</h2>
       {children}
     </section>

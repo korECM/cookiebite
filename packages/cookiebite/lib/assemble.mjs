@@ -62,7 +62,7 @@ export function assembleDocument({ markup, theme, title, lang, collected }) {
 ${calls
   .map(
     (c) =>
-      `  window.CB.${CALL_METHOD[c.capability]}(document.getElementById(${scriptSafeJson(c.hostId)}), ${scriptSafeJson(c.options)});`,
+      `  try {\n    window.CB.${CALL_METHOD[c.capability]}(document.getElementById(${scriptSafeJson(c.hostId)}), ${scriptSafeJson(c.options)});\n  } catch (error) {\n    console.error('cookiebite capability failed:', error);\n  }`,
   )
   .join('\n')}
 }());
