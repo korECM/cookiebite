@@ -70,6 +70,22 @@ test('warnings do not block but are recorded', () => {
   assert.equal(exitCodeFor(result), 0); // warnings + complete review => pass
 });
 
+test('a declared capability that does not respond when driven is a hard failure', () => {
+  const ok = classify(measurements({
+    report: { declared: ['table'], calledAtRuntime: ['table'], capabilityChecks: [{ capability: 'table', action: 'sort', ok: true }] },
+  }));
+  assert.equal(ok.findings.filter((f) => f.ruleId === 'capability-not-functional').length, 0);
+
+  const broken = classify(measurements({
+    report: { declared: ['table'], calledAtRuntime: ['table'], capabilityChecks: [{ capability: 'table', action: 'sort', ok: false }] },
+  }));
+  const f = broken.findings.find((x) => x.ruleId === 'capability-not-functional');
+  assert.ok(f);
+  assert.equal(f.severity, 'error');
+  assert.equal(f.selector, 'table');
+  assert.equal(exitCodeFor(broken), 1);
+});
+
 test('missing required manual review is incomplete, not passed (exit 2)', () => {
   const result = classify(measurements({ manualReview: [{ id: 'caption-meaning', note: 'ok' }] }));
   assert.equal(result.complete, false);

@@ -95,6 +95,16 @@ export function classify(measurements) {
     }
   }
 
+  // Declared capabilities must actually respond to their registered action when driven.
+  for (const check of report.capabilityChecks || []) {
+    if (!check.ok) {
+      findings.push(finding('capability-not-functional', HARD, null, {
+        selector: check.capability,
+        reason: `declared capability '${check.capability}' did not respond to its '${check.action}' action`,
+      }));
+    }
+  }
+
   const dependencyBytes = report.dependencyBytes ?? null;
   findings.push(finding('dependency-inventory', INFO, null, { measured: dependencyBytes, reason: `report ships ${report.includedModules ? report.includedModules.length : 0} module(s)` }));
 

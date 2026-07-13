@@ -49,6 +49,33 @@ for (const [w, h] of [[390, 900], [1280, 900]]) {
   const view = evalPage(dom);
   if (view && typeof view === 'object') viewports.push(view);
 }
+// Drive declared interactive capabilities and confirm they respond (DESIGN §6 /
+// plan Task 4 Step 4). Deterministic controls only; motion/export need author
+// triggers and are covered by the declared/runtime-call parity check.
+const declaredCaps = evalPage(`(function(){var s=document.getElementById('cookiebite-dependency-summary');return s?(JSON.parse(s.textContent).declared||[]):[];})()`);
+const capabilityChecks = [];
+if (Array.isArray(declaredCaps)) {
+  ab('viewport', '1280', '900');
+  ab('wait', '200');
+  if (declaredCaps.includes('chart')) {
+    const ok = evalPage(`!!document.querySelector('[role="img"] canvas, [role="img"] svg')`);
+    capabilityChecks.push({ capability: 'chart', action: 'render', ok: ok === true });
+  }
+  if (declaredCaps.includes('table')) {
+    ab('click', 'th button.cb-sort');
+    ab('wait', '150');
+    const ok = evalPage(`!!document.querySelector('th[aria-sort]')`);
+    capabilityChecks.push({ capability: 'table', action: 'sort', ok: ok === true });
+  }
+  if (declaredCaps.includes('glossary')) {
+    ab('focus', '[aria-describedby]');
+    ab('wait', '150');
+    const ok = evalPage(`(function(){var d=document.querySelector('.cb-glossary-def');return d?!d.hidden:false;})()`);
+    ab('eval', `(function(){var t=document.querySelector('[aria-describedby]');if(t)t.blur();return 0;})()`);
+    capabilityChecks.push({ capability: 'glossary', action: 'open', ok: ok === true });
+  }
+}
+
 // Dark pass — only when the seed declares dark (DESIGN §6). CB.theme.set('dark')
 // toggles data-theme so the inlined dark tokens paint; dom.js then tags theme='dark'.
 const declaresDark = evalPage(`(function(){var s=document.getElementById('cookiebite-theme');if(!s)return false;try{return !!JSON.parse(s.textContent).dark;}catch(e){return false;}})()`);
@@ -65,6 +92,7 @@ ab('close');
 
 const reportObj = (report && typeof report === 'object') ? report : {};
 if (viewports.length) reportObj.calledAtRuntime = reportObj.calledAtRuntime || viewports[0].calledAtRuntime || [];
+reportObj.capabilityChecks = capabilityChecks;
 
 const measurements = {
   report: reportObj,
