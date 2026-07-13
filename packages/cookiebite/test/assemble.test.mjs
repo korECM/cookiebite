@@ -27,6 +27,14 @@ test('assembled document carries the canonical block ids in order', () => {
   assert.match(html, /<link rel="stylesheet" href="https:\/\/cdn\.jsdelivr[^"]*pretendard[^"]*">/);
 });
 
+test('theme block round-trips as a JSON object', () => {
+  const html = assembleDocument(base);
+  const theme = JSON.parse(html.match(/id="cookiebite-theme">\s*([\s\S]*?)\s*<\/script>/)[1]);
+  assert.equal(typeof theme, 'object');
+  assert.equal(theme.schemaVersion, 1);
+  assert.equal(theme.seed.accent, persimmon.seed.accent);
+});
+
 test('dependency summary is core mode with no modules', () => {
   const html = assembleDocument(base);
   const summary = JSON.parse(html.match(/id="cookiebite-dependency-summary">\s*([\s\S]*?)\s*<\/script>/)[1]);

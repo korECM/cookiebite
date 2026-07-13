@@ -39,7 +39,7 @@ export function assembleDocument({ markup, theme, title, lang }) {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${escapeHtml(title)}</title>
   <script type="application/json" id="cookiebite-theme">
-${CookiebiteTheme.escapeJsonForHtml(JSON.stringify(theme))}
+${CookiebiteTheme.escapeJsonForHtml(theme)}
   </script>
   <!-- COOKIEBITE:USE -->
   <style id="cookiebite-theme-css">
