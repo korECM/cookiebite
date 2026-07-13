@@ -1,0 +1,53 @@
+import { build } from 'esbuild';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+export class BuildError extends Error {}
+
+export async function renderReport(reportPath) {
+  const absolute = path.resolve(reportPath);
+  const entry = [
+    `import element from ${JSON.stringify(absolute)};`,
+    "import { renderToStaticMarkup } from 'react-dom/server';",
+    'export const displayName = element?.type?.displayName ?? null;',
+    'export const props = element?.props ?? null;',
+    "export const markup = displayName === 'CookiebiteReport' ? renderToStaticMarkup(element) : null;",
+  ].join('\n');
+
+  const outDir = mkdtempSync(path.join(tmpdir(), 'cookiebite-'));
+  const outfile = path.join(outDir, 'report.mjs');
+  try {
+    await build({
+      stdin: { contents: entry, resolveDir: pkgRoot, loader: 'js' },
+      bundle: true,
+      format: 'esm',
+      platform: 'node',
+      jsx: 'automatic',
+      alias: {
+        'cookiebite/themes': path.join(pkgRoot, 'src/themes.ts'),
+        cookiebite: path.join(pkgRoot, 'src/index.ts'),
+      },
+      define: { 'process.env.NODE_ENV': '"production"' },
+      banner: {
+        js: "import { createRequire as __cbCreateRequire } from 'node:module';\nconst require = __cbCreateRequire(import.meta.url);",
+      },
+      outfile,
+      logLevel: 'silent',
+    });
+    const mod = await import(pathToFileURL(outfile).href);
+    if (mod.displayName !== 'CookiebiteReport') {
+      throw new BuildError(
+        `${reportPath}: default export가 <Report> 엘리먼트가 아닙니다. ` +
+          'export default (<Report theme={...} title="...">...</Report>) 형태여야 합니다.',
+      );
+    }
+    const { theme, title, lang = 'ko' } = mod.props;
+    return { markup: mod.markup, theme, title, lang };
+  } finally {
+    rmSync(outDir, { recursive: true, force: true });
+  }
+}
