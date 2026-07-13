@@ -35,7 +35,12 @@ export async function renderReport(reportPath) {
         'cookiebite/themes': path.join(pkgRoot, 'src/themes.ts'),
         cookiebite: path.join(pkgRoot, 'src/index.ts'),
       },
-      define: { 'process.env.NODE_ENV': '"production"' },
+      // chart-compile이 번들되면 import.meta.url이 outfile을 가리킨다.
+      // 패키지 루트를 주입해 flint-chart / theme-compiler resolve를 유지한다.
+      define: {
+        'process.env.NODE_ENV': '"production"',
+        __COOKIEBITE_PKG_ROOT__: JSON.stringify(pkgRoot),
+      },
       banner: {
         js: "import { createRequire as __cbCreateRequire } from 'node:module';\nconst require = __cbCreateRequire(import.meta.url);",
       },

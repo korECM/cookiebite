@@ -1,4 +1,4 @@
-export type CapabilityName = 'table' | 'glossary';
+export type CapabilityName = 'table' | 'glossary' | 'chart';
 
 export interface CapabilityCall {
   capability: CapabilityName;

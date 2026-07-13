@@ -2,9 +2,14 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const require = createRequire(import.meta.url);
+// render.mjs esbuild가 번들할 때 __COOKIEBITE_PKG_ROOT__를 주입한다.
+// 직접 import(테스트) 시에는 이 파일 위치 기준으로 패키지 루트를 잡는다.
+const pkgRoot =
+  typeof __COOKIEBITE_PKG_ROOT__ === 'string'
+    ? __COOKIEBITE_PKG_ROOT__
+    : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const require = createRequire(path.join(pkgRoot, 'package.json'));
 const { assembleECharts } = require('flint-chart');
-const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { CookiebiteTheme } = require(path.join(pkgRoot, 'vendor/theme-compiler.cjs'));
 
 export class ChartCompileError extends Error {}

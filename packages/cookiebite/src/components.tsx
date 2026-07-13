@@ -9,6 +9,7 @@
 import { useId, type ReactNode } from 'react';
 import type { ThemeDocument } from './themes.ts';
 import { registerCss } from './collect.ts';
+import { ThemeContext } from './theme-context.ts';
 
 export interface ReportProps {
   theme: ThemeDocument;
@@ -18,8 +19,12 @@ export interface ReportProps {
 }
 
 /** 문서 루트. 빌더가 theme, title, lang prop을 읽어 <head>를 조립한다. */
-export function Report({ children }: ReportProps) {
-  return <main>{children}</main>;
+export function Report({ theme, children }: ReportProps) {
+  return (
+    <ThemeContext.Provider value={theme}>
+      <main>{children}</main>
+    </ThemeContext.Provider>
+  );
 }
 Report.displayName = 'CookiebiteReport';
 
