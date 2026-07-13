@@ -14,8 +14,6 @@ const CORE_JS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.js'
 // capabilities never wire onto their hosts).
 const THEME_COMPILER_JS = readFileSync(path.join(pkgRoot, 'vendor/theme-compiler.cjs'), 'utf8');
 
-const CALL_METHOD = { table: 'sortable', glossary: 'glossary' };
-
 function escapeHtml(text) {
   return String(text)
     .replaceAll('&', '&amp;')
@@ -28,11 +26,22 @@ function scriptSafeJson(value) {
   return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+function defaultRenderCall(method) {
+  return (call) =>
+    `window.CB.${method}(document.getElementById(${scriptSafeJson(call.hostId)}), ${scriptSafeJson(call.options)});`;
+}
+
+// Task 4가 chart 항목을 여기 한곳에 추가한다.
+const CAPABILITY_META = {
+  table: { method: 'sortable', resources: [], renderCall: defaultRenderCall('sortable') },
+  glossary: { method: 'glossary', resources: [], renderCall: defaultRenderCall('glossary') },
+};
+
 export function assembleDocument({ markup, theme, title, lang, collected }) {
   const { calls = [], css: componentCss = '' } = collected ?? {};
   const capabilities = [...new Set(calls.map((c) => c.capability))].sort();
   for (const c of capabilities) {
-    if (!CALL_METHOD[c]) throw new Error(`unknown capability '${c}'`);
+    if (!CAPABILITY_META[c]) throw new Error(`unknown capability '${c}'`);
   }
 
   const compiled = CookiebiteTheme.compile(theme);
@@ -62,7 +71,7 @@ export function assembleDocument({ markup, theme, title, lang, collected }) {
 ${calls
   .map(
     (c) =>
-      `  try {\n    window.CB.${CALL_METHOD[c.capability]}(document.getElementById(${scriptSafeJson(c.hostId)}), ${scriptSafeJson(c.options)});\n  } catch (error) {\n    console.error('cookiebite capability failed:', error);\n  }`,
+      `  try {\n    ${CAPABILITY_META[c.capability].renderCall(c)}\n  } catch (error) {\n    console.error('cookiebite capability failed:', error);\n  }`,
   )
   .join('\n')}
 }());
@@ -74,7 +83,7 @@ ${calls
     mode: 'core',
     declared: capabilities,
     includedModules: capabilities,
-    externalResources: [],
+    externalResources: [...new Set(capabilities.flatMap((c) => CAPABILITY_META[c].resources))],
     versions: { cookiebite: pkg.version },
   };
   const bodyScripts = [moduleBlocks, reportScript].filter(Boolean).join('\n');

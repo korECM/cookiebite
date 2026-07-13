@@ -16,11 +16,5 @@
     }
   },
   "include": ["src", "test/fixtures", "templates"],
-  "exclude": [
-    "test/fixtures/bad-type.tsx",
-    "test/fixtures/bad-color.tsx",
-    "test/fixtures/bad-css.tsx",
-    "test/fixtures/empty-glossary.tsx",
-    "test/fixtures/not-report.tsx"
-  ]
+  "exclude": ["test/fixtures/bad-type.tsx"]
 }

@@ -1,3 +1,4 @@
+// 의도적 타입 에러 픽스처 — typecheck 실패 경로 테스트용
 import { Report, Section } from 'cookiebite';
 import { persimmon } from 'cookiebite/themes';
 

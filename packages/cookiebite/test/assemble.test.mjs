@@ -123,3 +123,10 @@ test('omitted collected keeps the phase 1 document shape', () => {
   assert.match(html, /<!-- COOKIEBITE:USE -->/);
   assert.doesNotMatch(html, /cookiebite-components-css|cookiebite-module-|cookiebite-report-script/);
 });
+
+test('an unknown capability throws before assembly', () => {
+  assert.throws(
+    () => assembleDocument({ ...base, collected: { calls: [{ capability: 'hologram', hostId: 'x', options: {} }], css: '' } }),
+    /unknown capability 'hologram'/,
+  );
+});
