@@ -130,3 +130,33 @@ test('an unknown capability throws before assembly', () => {
     /unknown capability 'hologram'/,
   );
 });
+
+test('collected chart emits marker, module, echarts CDN, dark option picker, and summary', () => {
+  const collected = {
+    calls: [
+      {
+        capability: 'chart',
+        hostId: 'c1',
+        options: {
+          light: { color: ['#FA4D02'], series: [{ type: 'bar', data: [1] }] },
+          dark: { color: ['#FF8A5B'], series: [{ type: 'bar', data: [1] }] },
+          data: { columns: ['x', 'y'], rows: [['a', 1]] },
+          ariaLabel: '차트 </script> 라벨',
+        },
+      },
+    ],
+    css: '',
+  };
+  const html = assembleDocument({ ...base, collected });
+  assert.match(html, /<!-- COOKIEBITE:USE chart -->/);
+  assert.match(html, /id="cookiebite-module-chart"/);
+  assert.match(html, /<script src="https:\/\/cdn\.jsdelivr\.net\/npm\/echarts@5\.5\.1\/dist\/echarts\.min\.js"><\/script>/);
+  const script = html.match(/id="cookiebite-report-script">([\s\S]*?)<\/script>/)[1];
+  assert.match(script, /data-theme.*dark/);
+  assert.match(script, /CB\.chart\(/);
+  assert.doesNotMatch(script, /<\/script>/i);
+  const summary = JSON.parse(html.match(/id="cookiebite-dependency-summary">\s*([\s\S]*?)\s*<\/script>/)[1]);
+  assert.deepEqual(summary.externalResources, ['echarts']);
+  assert.ok(typeof summary.versions.cookiebite === 'string' && summary.versions.cookiebite.length > 0);
+  assert.equal(summary.versions.echarts, '5.5.1');
+});

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -40,6 +40,15 @@ test('empty Chart ariaLabel fails the build naming ariaLabel', () => {
   const result = runCli(['build', fixture('chart-report-empty-aria.tsx'), '-o', out]);
   assert.equal(result.code, 1, result.stderr);
   assert.match(result.stderr, /ariaLabel/);
+});
+
+test('build chart-report emits chart module and echarts CDN', () => {
+  const out = path.join(mkdtempSync(path.join(tmpdir(), 'cb-chart-e2e-')), 'chart.html');
+  const result = runCli(['build', fixture('chart-report.tsx'), '-o', out]);
+  assert.equal(result.code, 0, result.stderr);
+  const html = readFileSync(out, 'utf8');
+  assert.match(html, /id="cookiebite-module-chart"/);
+  assert.match(html, /cdn\.jsdelivr\.net\/npm\/echarts@5\.5\.1\/dist\/echarts\.min\.js/);
 });
 
 // Provider-null 가드(Report 밖 Chart)는 renderReport가 displayName 가드에 먼저

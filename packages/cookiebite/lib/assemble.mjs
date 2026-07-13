@@ -31,10 +31,30 @@ function defaultRenderCall(method) {
     `window.CB.${method}(document.getElementById(${scriptSafeJson(call.hostId)}), ${scriptSafeJson(call.options)});`;
 }
 
-// Task 4가 chart 항목을 여기 한곳에 추가한다.
+const RESOURCE_TAGS = {
+  echarts: {
+    tag: '<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>',
+    version: ['echarts', '5.5.1'],
+  },
+};
+
 const CAPABILITY_META = {
   table: { method: 'sortable', resources: [], renderCall: defaultRenderCall('sortable') },
   glossary: { method: 'glossary', resources: [], renderCall: defaultRenderCall('glossary') },
+  chart: {
+    method: 'chart',
+    resources: ['echarts'],
+    renderCall(call) {
+      const { light, dark, data, ariaLabel } = call.options;
+      return [
+        `window.CB.chart(document.getElementById(${scriptSafeJson(call.hostId)}), {`,
+        `  option: function () { return document.documentElement.getAttribute('data-theme') === 'dark' ? ${scriptSafeJson(dark)} : ${scriptSafeJson(light)}; },`,
+        `  data: ${scriptSafeJson(data)},`,
+        `  ariaLabel: ${scriptSafeJson(ariaLabel)},`,
+        `});`,
+      ].join('\n');
+    },
+  },
 };
 
 export function assembleDocument({ markup, theme, title, lang, collected }) {
@@ -52,6 +72,15 @@ export function assembleDocument({ markup, theme, title, lang, collected }) {
   }
   const fontLinks = (compiled.resources?.fontStylesheets ?? [])
     .map((href) => `  <link rel="stylesheet" href="${href}">`)
+    .join('\n');
+
+  const externalResources = [...new Set(capabilities.flatMap((c) => CAPABILITY_META[c].resources))];
+  const resourceTags = externalResources
+    .map((name) => {
+      const meta = RESOURCE_TAGS[name];
+      if (!meta) throw new Error(`unknown resource '${name}'`);
+      return `  ${meta.tag}`;
+    })
     .join('\n');
 
   const useMarker = `<!-- COOKIEBITE:USE${capabilities.length ? ` ${capabilities.join(' ')}` : ''} -->`;
@@ -78,13 +107,18 @@ ${calls
 </script>`
     : '';
 
+  const versions = { cookiebite: pkg.version };
+  for (const name of externalResources) {
+    const [key, ver] = RESOURCE_TAGS[name].version;
+    versions[key] = ver;
+  }
   const summary = {
     schemaVersion: 1,
     mode: 'core',
     declared: capabilities,
     includedModules: capabilities,
-    externalResources: [...new Set(capabilities.flatMap((c) => CAPABILITY_META[c].resources))],
-    versions: { cookiebite: pkg.version },
+    externalResources,
+    versions,
   };
   const bodyScripts = [moduleBlocks, reportScript].filter(Boolean).join('\n');
   return `<!doctype html>
@@ -100,7 +134,7 @@ ${CookiebiteTheme.escapeJsonForHtml(theme)}
   <style id="cookiebite-theme-css">
 ${themeCss}
   </style>
-${fontLinks}
+${fontLinks}${resourceTags ? `\n${resourceTags}` : ''}
   <style id="cookiebite-core-css">
 ${CORE_CSS}
   </style>${componentsCssBlock}
