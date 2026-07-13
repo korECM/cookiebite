@@ -1,372 +1,77 @@
 <!doctype html>
 <!--
-  cookiebite report template — SLIM. Invariant boilerplate (Tailwind config, number
-  helpers, baseChart, dark toggle, TOC observer, KPI hydration) lives in the hosted
-  runtime (assets/cookiebite.js + cookiebite.css), loaded via CDN or inlined by
-  scripts/inline.sh — 0 model tokens.
+  Cookiebite reading template — the DEFAULT freeform report.
 
-  Author by:  cp assets/template.html my-report.html  →  surgical Edit into the
-  COOKIEBITE:* slot markers below. Use the fast-path helpers
-  (COOKIEBITE.kpis/findings/timeline/table/chart/pill/callout) for repetitive
-  sections; drop to raw HTML + exposed primitives (baseChart, css, accentRgba,
-  registerChart, the CSS-var tokens) for anything bespoke. Both share one accent
-  and a working dark toggle.
+  This is a quiet reading document: the author owns semantic HTML and the
+  argument's order. The core runtime adds only reset/typography/focus and
+  optional behavior. It never draws a card, section, or control for you.
 
-  Re-theme the whole report by swapping the THEME block in <head> (design one with
-  assets/theme-studio.html and paste its "Copy CSS" output, or run
-  scripts/apply-theme.py).
+  To add behavior, list capabilities in the COOKIEBITE:USE marker below, drop
+  the matching module <script> into COOKIEBITE:MODULES, and call them in
+  COOKIEBITE:REPORT-SCRIPT. Then run scripts/inline.sh to produce a
+  self-contained file with only the dependencies you declared.
+
+  Localize <html lang> and prose by hand for non-Korean reports.
 -->
-<!-- COOKIEBITE:LANG — for a non-Korean report you MUST localize 3 things by hand:
-     (1) this html lang below (en for English, etc. — affects screen-reader pronunciation
-     + hyphenation), (2) the '목차' TOC heading in COOKIEBITE:TOC (→ "Contents"/etc.), and
-     (3) window.REPORT_LOCALE below (the ko-KR/₩ default formats numbers/money + toggle
-     labels in Korean — set number/currency/symbol for your locale).
-     apply-theme.py rewrites lang + REPORT_LOCALE from the preset; the TOC heading is manual. -->
+<!-- COOKIEBITE:LANG -->
 <html lang="ko"><!-- /COOKIEBITE:LANG -->
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<!-- COOKIEBITE:TITLE --><title>‹REPLACE› 주간 지표 리포트</title><!-- /COOKIEBITE:TITLE -->
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- COOKIEBITE:TITLE --><title>‹REPLACE› 리포트 제목</title><!-- /COOKIEBITE:TITLE -->
 
-<!-- COOKIEBITE:HEAD-THEME -->
-<!-- THEME — preset: Persimmon. The ONLY model-authored theme tokens. Swap to re-theme
-     (assets/theme-studio.html / scripts/apply-theme.py rewrites this block).
-     Kept INLINE + synchronous so the correct accent+neutrals apply at first paint (FOUC-proof). -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
-<style>
-  :root{
-    --font-family:'Pretendard',-apple-system, system-ui, sans-serif;
-    --accent:#FA4D02;  --accent-strong:#D63E00;  --accent-weak:#FFEDE6;  --accent-on:#FFFFFF;  --accent-on-text:#2A1206;
-    --c-bg:#FCFCFC;  --c-surface:#FFFFFF;  --c-primary:#222222;  --c-secondary:#555555;  --c-disabled:#B0B0B0;  --c-placeholder:#C7C7C7;  --c-line:#C7C7C7;  --c-line-weak:#E4E4E4;  --c-disabled-bg:#F0F0F0;
-    --c-critical:#CE2C31;  --c-cautionary:#FBB800;  --c-positive:#3E9B4F;  --c-informative:#0588F0;
-  }
-</style>
-<script>window.REPORT_LOCALE = {'number': 'ko-KR', 'currency': 'KRW', 'symbol': '₩', 'bigUnits': true};</script>
-<!-- OPTIONAL "Look" system — leave commented for today's exact look. Uncomment + set any
-     subset to opt in; the runtime reads window.REPORT_LOOK once at init (CB.applyLook) and
-     sets the html data-* attributes + :root vars. Every knob is optional; an absent/commented
-     REPORT_LOOK === today, byte-for-byte. (Design one in assets/theme-studio.html, or let
-     scripts/apply-theme.py emit it from a preset's "look":{} block.)
-<script>
-  window.REPORT_LOOK = {
-    // density:       'compact' | 'comfortable' | 'spacious',   // → --density-scale (0.82/1/1.18); comfortable === today
-    // radiusScale:   1,            // Sharp 0 / Subtle .6 / Default 1 / Round 1.4 → --radius-scale
-    // elevation:     'flat' | 'soft' | 'sharp' | 'bordered',   // → --shadow-sm/--shadow-md; soft === today
-    // surface:       'card' | 'flat' | 'outlined',             // → --surface-fill/--surface-border-w/--surface-shadow; card === today
-    // borderW:       1,            // .5 | 1 | 1.5 (px) → --border-w
-    // borderStyle:   'solid',      // 'solid' | 'dashed' → --border-style
-    // paletteMode:   'analogous',  // 'mono' | 'analogous' | 'categorical' | 'sequential'; analogous === today
-    // headingFont:   { family: 'Newsreader', url: 'https://…', fallback: 'Georgia, serif' }, // → --font-heading
-    // measureProse:  '68ch',       // → --measure-prose
-    // measurePage:   '1400px',     // → --measure-page (clamped to min(var,100vw-gutters))
-    // bg:            'plain' | 'wash' | 'pattern',             // body bg only; plain === today
-    // header:        'standard' | 'banded' | 'bordered',       // → --header-bg/--header-rule
-    // semanticPreset:'classic' | 'muted' | 'vivid' | 'colorblind-safe',  // → --c-critical/cautionary/positive/informative
-    // darkTint:      'neutral' | 'warm' | 'cool' | 'accent',   // dark-mode surface tint; neutral === today
-  };
-</script>
--->
-<!-- end THEME -->
-<!-- /COOKIEBITE:HEAD-THEME -->
+  <!-- The inert theme seed. Swap values or a whole preset seed; the compiler
+       turns it into contrast-safe --cb-* tokens at inline time. -->
+  <script type="application/json" id="cookiebite-theme">
+{"schemaVersion":1,"seed":{"font":"Pretendard, -apple-system, system-ui, sans-serif","background":"#FCFCFC","text":"#222222","accent":"#FA4D02","spaceUnit":4,"measure":"68ch","radius":12,"surface":"border"},"resources":{"fontStylesheets":["https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"]},"locale":{"number":"ko-KR","currency":"KRW"}}
+  </script>
 
-<!-- cookiebite runtime — DO NOT EDIT / DO NOT REORDER.
-     Tailwind Play CDN must load FIRST; cookiebite.js then sets tailwind.config (the CDN
-     reads it before its scan). cookiebite.js carries no defer/module so it runs in order.
-     These two cookiebite lines are PLACEHOLDERS: scripts/inline.sh folds the runtime in
-     from the skill's local assets/ to produce the self-contained deliverable. The raw
-     report is non-functional until inlined — always run inline.sh before handing over. -->
-<script src="https://cdn.tailwindcss.com"></script>
-<link rel="stylesheet" href="./assets/cookiebite.css" />
-<script src="./assets/cookiebite.js"></script>
-<!-- echarts powers charts + KPI sparklines; countup rolls up KPI numbers. Safe rule
-     first: a KPI/status report (uses COOKIEBITE.kpis) KEEPS countup (without it the
-     numbers render as a literal "0") and deletes only echarts (when there's no chart and
-     no KPI sparkline). DELETE BOTH lines only for a pure-prose explainer with no KPIs
-     and no charts. -->
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/countup.js@2.8.0/dist/countUp.umd.js"></script>
-<!-- @alpinejs/collapse must load BEFORE Alpine core (defer preserves order) — COOKIEBITE.timeline uses x-collapse -->
-<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.14.1/dist/cdn.min.js"></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <!-- Declare behavior here. An empty marker is valid (a pure reading doc).
+       Add capabilities as space-separated names inside the marker. -->
+  <!-- COOKIEBITE:USE -->
 
-<!-- COOKIEBITE:HEAD-LIBS -->
-<!-- OPTIONAL libs — add/remove here. Remove if unused. -->
-<!-- Grid.js (COOKIEBITE.table needs this) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/theme/mermaid.min.css" />
-<script src="https://cdn.jsdelivr.net/npm/gridjs@6.2.0/dist/gridjs.umd.js"></script>
-<!-- Glossary tooltips (Tippy.js + Popper) — dotted-underline jargon → definition on hover/focus -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.css" />
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy.umd.min.js"></script>
-<!-- Syntax highlighting (highlight.js) — for CB.code / CB.codeTabs and hand-authored
-     <pre><code class="language-*">. Themed via cookiebite.css's .hljs token layer (NOT
-     hljs's own stylesheet — do NOT add an hljs theme CSS, it would fight the tokens).
-     Remove this line for a report with no source code. -->
-<script src="https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js"></script>
-<!-- /COOKIEBITE:HEAD-LIBS -->
+  <link rel="stylesheet" href="./assets/core/cookiebite-core.css">
 </head>
-<body class="bg-bg text-primary">
-<!-- light/dark toggle is injected by the runtime if absent; charts re-theme via the registry -->
-<!-- responsive gutter: phones reclaim ~16px (charts/tables need it), wide screens breathe -->
-<div class="mx-auto max-w-[1400px] px-16 sm:px-24 lg:px-40">
-  <!-- flex-row-reverse puts the TOC on the RIGHT while keeping it first in DOM order -->
-  <div class="flex flex-row-reverse gap-40">
+<body>
+  <main>
+    <!-- COOKIEBITE:HEADER -->
+    <header>
+      <p class="cb-muted">‹REPLACE› 리포트 종류 / 기간</p>
+      <h1>‹REPLACE› 한 문장으로 요약한 결론</h1>
+      <p>‹REPLACE› 결론을 뒷받침하는 한두 문장의 standfirst. 독자의 첫 질문에 먼저 답한다.</p>
+    </header>
+    <!-- /COOKIEBITE:HEADER -->
 
-    <!-- ===== TOC sidebar — right rail (drop the whole <nav> if <3 sections) ===== -->
-    <nav class="hidden lg:block w-[190px] shrink-0">
-      <div class="sticky top-24 py-40">
-        <!-- COOKIEBITE:TOC -->
-        <p class="text-caption-12 text-text-disabled mb-12 pl-12">목차</p><!-- localize me for non-Korean reports → "Contents" / etc. -->
-        <ul id="toc" class="space-y-2 text-body-14">
-          <!-- one <li> per section id; the runtime auto-wires the active-section observer -->
-          <li><a href="#summary"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">개요</a></li>
-          <li><a href="#trend"    class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">일별 추이</a></li>
-          <li><a href="#findings" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">발견사항</a></li>
-          <li><a href="#timeline" class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">타임라인</a></li>
-          <li><a href="#detail"   class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">채널별 분석</a></li>
-          <li><a href="#bespoke"  class="block px-12 py-8 rounded-small text-secondary hover:text-primary transition">심화 분석</a></li>
-        </ul>
-        <!-- /COOKIEBITE:TOC -->
-      </div>
-    </nav>
+    <!-- COOKIEBITE:SECTIONS -->
+    <section aria-labelledby="s1-title">
+      <h2 id="s1-title">‹REPLACE› 근거 1</h2>
+      <p>‹REPLACE› 주장을 증거로 잇는 본문. 표나 그림이 필요하면 여기에 authored markup으로 둔다.</p>
+    </section>
 
-    <!-- ===== main column ===== -->
-    <main class="min-w-0 flex-1 py-40">
+    <section aria-labelledby="s2-title">
+      <h2 id="s2-title">‹REPLACE› 근거 2</h2>
+      <p>‹REPLACE› 두 번째 근거. 반복되는 값만 report-local custom property로 승격한다.</p>
+    </section>
+    <!-- /COOKIEBITE:SECTIONS -->
 
-      <!-- COOKIEBITE:HEADER -->
-      <header class="mb-40">
-        <div class="flex flex-wrap items-center gap-8 mb-16">
-          <span class="px-10 py-4 rounded-xxs bg-accent text-accent-on-text text-caption-12 font-semibold">‹REPLACE› 주간</span>
-          <span class="px-10 py-4 rounded-xxs bg-disabled-bg text-secondary text-caption-12 nums">2026-06-08 ~ 06-14</span>
-        </div>
-        <h1 class="text-headline-36 font-bold tracking-tight">‹REPLACE› 주간 지표 리포트</h1>
-        <p class="mt-12 text-body-18 text-secondary prose-measure">
-          ‹REPLACE› 한 줄 핵심 요약 — 결제 매출이 전주 대비 9.7% 늘며 ₩2.4억을 기록, 주말 집중 패턴이 뚜렷합니다.
-        </p>
-      </header>
-      <!-- /COOKIEBITE:HEADER -->
+    <!-- COOKIEBITE:FOOTER -->
+    <footer>
+      <hr>
+      <p class="cb-muted">‹REPLACE› 출처, 방법, 집계 기준</p>
+    </footer>
+    <!-- /COOKIEBITE:FOOTER -->
+  </main>
 
-      <!-- COOKIEBITE:SECTIONS -->
+  <script src="./assets/core/cookiebite-core.js"></script>
+  <!-- COOKIEBITE:MODULES -->
+  <!-- /COOKIEBITE:MODULES -->
 
-      <!-- ⚠ KEEP IN LOCKSTEP: each section here is paired with a block in
-           COOKIEBITE:REPORT-SCRIPT by id string only (e.g. id="trend" ↔ CB.chart('#trendChart')).
-           DELETE a section → DELETE its matching script block (and vice-versa). A leftover
-           fast-path call (CB.kpis/findings/timeline/table/chart) silently no-ops on the
-           missing host so the section just vanishes with no error — easy to ship by accident;
-           a leftover ESCAPE-HATCH call (raw getElementById/innerHTML) instead THROWS. -->
-
-
-      <!-- ===== FAST PATH: KPI grid via COOKIEBITE.kpis (host filled by the report script) ===== -->
-      <section id="summary" class="scroll-mt-24 mb-56">
-        <div class="flex items-center gap-8 mb-20">
-          <i data-lucide="gauge" class="w-20 h-20 text-accent"></i>
-          <h2 class="text-title-24 font-bold">핵심 지표</h2>
-        </div>
-        <div id="kpiGrid"></div>
-        <!-- Building a bespoke card row instead of COOKIEBITE.kpis? Copy this responsive
-             grid so it doesn't collapse to one column / overflow on tablets:
-             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-16"> …cards… </div> -->
-      </section>
-
-      <!-- ===== FAST PATH: chart wrapper via COOKIEBITE.chart (option hand-written) ===== -->
-      <section id="trend" class="scroll-mt-24 mb-56">
-        <div class="flex items-center gap-8 mb-20">
-          <i data-lucide="trending-up" class="w-20 h-20 text-accent"></i>
-          <h2 class="text-title-24 font-bold">일별 추이</h2>
-        </div>
-        <div id="trendChart"></div>
-      </section>
-
-      <!-- ===== FAST PATH: severity findings via COOKIEBITE.findings ===== -->
-      <section id="findings" class="scroll-mt-24 mb-56">
-        <div class="flex items-center gap-8 mb-20">
-          <i data-lucide="list-checks" class="w-20 h-20 text-accent"></i>
-          <h2 class="text-title-24 font-bold">발견사항</h2>
-        </div>
-        <div id="findingsList"></div>
-      </section>
-
-      <!-- ===== FAST PATH: timeline via COOKIEBITE.timeline ===== -->
-      <section id="timeline" class="scroll-mt-24 mb-56">
-        <div class="flex items-center gap-8 mb-20">
-          <i data-lucide="clock" class="w-20 h-20 text-accent"></i>
-          <h2 class="text-title-24 font-bold">타임라인</h2>
-        </div>
-        <div id="incidentTimeline"></div>
-      </section>
-
-      <!-- ===== FAST PATH: Grid.js table via COOKIEBITE.table (status cells via pill) ===== -->
-      <section id="detail" class="scroll-mt-24 mb-56">
-        <div class="flex items-center gap-8 mb-20">
-          <i data-lucide="table-2" class="w-20 h-20 text-accent"></i>
-          <h2 class="text-title-24 font-bold">채널별 분석</h2>
-        </div>
-        <div id="detailTable"></div>
-      </section>
-
-      <!-- ===== ESCAPE HATCH: a wholly hand-written section using exposed primitives.
-           Proves FREEDOM — raw HTML, a raw @keyframes reaching color-mix(var(--accent)…),
-           and a hand-written ECharts chart registered for dark re-theme. ===== -->
-      <section id="bespoke" class="scroll-mt-24 mb-56">
-        <div class="flex items-center gap-8 mb-20">
-          <i data-lucide="activity" class="w-20 h-20 text-accent"></i>
-          <h2 class="text-title-24 font-bold">심화 분석</h2>
-        </div>
-
-        <!-- (a) bespoke @keyframes reaching the CSS-var tokens — auto dark-aware -->
-        <style>
-          @keyframes cbPulse{
-            0%,100%{ box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent); }
-            50%    { box-shadow:0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
-          }
-          .pulse-dot{ width:10px; height:10px; border-radius:9999px; background:var(--accent);
-                      border:1px solid var(--c-line); animation:cbPulse 2s ease-in-out infinite; }
-          @media (prefers-reduced-motion: reduce){ .pulse-dot{ animation:none; } }
-        </style>
-        <div class="flex items-center gap-10 mb-16">
-          <span class="pulse-dot"></span>
-          <span class="text-body-14 text-secondary">실시간 모니터링 — accent/line 토큰으로 칠해져 다크 모드에서도 그대로 따라옵니다.</span>
-        </div>
-
-        <!-- (b) a callout via the string helper -->
-        <div id="bespokeCallout" class="mb-16"></div>
-
-        <!-- (c) a hand-written ECharts chart built WITHOUT COOKIEBITE.chart -->
-        <div class="bg-surface border border-line-weak rounded-medium shadow-sm p-20">
-          <div id="latencyChart" role="img" aria-label="응답 지연(p95) 추이" style="height:300px"></div>
-        </div>
-      </section>
-
-      <!-- /COOKIEBITE:SECTIONS -->
-
-      <!-- COOKIEBITE:FOOTER — ⚠ this is DEMO content (and Korean): replace it like the
-           SECTIONS slot. For a non-Korean report, rewrite this line too (it's easy to leave
-           a stray '결제 데이터 웨어하우스' in an English report — caught only in the pixel check). -->
-      <footer class="pt-24 border-t border-line-weak text-caption-12 text-text-disabled">
-        ‹REPLACE› 생성일 2026-06-15 · 데이터 출처: 결제 데이터 웨어하우스
-      </footer>
-      <!-- /COOKIEBITE:FOOTER -->
-    </main>
-  </div>
-</div>
-
-<!-- COOKIEBITE:REPORT-SCRIPT -->
-<script>
-  // The ONLY JS the model authors. All invariant JS lives in cookiebite.js.
-  document.addEventListener('DOMContentLoaded', function () {
-    var CB = window.COOKIEBITE;
-
-    /* ---- FAST PATH: KPI grid ----
-       A KPI needs only { label, value }. delta AND spark are OPTIONAL — a baseline-free
-       status report can pass neither, e.g.  { label: '미해결 건수', value: 12 }.
-       When NO card has a baseline, omit delta on all of them (a row of '—' reads as stray
-       underscores). The four below are shown fully loaded to demo delta + sparkline. */
-    CB.kpis('#kpiGrid', [
-      { label: '결제 성공률', value: 97.07, suffix: '%',
-        delta: { dir: 'up', text: '0.67%p', tone: 'success' },
-        spark: [96.1, 96.4, 96.2, 96.8, 97.0, 96.9, 97.07] },
-      { label: '결제 매출', value: 2.4, prefix: '₩', unit: '억',
-        delta: { dir: 'up', text: '9.7%', tone: 'success' },
-        spark: [2050, 2120, 2090, 2205, 2260, 2300, 2418] },
-      { label: '환불액', value: 4120, prefix: '₩', unit: '만',
-        delta: { dir: 'up', text: '4.1%', tone: 'critical' },
-        spark: [3.1, 2.9, 3.4, 3.6, 3.9, 4.0, 4.12] },
-      { label: '결제 거절 건수', value: 5402, suffix: '건', delta: null,
-        gloss: '결제 거절은 고객의 카드사나 은행이 결제 승인을 거부한 경우입니다 — 예: 한도 초과, 부정사용 차단, 카드 만료 등.',
-        spark: [820, 760, 910, 880, 1010, 640, 382] },
-    ]);
-
-    /* ---- FAST PATH: chart wrapper (option HAND-WRITTEN; markLine + dataZoom author-owned) ---- */
-    var days = ['월', '화', '수', '목', '금', '토', '일'];
-    var amount = [3200, 2980, 3450, 3600, 4100, 3800, 3050];
-    var avg = amount.reduce(function (a, b) { return a + b; }, 0) / amount.length;
-    CB.chart('#trendChart', {
-      ariaLabel: '일별 매출 막대 차트',
-      caption: '매출은 금~토에 집중되며 평일 평균(점선) 대비 약 14% 높습니다.',
-      option: {
-        grid: { bottom: 48 },
-        xAxis: { type: 'category', data: days },
-        yAxis: { type: 'value' },
-        dataZoom: [{ type: 'inside' }, { type: 'slider', height: 18, bottom: 6 }],
-        series: [{
-          type: 'bar', data: amount, barWidth: '48%',
-          itemStyle: { color: CB.theme.ACCENT, borderRadius: [4, 4, 0, 0] },
-          markLine: {
-            symbol: 'none', lineStyle: { type: 'dashed', color: CB.theme.C_NEUTRAL },
-            label: { position: 'insideStartTop', formatter: '평균 ' + CB.nf.format(Math.round(avg)) + '만원', color: CB.theme.C_SECONDARY },
-            data: [{ yAxis: avg }],
-          },
-        }],
-      },
-      table: {
-        columns: ['요일', '매출 (만원)'],
-        rows: days.map(function (d, i) { return [d, CB.nf.format(amount[i])]; }),
-      },
-    });
-
-    /* ---- FAST PATH: severity findings ---- */
-    CB.findings('#findingsList', [
-      { tone: 'critical', title: '환불 경로에 멱등 키가 없어 재시도 시 이중 환불 가능', where: 'refund.ts:42', note: '재시도 미들웨어가 동일 요청을 두 번 커밋' },
-      { tone: 'warning', title: '신용카드 채널 성공률이 임계값(95%) 아래로 하락', where: 'psp/card.ts:118' },
-      { tone: 'info', title: '주말 트래픽이 평일 대비 1.4배 — 오토스케일 여유 확인 권장' },
-    ], { filter: true });
-
-    /* ---- FAST PATH: timeline ---- */
-    CB.timeline('#incidentTimeline', [
-      { t: '14:02', kind: 'start', title: '결제 지연 알림 발생', sub: 'p95 응답시간 1.2s → 4.8s' },
-      { t: '14:09', kind: 'cause', title: 'PSP 커넥션 풀 고갈 확인', detail: '재시도 폭주로 풀이 막혀 신규 요청이 대기열에 적체.' },
-      { t: '14:21', kind: 'action', title: '커넥션 풀 상향 + 재시도 백오프 적용', detail: '풀 50→120, 지수 백오프 상한 추가.' },
-      { t: '14:35', kind: 'resolved', title: 'p95 정상 복귀', sub: '4.8s → 0.9s' },
-    ]);
-
-    /* ---- FAST PATH: Grid.js table (status cells via COOKIEBITE.pill) ---- */
-    CB.table('#detailTable', {
-      columns: ['결제 채널', '성공률', '거래 건수', '상태'],
-      numericCols: [1, 2],
-      statusCol: 3,
-      rows: [
-        ['카카오페이', '98.1%', '72,000', { label: '정상', tone: 'success' }],
-        ['네이버페이', '96.4%', '31,500', { label: '정상', tone: 'success' }],
-        ['신용카드', '94.1%', '9,402', { label: '주의', tone: 'warning' }],
-      ],
-    });
-
-    /* ---- ESCAPE HATCH: callout via string helper ---- */
-    document.getElementById('bespokeCallout').innerHTML = CB.callout(
-      '신용카드 채널 성공률 하락이 환불 증가의 주요 원인입니다.',
-      { tone: 'info', title: '핵심.' }
-    );
-    CB.refreshIcons();
-
-    /* ---- ESCAPE HATCH: a hand-written ECharts chart, dark-aware via registerChart ----
-       Spread COOKIEBITE.baseChart, use COOKIEBITE.theme.ACCENT + accentRgba, then
-       register a renderFn that re-reads the (now-current) theme on every dark toggle. */
-    var p95 = [0.9, 1.0, 1.1, 4.8, 2.1, 1.0, 0.9];
-    var latency = echarts.init(document.getElementById('latencyChart'));
-    function latencyOption() {
-      return Object.assign({}, CB.baseChart, {
-        xAxis: Object.assign({}, CB.baseChart.xAxis, { type: 'category', data: days }),
-        yAxis: Object.assign({}, CB.baseChart.yAxis, { type: 'value', name: 's' }),
-        series: [{
-          type: 'line', data: p95, smooth: true, symbol: 'circle', symbolSize: 6,
-          lineStyle: { width: 2, color: CB.theme.ACCENT },
-          areaStyle: { color: CB.accentRgba(0.12) },
-          markArea: { itemStyle: { color: CB.accentRgba(0.08) }, data: [[{ xAxis: '목' }, { xAxis: '목' }]] },
-        }],
-      });
-    }
-    latency.setOption(latencyOption());
-    CB.registerChart(latency, function () { latency.setOption(latencyOption(), true); });
-    // a11y: hand-written charts still need a data-table alternative (CB.chart adds one
-    // automatically; for escape-hatch charts, wire it with CB.dataTableToggle).
-    CB.dataTableToggle('#latencyChart', {
-      columns: ['요일', 'p95 (s)'],
-      rows: days.map(function (d, i) { return [d, p95[i]]; }),
-      ariaLabel: '응답 지연(p95) 추이',
-    });
-  });
-</script>
-<!-- /COOKIEBITE:REPORT-SCRIPT -->
+  <!-- COOKIEBITE:REPORT-SCRIPT -->
+  <script>
+    // Author capability calls go here once you declare them in COOKIEBITE:USE
+    // and add their module scripts to COOKIEBITE:MODULES. A pure reading doc
+    // needs nothing here.
+  </script>
+  <!-- /COOKIEBITE:REPORT-SCRIPT -->
 </body>
 </html>

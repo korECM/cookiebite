@@ -22,19 +22,35 @@ set -euo pipefail
 TYPES="dashboard review postmortem explainer comparison"
 
 usage() {
-  echo "usage: bash scripts/scaffold.sh <type> <out.html>" >&2
-  echo "  type ∈ ${TYPES// /|}" >&2
+  echo "usage: bash scripts/scaffold.sh [type] <out.html>" >&2
+  echo "  no type => reading, the default freeform report" >&2
+  echo "  type ∈ ${TYPES// /|}  (legacy full-runtime reports)" >&2
   exit 1
 }
 
-[ $# -eq 2 ] || usage
-TYPE="$1"; OUT="$2"
-case " $TYPES " in *" $TYPE "*) ;; *) echo "unknown type: $TYPE" >&2; usage ;; esac
+# One arg => reading (the default). Two args => an explicit legacy type.
+if [ $# -eq 1 ]; then TYPE="reading"; OUT="$1"
+elif [ $# -eq 2 ]; then TYPE="$1"; OUT="$2"
+else usage; fi
 
-# Resolve the template from the script's own dir (like inline.sh) — single source of truth.
+# Resolve templates from the script's own dir (like inline.sh) — single source of truth.
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-TPL="$REPO_ROOT/assets/template.html"
+
+# The reading template is a finished freeform skeleton — copy it verbatim.
+if [ "$TYPE" = "reading" ]; then
+  TPL="$REPO_ROOT/assets/template.html"
+  [ -f "$TPL" ] || { echo "missing template: $TPL" >&2; exit 1; }
+  [ -f "$OUT" ] && [ "$OUT" != "$TPL" ] && echo "overwriting existing $OUT" >&2
+  cp "$TPL" "$OUT"
+  echo "scaffolded reading report -> $OUT" >&2
+  exit 0
+fi
+
+case " $TYPES " in *" $TYPE "*) ;; *) echo "unknown type: $TYPE" >&2; usage ;; esac
+
+# Legacy types render from the frozen full-runtime compatibility template.
+TPL="$REPO_ROOT/assets/template-compat.html"
 [ -f "$TPL" ] || { echo "missing template: $TPL" >&2; exit 1; }
 
 [ -f "$OUT" ] && [ "$OUT" != "$TPL" ] && echo "overwriting existing $OUT" >&2

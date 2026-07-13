@@ -49,6 +49,13 @@ else
   OUT="$base.inlined.html"
 fi
 
+# A core (freeform) report declares its capabilities in a COOKIEBITE:USE marker.
+# Assemble it selectively — only the declared dependencies — instead of inlining the
+# monolithic compatibility runtime. Reports with no marker fall through to the legacy path.
+if grep -qiE '<!--[[:space:]]*COOKIEBITE:USE\b' "$IN"; then
+  exec node "$SCRIPT_DIR/assemble-report.mjs" "$IN" -o "$OUT"
+fi
+
 # Idempotency: if the input is already inlined (carries our marker), re-inlining is a
 # no-op SUCCESS — not an error. Copy through to OUT (when distinct) so callers that pass
 # an already-inlined file still get the expected output path, and exit 0.
