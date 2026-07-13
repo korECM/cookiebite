@@ -165,6 +165,16 @@ else
   ab close >/dev/null 2>&1
 fi
 
+echo "== tier 4: freeform (units, installed layout, primitives, verifier) =="
+if node --test "$ROOT"/tests/*.mjs >"$OUT/units.log" 2>&1; then pass "node unit tests (theme/core/cli/verifier/presets)"; else fail "node unit tests (see $OUT/units.log)"; fi
+if bash "$ROOT/evals/test-installed-layout.sh" >"$OUT/install.log" 2>&1; then pass "installed layout gate"; else fail "installed layout gate (see $OUT/install.log)"; fi
+if command -v agent-browser >/dev/null 2>&1; then
+  if bash "$ROOT/evals/test-core-runtime.sh" >"$OUT/core.log" 2>&1; then pass "core runtime primitives"; else fail "core runtime primitives (see $OUT/core.log)"; fi
+  if bash "$ROOT/evals/test-verifier.sh" >"$OUT/verifier.log" 2>&1; then pass "evidence verifier (clean pass / fail blocked)"; else fail "evidence verifier (see $OUT/verifier.log)"; fi
+else
+  echo "SKIP  agent-browser not found — freeform browser evals skipped"
+fi
+
 echo
 if [ "$FAILS" -eq 0 ]; then
   echo "ALL PASS  (artifacts: $OUT)"
