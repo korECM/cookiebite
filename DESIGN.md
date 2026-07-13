@@ -107,7 +107,9 @@ icon, card, navigation, control, parent wrapper, or sibling wrapper.
 
 `CB.theme.current()` returns the active compiled theme. `CB.theme.set('light'
 | 'dark')` is available only when the theme declares `dark`; it never injects
-a toggle.
+a toggle. Setting dark toggles a `data-theme="dark"` attribute on the root
+element; the assembler ships the dark tokens as a `:root[data-theme="dark"]`
+block scoped to that attribute (light is the default with no attribute).
 
 Capabilities are explicit in a `COOKIEBITE:USE` marker. A known but omitted
 capability is a fail-fast stub whose error names the marker addition needed.
@@ -174,8 +176,9 @@ and screenshot/rectangle evidence.
 Hard failures include horizontal overflow, clipped or overlapping text/chart
 labels, degenerate charts, uncaught errors, required resource failures,
 insufficient contrast, unreachable keyboard interaction, absent chart ARIA or
-data alternative, truncated bar baseline, and declared/runtime capability
-mismatch. Warnings cover repeated literal candidates, extra surfaces, shadows,
+data alternative, truncated bar baseline, declared/runtime capability
+mismatch, and a declared capability that does not respond when its registered
+action is driven. Warnings cover repeated literal candidates, extra surfaces, shadows,
 icons or controls, unused capabilities, and long documents without a navigation
 aid. Information records dependency bytes and counts.
 
