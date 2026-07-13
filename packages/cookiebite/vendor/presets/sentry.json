@@ -1,0 +1,45 @@
+{
+  "name": "sentry",
+  "label": "Sentry",
+  "font": {
+    "family": "Rubik",
+    "url": "https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;600;700&display=swap",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#6A5FC1",
+    "accentStrong": "#5D539F",
+    "accentWeak": "#EFEDF8",
+    "accentOn": "#FFFFFF",
+    "bg": "#FCFCFD",
+    "surface": "#FFFFFF",
+    "primary": "#1F1633",
+    "secondary": "#6B6577",
+    "disabled": "#A8A2B5",
+    "placeholder": "#9690A1",
+    "line": "#E5E7EB",
+    "lineWeak": "#F0F0F0",
+    "disabledBg": "#F4F3F7",
+    "critical": "#DC2626",
+    "cautionary": "#D97706",
+    "positive": "#16A34A",
+    "informative": "#2563EB"
+  },
+  "seed": {
+    "font": "Rubik, -apple-system, system-ui, sans-serif",
+    "background": "#FCFCFD",
+    "text": "#1F1633",
+    "accent": "#6A5FC1",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "source": "voltagent/awesome-design-md",
+  "locale": {
+    "number": "en-US",
+    "currency": "USD",
+    "symbol": "$",
+    "bigUnits": false
+  }
+}

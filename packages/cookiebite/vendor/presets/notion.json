@@ -1,0 +1,46 @@
+{
+  "name": "notion",
+  "label": "Notion",
+  "font": {
+    "family": "Inter",
+    "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#5645D4",
+    "accentStrong": "#4534B3",
+    "accentText": "#4534B3",
+    "accentWeak": "#E6E0F5",
+    "accentOn": "#FFFFFF",
+    "bg": "#FAFAF9",
+    "surface": "#FFFFFF",
+    "primary": "#1A1A1A",
+    "secondary": "#5D5B54",
+    "disabled": "#BBB8B1",
+    "placeholder": "#A4A097",
+    "line": "#E5E3DF",
+    "lineWeak": "#EDE9E4",
+    "disabledBg": "#F6F5F4",
+    "critical": "#E03131",
+    "cautionary": "#DD5B00",
+    "positive": "#1AAE39",
+    "informative": "#0075DE"
+  },
+  "seed": {
+    "font": "Inter, -apple-system, system-ui, sans-serif",
+    "background": "#FAFAF9",
+    "text": "#1A1A1A",
+    "accent": "#5645D4",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "source": "voltagent/awesome-design-md",
+  "locale": {
+    "number": "en-US",
+    "currency": "USD",
+    "symbol": "$",
+    "bigUnits": false
+  }
+}

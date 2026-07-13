@@ -1,0 +1,47 @@
+{
+  "name": "vercel",
+  "label": "Vercel",
+  "font": {
+    "family": "Geist",
+    "url": "https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#171717",
+    "accentDark": "#EDEDED",
+    "accentOnDark": "#111111",
+    "accentStrong": "#000000",
+    "accentWeak": "#F4F4F5",
+    "accentOn": "#FFFFFF",
+    "bg": "#FAFAFA",
+    "surface": "#FFFFFF",
+    "primary": "#171717",
+    "secondary": "#4D4D4D",
+    "disabled": "#888888",
+    "placeholder": "#888888",
+    "line": "#EBEBEB",
+    "lineWeak": "#F2F2F2",
+    "disabledBg": "#F5F5F5",
+    "critical": "#EE0000",
+    "cautionary": "#F5A623",
+    "positive": "#16A34A",
+    "informative": "#0070F3"
+  },
+  "seed": {
+    "font": "Geist, -apple-system, system-ui, sans-serif",
+    "background": "#FAFAFA",
+    "text": "#171717",
+    "accent": "#171717",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "source": "voltagent/awesome-design-md",
+  "locale": {
+    "number": "en-US",
+    "currency": "USD",
+    "symbol": "$",
+    "bigUnits": false
+  }
+}

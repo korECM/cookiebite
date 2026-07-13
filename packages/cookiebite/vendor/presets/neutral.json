@@ -1,0 +1,44 @@
+{
+  "name": "neutral",
+  "label": "Neutral",
+  "font": {
+    "family": "Inter",
+    "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
+    "fallback": "-apple-system, system-ui, sans-serif"
+  },
+  "colors": {
+    "accent": "#4F46E5",
+    "accentStrong": "#4338CA",
+    "accentWeak": "#EEF0FD",
+    "accentOn": "#FFFFFF",
+    "bg": "#FCFCFD",
+    "surface": "#FFFFFF",
+    "primary": "#18181B",
+    "secondary": "#52525B",
+    "disabled": "#A1A1AA",
+    "placeholder": "#C4C4CC",
+    "line": "#C4C4CC",
+    "lineWeak": "#E4E4E7",
+    "disabledBg": "#F4F4F5",
+    "critical": "#DC2626",
+    "cautionary": "#D97706",
+    "positive": "#16A34A",
+    "informative": "#2563EB"
+  },
+  "seed": {
+    "font": "Inter, -apple-system, system-ui, sans-serif",
+    "background": "#FCFCFD",
+    "text": "#18181B",
+    "accent": "#4F46E5",
+    "spaceUnit": 4,
+    "measure": "68ch",
+    "radius": 12,
+    "surface": "border"
+  },
+  "locale": {
+    "number": "en-US",
+    "currency": "USD",
+    "symbol": "$",
+    "bigUnits": false
+  }
+}
