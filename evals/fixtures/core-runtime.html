@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Core runtime fixture</title>
+    <script type="application/json" id="cookiebite-theme">
+      {"schemaVersion":1,"seed":{"font":"system-ui, sans-serif","background":"#FAFAF9","text":"#1A1A1A","accent":"#E8503A","spaceUnit":4,"measure":"68ch","radius":12,"surface":"border"},"dark":{"background":"#171717","text":"#F6F6F4"},"locale":{"number":"ko-KR","currency":"KRW"}}
+    </script>
+    <script type="application/json" id="cookiebite-dependency-summary">
+      {"schemaVersion":1,"mode":"core","declared":["chart","table","glossary","motion","export"],"includedModules":["chart","table","glossary","motion","export"],"externalResources":["echarts"],"versions":{"echarts":"5.5.1"}}
+    </script>
+    <!-- COOKIEBITE:USE chart table glossary motion export -->
+    <link rel="stylesheet" href="../../assets/core/cookiebite-core.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p>Core runtime fixture</p>
+        <h1>모든 primitive를 한 문서에서 검증한다</h1>
+        <p>작성한 의미 구조를 그대로 두고 필요한 행동만 연결한다.</p>
+      </header>
+
+      <section aria-labelledby="signal-title">
+        <h2 id="signal-title">차트는 주장 하나를 뒷받침한다</h2>
+        <figure>
+          <div id="traffic-chart" style="height:240px"></div>
+          <figcaption>오전 9시 이후 허용 요청이 뚜렷하게 늘었다.</figcaption>
+        </figure>
+      </section>
+
+      <section aria-labelledby="table-title">
+        <h2 id="table-title">표는 이미 의미를 가진다</h2>
+        <table id="traffic-table">
+          <caption>시간대별 허용 요청</caption>
+          <thead><tr><th scope="col">시간</th><th scope="col">요청</th></tr></thead>
+          <tbody>
+            <tr><td>10:00</td><td>208</td></tr>
+            <tr><td>09:00</td><td>124</td></tr>
+            <tr><td>11:00</td><td>186</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section aria-labelledby="terms-title">
+        <h2 id="terms-title">용어는 문장 안에서 열린다</h2>
+        <p><dfn id="rate-limit-term" tabindex="0">rate limit</dfn>은 정해진 구간에서 허용할 요청 수를 제한한다.</p>
+      </section>
+
+      <section aria-labelledby="detail-title">
+        <h2 id="detail-title">움직임은 보조 설명일 뿐이다</h2>
+        <p id="motion-target">필요할 때만 짧게 강조한다.</p>
+      </section>
+
+      <footer id="report-region">
+        <p>출처: 운영 로그 집계 예시</p>
+      </footer>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+    <script src="../../assets/theme-compiler.js"></script>
+    <script src="../../assets/core/cookiebite-core.js"></script>
+    <script src="../../assets/capabilities/chart.js"></script>
+    <script src="../../assets/capabilities/table.js"></script>
+    <script src="../../assets/capabilities/glossary.js"></script>
+    <script src="../../assets/capabilities/motion.js"></script>
+    <script src="../../assets/capabilities/export.js"></script>
+    <script>
+      // The theme CSS the compiler produced is normally inlined by the assembler;
+      // here we apply it at runtime so the fixture renders with real tokens.
+      (function applyThemeCss() {
+        var doc = JSON.parse(document.getElementById('cookiebite-theme').textContent);
+        var css = window.CookiebiteTheme.compile(doc).css;
+        var style = document.createElement('style');
+        style.textContent = css;
+        document.head.appendChild(style);
+      }());
+
+      window.__cb = {};
+      window.__cb.chart = CB.chart('#traffic-chart', {
+        ariaLabel: '시간대별 허용 요청 수',
+        data: { columns: ['시간', '요청'], rows: [['10:00', 208], ['09:00', 124], ['11:00', 186]] },
+        option: ({ theme }) => ({
+          xAxis: { type: 'category', data: ['10:00', '09:00', '11:00'] },
+          yAxis: { type: 'value', min: 0 },
+          series: [{ type: 'bar', data: [208, 124, 186], itemStyle: { color: theme.accent } }],
+        }),
+      });
+      window.__cb.table = CB.sortable('#traffic-table', { numericColumns: [1] });
+      window.__cb.glossary = CB.glossary('#rate-limit-term', { definition: '서비스가 특정 기간에 처리하도록 정한 요청 한도' });
+      window.__cb.motion = CB.motion('#motion-target', { play: (t) => t.animate([{ opacity: 0.6 }, { opacity: 1 }], { duration: 200 }) });
+      window.__cb.export = CB.export('#report-region', { format: 'html' });
+      window.__ready = true;
+    </script>
+  </body>
+</html>
