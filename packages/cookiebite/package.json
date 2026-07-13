@@ -4,19 +4,32 @@
   "description": "Typed TSX authoring for cookiebite single-file HTML reports",
   "license": "MIT",
   "type": "module",
-  "bin": { "cookiebite": "./bin/cookiebite.mjs" },
+  "bin": {
+    "cookiebite": "./bin/cookiebite.mjs"
+  },
   "exports": {
     ".": "./src/index.ts",
     "./themes": "./src/themes.ts"
   },
-  "files": ["bin", "src", "lib", "templates", "vendor"],
-  "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test" },
+  "files": [
+    "bin",
+    "src",
+    "lib",
+    "templates",
+    "vendor"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
+    "@types/react": "^19.0.0",
     "esbuild": "^0.25.0",
+    "flint-chart": "0.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "typescript": "^5.6.0",
-    "@types/react": "^19.0.0"
+    "typescript": "^5.6.0"
   }
 }
