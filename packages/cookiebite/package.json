@@ -11,7 +11,7 @@
   },
   "files": ["bin", "src", "lib", "templates", "vendor"],
   "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test test/" },
+  "scripts": { "test": "node --test" },
   "dependencies": {
     "esbuild": "^0.25.0",
     "react": "^19.0.0",
