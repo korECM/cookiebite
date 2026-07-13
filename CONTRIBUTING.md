@@ -4,12 +4,20 @@ Thanks for taking a look. This is a small project, so the process is light.
 
 ## How it's laid out
 
+There are two build paths, and they don't share a runtime:
+
+- **Freeform (the default).** `assets/template.html` is the reading skeleton — author-owned semantic HTML, the small core runtime in `assets/core/cookiebite-core.*`, and an empty `<!-- COOKIEBITE:USE -->` marker. Opt-in behavior lives in `assets/capabilities/*` (chart, table, glossary, motion, export). `DESIGN.md` is the frozen design contract for this path — treat it as the spec, not a suggestion.
+- **Legacy full-runtime.** `assets/template-compat.html` plus the `assets/cookiebite.css` / `assets/cookiebite.js` bundle back the five typed reports (dashboard, review, postmortem, explainer, comparison). This bundle stays public and unchanged — existing reports must keep rendering.
+
+Everything else:
+
 - `SKILL.md` — the instructions an agent follows to build a report.
-- `assets/template.html` — the report skeleton you copy and fill in.
 - `assets/theme-studio.html` — the in-browser theme editor.
 - `assets/presets/*.json` — theme token sets.
 - `assets/design-packs/<brand>/DESIGN.md` — source design specs for the brand presets.
 - `references/*.md` — the deeper guides (libraries, interactions, motion, design tokens).
+- `tests/*.mjs` — unit and contract tests, run with `node --test`.
+- `evals/*.sh` — real-browser evals (the release gate; see below).
 - `scripts/verify-report.sh` — renders an HTML file and screenshots it in sections so you can check the layout.
 
 ## Adding a theme preset

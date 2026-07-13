@@ -18,13 +18,33 @@
 
 Most AI-generated reports look the same: a wall of bullet points, maybe a gray table, the occasional rainbow chart that nobody asked for. You can usually tell a model wrote it within two seconds.
 
-cookiebite is a Claude Code skill that goes the other way. You hand it data — metrics, an incident, research notes, a weekly recap — and it builds a single self-contained HTML file you'd actually want to open: real charts, stat cards with trends, a table of contents, the occasional tooltip explaining a term. One file, no build step, no server. Double-click it, email it, drop it in Slack.
+cookiebite is a Claude Code skill that goes the other way. You hand it data — metrics, an incident, research notes, a weekly recap — and by default it builds a single self-contained HTML file you'd actually want to *read*: a quiet reading document of author-owned semantic HTML, with a table of contents where it earns one. Richer behavior — charts, sortable tables, glossary tooltips, motion, export — is opt-in, pulled in only when the report asks for it. One file, no build step, no server. Double-click it, email it, drop it in Slack.
 
 It also renders the page and *looks at it* before handing it over, so the labels don't overlap and the charts aren't broken. That part matters more than it sounds.
 
 <p align="center">
   <strong>▶ <a href="https://korECM.github.io/cookiebite/">See the examples live</a></strong> — open them in your browser and poke around.
 </p>
+
+## The default is a reading document
+
+By default cookiebite writes a *reading report*: author-owned semantic HTML with only the small core runtime loaded, behavior left off. You start one, edit it, then inline just what it uses:
+
+```bash
+bash scripts/scaffold.sh report.html    # a quiet reading skeleton — core runtime only
+# edit report.html: write your sections, and declare any capabilities in <!-- COOKIEBITE:USE -->
+bash scripts/inline.sh report.html      # assemble ONLY the dependencies you declared
+```
+
+Behavior is opt-in through that empty `<!-- COOKIEBITE:USE -->` marker. Name `chart`, `table`, `glossary`, `motion`, or `export` and only those get pulled in — nothing you didn't ask for ships. The full contract lives in [DESIGN.md](DESIGN.md).
+
+Want the full interactive treatment out of the box? Pass one of five legacy types and cookiebite scaffolds the full-runtime compatibility template instead:
+
+```bash
+bash scripts/scaffold.sh dashboard report.html   # or: review, postmortem, explainer, comparison
+```
+
+Those five render the full-runtime template with `assets/cookiebite.css` / `assets/cookiebite.js` — the rich reports shown below. The freeform reading report is the default; the typed reports are the explicit opt-in path.
 
 ## What it makes
 
@@ -59,6 +79,8 @@ Want your own palette? Open the theme studio. Pick a preset, nudge the accent, c
 
 ## What goes into a report
 
+When a report opts into behavior — or you scaffold a full-runtime type — this is what it draws on:
+
 - **Charts over text.** When a point can be a chart, a stat card, a timeline, or a diagram, it becomes one. ECharts for the rich stuff, Chart.js when something simpler will do.
 - **Things you can poke.** Filters, view toggles, sortable tables, drilldowns, an expandable timeline. A static chart answers one question; an interactive one answers the ones you didn't think to ask.
 - **Glossary tooltips.** Hover a technical term and get a plain-language definition. The expert skims past it; everyone else gets a hand.
@@ -84,6 +106,8 @@ Prefer git? Clone it straight into your skills directory:
 ```bash
 git clone https://github.com/korECM/cookiebite ~/.claude/skills/cookiebite
 ```
+
+The install ships a nested theme skill inside the skill directory; it resolves cookiebite's asset directory as a sibling, so theming keeps working from a copied installation.
 
 For the visual self-check and the theme studio screenshots, put [agent-browser](https://github.com/built-by-as/agent-browser) on your PATH. Without it the skill still writes reports — it just can't see them.
 
@@ -127,7 +151,7 @@ The case for HTML as an output medium, with a gallery of twenty examples spannin
 
 The brand theme presets (Stripe, Vercel, Linear, Notion, Supabase, Sentry, Resend, Raycast) are distilled from the design specs in [voltagent/awesome-design-md](https://github.com/voltagent/awesome-design-md) (MIT), remapped to a light report surface with free web fonts. They're interpretations for theming, not official brand assets — each brand owns its trademarks.
 
-Built on [Tailwind](https://tailwindcss.com), [ECharts](https://echarts.apache.org), [Alpine.js](https://alpinejs.dev), [Tippy.js](https://atomiks.github.io/tippyjs/), [CountUp.js](https://github.com/inorganik/countUp.js), and [Lucide](https://lucide.dev) — all over CDN.
+The full-runtime reports build on [Tailwind](https://tailwindcss.com), [ECharts](https://echarts.apache.org), [Alpine.js](https://alpinejs.dev), [Tippy.js](https://atomiks.github.io/tippyjs/), [CountUp.js](https://github.com/inorganik/countUp.js), and [Lucide](https://lucide.dev) — all over CDN. A reading report loads none of these up front; `inline.sh` assembles only the libraries its declared capabilities actually need.
 
 ## License
 

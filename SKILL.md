@@ -17,625 +17,290 @@ description: >-
 
 # HTML Report
 
-Turn whatever the user gives you — data, analysis, notes, research, metrics, a
-status update — into a **single self-contained HTML file** with the visual richness
-and interactivity of a great report. The goal is a page someone enjoys reading and
-can grasp at a glance, styled by a consistent, swappable design theme.
+Turn whatever the user gives you — data, analysis, notes, research, metrics, a status
+update — into a **single self-contained HTML file** someone enjoys reading and can grasp
+at a glance.
 
-This skill is for **reading material** (reports, summaries, dashboards, recaps,
-research write-ups). It is **not** for building product/console application UI — if
-the user wants an actual app screen or component, this isn't the right skill.
+**The default is a quiet reading document.** The author owns semantic HTML, CSS, SVG,
+and the argument's order. Cookiebite supplies a small visual contract (contrast-safe
+theme tokens) and optional, opt-in behavior. It never chooses a layout, and it never
+draws a card, section, or control for you. Most reports read in sequence — answer,
+evidence, takeaway, sources — and want no runtime beyond the core. A dashboard, and the
+older full-runtime with its helper library, is an explicit path you take **only when the
+material demands it** (see "Compatibility path").
 
-## Quickstart (the build path)
+This skill is for **reading material** (reports, summaries, dashboards, recaps, research
+write-ups). It is **not** for building product/console application UI — if the user wants
+an app screen or component, this isn't the right skill.
 
-Action first; the philosophy below explains *why*, but you can start now. **Reach for
-the fast-path helpers first** — they emit ~80% of a typical report on-theme and
-dark-aware (see "Building blocks"); drop to raw HTML only for the bespoke parts.
+**`DESIGN.md` is the frozen contract** for everything below — read it once as the source
+of truth for the freeform system (theme seed, token ABI, capabilities, verification).
 
-1. **Find the 1–3 takeaways** the reader must leave with → those become the headline
-   visuals.
-2. **Start from a TYPE skeleton, not the payments demo**: `bash scripts/scaffold.sh <type>
-   <report>.html` (`type` ∈ `dashboard` | `review` | `postmortem` | `explainer` |
-   `comparison`, or run the `cookiebite new` command) — it copies the template and swaps
-   the demo `SECTIONS`/`REPORT-SCRIPT` (+ `TOC`/`HEADER`/`FOOTER`) for a small, correct,
-   on-theme skeleton built from the *right* helpers for that type, slot markers intact.
-   (Bare `cp assets/template.html <report>.html` works too if you want the payments demo
-   as a reference.) Then `Read` the file (a fresh file — `Edit` fails until you read it)
-   and surgical-`Edit` only the `<!-- COOKIEBITE:* -->` slots (`HEAD-THEME`, `HEAD-LIBS`,
-   `TITLE`, `TOC`, `HEADER`, `SECTIONS`, `FOOTER`, `REPORT-SCRIPT`) — see
-   **`references/snippets.md`** for the section-recipe library to paste in. Set
-   `<html lang>` to the report's language.
-3. **Pick the theme** (default Persimmon, or a preset / saved default) and **pick the
-   chart form by the data's job** — see Workflow step 4.
-4. **Author the repetitive sections with the helpers** (`COOKIEBITE.kpis`/`findings`/
-   `timeline`/`table`/`chart`/`mermaid`/…); input shapes are in
-   **`references/helpers.md`**. Theme every chart from the accent — never the library
-   rainbow. **The shipped template is a payments DEMO** — replace its `SECTIONS` /
-   `REPORT-SCRIPT` slots wholesale for any other report type (and delete a section's
-   matching script block when you remove it — stale `CB.*` calls throw on a missing host).
-5. **Hit the interactivity minimum bar** for the report type (see "Interactivity"), and
-   give any reader-editable report an export.
-6. **Inline → visually self-check → hand over**: `bash scripts/inline.sh <report>.html
-   -o <report>.final.html` (mandatory), then `bash scripts/verify-report.sh`, look at
-   the pixels, sweep **`references/anti-patterns.md`**, fix, repeat; finally `open` the
-   inlined file for the user.
+## Quickstart (the freeform path)
 
-The full workflow (with every guard rail) is in "Workflow" below; the rest of this file
-is the reasoning behind each step — read it once, not per build.
+1. **Plan the claims and evidence first** — one to three claims, the evidence for each,
+   the reader's first question. Decide *reading vs dashboard* here (see below). This
+   happens before any file.
+2. **Scaffold the reading default**: `bash scripts/scaffold.sh <out>.html` (no type) emits
+   the freeform reading template — semantic HTML you own, the core runtime only, an inert
+   theme seed, an empty `<!-- COOKIEBITE:USE -->` marker. (`scaffold.sh reading <out>` is
+   identical.) Then `Read` the file and surgical-`Edit` the `<!-- COOKIEBITE:* -->` slots
+   (`LANG`, `TITLE`, `HEADER`, `SECTIONS`, `FOOTER`, `MODULES`, `REPORT-SCRIPT`).
+3. **Choose a theme seed** — edit the eight values in the `<script id="cookiebite-theme">`
+   block, or paste a whole preset seed (see "Theme seed").
+4. **Declare behavior in the marker** only if you need it — e.g. `<!-- COOKIEBITE:USE chart
+   table -->`. Add the matching module `<script>`(s) to `COOKIEBITE:MODULES` and the author
+   calls to `COOKIEBITE:REPORT-SCRIPT`. A pure reading doc needs none of this (see
+   "Capabilities").
+5. **Inline selectively**: `bash scripts/inline.sh <report>.html -o <out>.html` — a
+   marker-bearing report is routed through the assembler, which inlines **only** the
+   dependencies you declared and emits a dependency summary (see "Inline").
+6. **Verify (release gate)**: run the evidence verifier (see "Verify"). Hard findings
+   block; required manual-review entries must be recorded before a release is complete.
 
-## The core idea: graphic-first, on-theme, interactive
+The rest of this file is the reasoning behind each step — read it once, not per build.
 
-1. **Graphic over textual.** Whenever a point can be a chart, a stat card, a
-   timeline, a diagram, a progress ring, or a comparison table instead of a
-   paragraph, make it the visual. Lead with the headline number — an exec one-pager
-   should open with one oversized hero figure via `COOKIEBITE.bigNumber` (the single
-   number the reader must leave with), not a wall of KPI cards. Let the reader
-   *see* the story. Long prose is the fallback, not the default.
-   **The most-missed case is structure described in words** — "A calls B, which
-   verifies with C, then returns to A", a request flow, a state machine, a decision
-   tree, an entity relationship. Prose like that is a **diagram that hasn't been drawn
-   yet**: reach for `COOKIEBITE.mermaid` (flowchart / sequence / state / ER — themed and
-   dark-aware, one call, no setup) or a hand SVG flow (`references/motion.md` §6).
-   Before shipping a section that is three-plus sentences of "X does Y to Z", ask
-   whether it should be a picture — it usually should. Draw system flows natively
-   (never GIFs/screenshots) so they stay on-theme, crisp, and dark-aware.
+## Plan claims + evidence first
 
-2. **On-theme via design tokens.** The look comes from a small set of design tokens
-   (accent, neutrals, semantic colors, typography, spacing, radii) — not from one-off
-   choices per element. Hold that discipline: one accent color per report, semantic
-   colors only for status (never decoration), consistent type/spacing scale. That's
-   what makes a report read as designed instead of a generic AI dashboard. The tokens
-   are swappable (see "Theming"): a Persimmon (Korean) default ships built-in, a
-   neutral preset is included, and `assets/theme-studio.html` lets the user design
-   their own.
+Start with **one to three claims, their evidence, and the reader's first question.** Order
+the sections as an **argument, not an inventory**: each section's takeaway feeds one
+claim, and a one-line bridge hands the reader to the next section. **Anti-padding:** the
+outline comes *from* the material. A section added to look complete (background nobody
+asked for, a chart restating another chart) dilutes trust — cut it.
 
-3. **Interactive, so the reader can explore.** A static chart answers one question;
-   an interactive one answers the ones you didn't anticipate. Default to giving the
-   reader controls — filters, view toggles, sortable tables, drilldowns, hover
-   detail — not just things to look at. This is the part most easily under-done, so
-   push on it: see "Interactivity" below.
+**Reading vs dashboard.** Most investigations, proposals, and explainers read in
+sequence: `main`, an `h1`, a standfirst paragraph, `section`s, `figure`s where evidence
+is visual, a source/method `footer`. **A dashboard is right only when readers must scan
+and slice live dimensions** — a fixed three-number status is not a dashboard. When the
+report is long or the audience mixed, lead with the claims (as a standfirst or a claims
+list) so a reader who trusts them can stop, and a doubted one is one section away from its
+proof.
 
-When in doubt, ask: *"Is this clearly on-theme and consistent, and would a busy
-reader get the point in five seconds?"* Aim for yes on both.
+**Graphic over textual, still.** When a point can be a chart, a stat, a timeline, a
+diagram, or a comparison instead of a paragraph, make it the visual — as authored markup
+(`figure`, `table`, hand SVG) or, where it earns the dependency, a declared `chart`. The
+most-missed case is **structure described in words** — "A calls B, which verifies with C"
+is a diagram that hasn't been drawn yet. Draw system flows natively (never GIFs), so they
+stay on-theme, crisp, and re-themeable.
 
-## Output contract
+## Scaffold (the reading default)
 
-- **One self-contained `.html` file.** No build step. The template references the
-  cookiebite runtime via two **placeholder** lines that `scripts/inline.sh` folds in
-  (see "Delivery"); the heavy third-party libs (Tailwind, ECharts, Alpine, Lucide, …)
-  stay on CDN — see `references/libraries.md`.
-- Default filename: a descriptive kebab-case name from the content
-  (e.g. `q2-billing-incident-review.html`), saved where the user is working.
-- Match the copy language to the source (Korean source → Korean copy). The theme's
-  font + locale should match (the Persimmon default is Korean/Pretendard; the neutral
-  preset is Latin/Inter) — see "Theming".
-- After inlining, **open the inlined file** (`open <file>.html` on macOS) so the user
-  sees it immediately, and tell them the path.
+`bash scripts/scaffold.sh <out>.html` copies `assets/template.html` verbatim — the
+finished freeform skeleton. It carries:
 
-### Delivery
+- Semantic `main` / `header` / `section` / `footer` markup you own outright. One-off CSS
+  values are fine; promote a value to a report-local custom property only when it repeats
+  in the report, and to the shared theme only when it repeats with the same meaning across
+  reports.
+- The inert theme seed (`<script type="application/json" id="cookiebite-theme">`).
+- The core CSS/JS (`assets/core/cookiebite-core.*`) — reset, typography, responsive
+  measure, focus, print, locale formatting, theme state, capability registration,
+  lifecycle disposal, verification instrumentation. **The core creates no page, title,
+  section, icon, card, control, or wrapper.**
+- An empty `<!-- COOKIEBITE:USE -->` marker and empty `COOKIEBITE:MODULES` /
+  `REPORT-SCRIPT` slots.
 
-The template's two runtime placeholder lines —
+Localize `<html lang>` (the `COOKIEBITE:LANG` slot) and prose by hand for non-Korean
+reports (see "Localization").
 
-```html
-<link rel="stylesheet" href="./assets/cookiebite.css" />
-<script src="./assets/cookiebite.js"></script>
-```
+## Theme seed
 
-— don't resolve once the report is copied out of the skill dir; they're markers for
-the **mandatory** inline step. After filling the slots, run:
+Core documents carry one inert theme document — eight `seed` values are the complete
+shared visual input:
 
-```bash
-bash scripts/inline.sh <report>.html -o <report>.final.html
-```
+| Key | Meaning | Valid values |
+| --- | --- | --- |
+| `font` | reading type family | a safe CSS family list |
+| `background` | page background | opaque six-digit hex |
+| `text` | authored body text | opaque six-digit hex |
+| `accent` | one emphasis color | opaque six-digit hex |
+| `spaceUnit` | base spacing unit | integer `2..12` |
+| `measure` | prose line length | integer `45..90ch` |
+| `radius` | soft edge | integer `0..32` |
+| `surface` | surface strategy | `border`, `tonal`, or `shadow` |
 
-(Omit `-o` and it writes `<report>.inlined.html` next to the input.)
+`schemaVersion: 1` is mandatory. Optional `dark`, `status`, `resources`, `locale`, and
+`overrides` refine the seed; a partial `dark` inherits omitted values from `seed`.
+`overrides` may name only semantic roles (`textMuted`, `divider`, `accentStrong`,
+`surfaceRaised`, `focus`) — component names are invalid. `resources` owns external font
+stylesheets; naming a font family is not an implicit network request.
 
-It reads the **local** repo copies of `cookiebite.css`/`.js` (resolved from the
-script's own location) and replaces the two lines with inline `<style>`/`<script>`,
-preserving the ordering — `cookiebite.js` loads right after the Tailwind Play CDN tag
-with no `defer` so its first statement sets `window.tailwind.config` before Tailwind's
-scan. The per-report inline `:root` THEME block stays in `<head>` so the theme applies
-at first paint. **The inlined file is the deliverable** — verify and open *that*.
+**To reskin:** swap individual values, or paste a whole preset's `seed`/`resources`/
+`locale` from `assets/presets/*.json` (persimmon default, neutral, plus brand seeds:
+stripe, vercel, linear, notion, supabase, sentry, resend, raycast). If the user names a
+brand ("make it look like Stripe"), use that preset.
 
-**Documented limitations:**
-- Only cookiebite's own runtime is inlined; third-party libs stay on CDN. So
-  "self-contained" means the file survives the runtime repo moving and works online;
-  genuine full-offline needs a vendored Tailwind build (out of scope).
-- **Don't ship the output as a claude.ai Artifact** — the Artifact CSP blocks every
-  external host, so the CDN libs never load and the page renders broken. Deliver the
-  file itself, or host it (internal static hosting) and share the link.
+**The compiler** (`assets/theme-compiler.js`, run at inline time via
+`scripts/compile-theme.mjs`) turns the seed into the stable `--cb-*` token ABI
+(`--cb-background`, `--cb-surface`, `--cb-text`, `--cb-accent`, `--cb-on-accent`,
+`--cb-focus`, `--cb-measure`, `--cb-radius`, …). **Authored colors are never silently
+changed.** Text/background and on-accent pairs must meet `4.5:1`; a focus outline must
+meet `3:1` against its adjacent surface — only *derived* tones are tuned to satisfy them.
+It emits literal resolved colors, so rendering never depends on relative-color browser
+support. `CB.theme.current()` returns the active compiled theme; `CB.theme.set('light' |
+'dark')` exists only when the seed declares `dark`, and never injects a toggle.
 
-## Workflow
+## Capabilities (the `COOKIEBITE:USE` marker)
 
-1. **Find the story — in the data, never around it.** Decide the 1–3 claims the
-   reader must leave with; those become the headline visuals. Then order the sections
-   as an **argument, not an inventory**: each section's takeaway should feed one of
-   the headline claims, and a one-line bridge should hand the reader to the next
-   section. **Anti-padding rule:** the outline comes *from* the material — if the
-   data honestly supports two beats, the report has two sections. A section added to
-   look complete (background nobody asked for, a chart restating another chart)
-   dilutes the reader's trust in the rest; cut it instead of writing it.
-2. **Pick a structure.** Most reports want: a header (title + one-line takeaway +
-   date/context), a row of key-stat cards, then sections — each led by a visual.
-   When the report is long or the audience is mixed, open with `CB.claims` — the
-   executive summary as claims anchored to their evidence sections — and consider
-   marking deep-dive sections `data-altitude-detail` + `CB.altitudeToggle()` so one
-   document serves both the exec skim and the full read.
-3. **Pick the theme.** If the user asks for a specific theme/preset, use it. Otherwise,
-   if a saved default exists at `assets/presets/default.json`, apply that; failing that,
-   use the template's built-in **Persimmon** default. One accent per report; switch
-   only with a reason. Applying/pasting themes and defaulting live in
-   `references/design-system.md` → "Applying & defaulting themes".
-4. **Pick each visual's form, then its color — in that order.** Form first: what is
-   the data's job? Color last: which of the five color jobs is it doing? Most bad
-   charts pick colors first.
+Behavior is **explicit in the marker** and nothing else: `<!-- COOKIEBITE:USE chart table
+-->`. Five capabilities exist. **Each enhances authored markup — none creates a card,
+section, control, or wrapper.** Add the module `<script>` to `COOKIEBITE:MODULES` and the
+author call to `COOKIEBITE:REPORT-SCRIPT`.
 
-   **Which chart when (by the data's job):**
-   - **bar** — compare a handful of categories; go **horizontal** when labels are long
-     (the safe default for Korean labels) or there are many categories.
-   - **line / area** — a trend over time; add `dataZoom` on anything wide.
-   - **funnel** (`CB.funnel`) — a monotonically *shrinking* stage sequence; auto
-     conversion %.
-   - **gauge / progress ring** (`CB.gauge`, grid: `gaugeGrid`) — one value against a
-     target/max; not for comparing series.
-   - **heatmap** (`CB.heatmap`) — **calendar only** (a value per day);
-     **matrix** (`CB.matrix`) — any non-calendar rows×cols grid (cohort, confusion).
-   - **histogram / boxplot / densityArea** (`CB.shapes.*`) — the *distribution* of a
-     sample (binned / quartiles-per-group / smooth).
-   - **dumbbell / slope** (`CB.shapes.*`) — a *two-point change* (before→after): dumbbell
-     per-row for many items, slope for a few series (`mode:'rank'` for rank shifts).
-   - **lollipop / rangeDot** (`CB.shapes.*`) — de-inked *ranking* / where each item sits
-     *within a range* (SLO bands).
-   - **stackedBar / marimekko** (`CB.shapes.*`) — *composition* per category
-     (`mode:'percent'` to normalize; marimekko when column weight also matters).
-   - **threshold / annotate** (`CB.threshold` / `.annotate`) — *annotation*, not a new
-     chart: merge a reference line/band onto any option; pin a labelled point.
-   - **mermaid** (`CB.mermaid`) — *structure*, not magnitude: who-calls-whom, a
-     lifecycle, a decision tree, an ER shape.
-   - Avoid pie for >3 slices (horizontal bar instead); avoid Sankey/treemap with long
-     labels unless verified. **Never a dual-axis chart** (two y-scales invent a
-     correlation): two charts, small multiples, or index both to `=100`.
-   - The full picker (by the reader's question) is in `references/libraries.md`
-     ("which chart-shape builder when") — **read its "Chart-type gotchas" before
-     building**; *long Korean labels are the #1 source of broken-looking charts*.
+| Capability | Authored host + call | It must NOT create |
+| --- | --- | --- |
+| `chart` | `CB.chart(host, { option, data: { columns, rows }, ariaLabel })` → `{ instance, update, resize, dispose }` | frame, caption, toolbar, title, section |
+| `table` | `CB.sortable(table, { numericColumns })` → `{ dispose }` | a replacement table, grid, filter, wrapper |
+| `glossary` | `CB.glossary(term, { definition })` → `{ dispose }` | visible chrome, a parent surface |
+| `motion` | `CB.motion(target, { play })` → `{ play, cancel, dispose }` | animation controls, a layout wrapper |
+| `export` | `CB.export(region, { format: 'print' \| 'html' })` → `{ run, dispose }` | a button, toolbar, implicit raster image |
 
-   **The five color jobs** — every chart color does exactly one:
-   - **Identity** (peer series): `CB.categoricalColors(n)` — bounded accent-family arc,
-     never the library rainbow. Past ~8 peers, fold into "Other" or facet.
-   - **Emphasis** (one series is the story): `categoricalColors(n, { mode:'emphasis',
-     focus:i })` — the story wears the accent, context recedes to gray. Often the
-     honest answer to "make this chart clearer".
-   - **Order/magnitude**: `CB.ramp(n)` — one hue, light→dark. Only for *ordered*
-     data (funnel, tiers); a value-ramp on nominal categories double-encodes.
-   - **Polarity** (above/below a baseline, Likert): `CB.diverging(n)` — two opposing
-     poles around a neutral midpoint.
-   - **Status**: the semantic tokens via the `tone` contract — reserved for meaning,
-     never for "series 4".
-   Palettes are **validated, not eyeballed** — the verify script runs
-   `scripts/validate-palette.mjs` on every palette the report generated (see
-   "Visual self-check").
+- **chart** requires an authored host, an `ariaLabel`, and a structured `data:{columns,
+  rows}` equivalent. The `option` callback receives the active theme and re-evaluates
+  after an allowed theme change — read colors through it, never hard-coded hexes. Misleading
+  charts (truncated baseline, crowded bands, too many rows) raise structured warnings.
+- **table** — `numericColumns` is zero-based. Sorting is stable, locale-aware,
+  keyboard-operable, updates `aria-sort`, and restores authored markup on `dispose()`.
+- **glossary** — terms are authored `dfn` / focusable elements; the definition opens from
+  keyboard focus/activation and closes with Escape.
+- **motion** observes reduced motion and does nothing unless explicitly played.
+- **export** runs only from an author-provided trigger; scoped print or HTML only.
 
-   **Which CDN tags to keep (also in template.html's head comment):** a KPI/status
-   report (uses `CB.kpis`) **keeps `countup`** — without it the numbers render as a
-   literal `0`. Delete `echarts` only when there's no chart and no KPI sparkline.
-   Delete both **only** for a pure-prose explainer.
-5. **Plan the interactions** before building. Read `references/interactions.md` and
-   pick the ones that fit the data (see "Interactivity" for the minimum bar).
-6. **Build the page** — scaffold → `Read` → surgical-`Edit` the slots (Quickstart
-   step 2). The deltas worth knowing:
-   - The invariant boilerplate (Tailwind config, number helpers, `baseChart`, dark
-     toggle, TOC observer, card hydration) lives in the hosted runtime
-     (`cookiebite.js`) — author sections with the fast-path helpers, and drop to raw
-     HTML + the exposed primitives for bespoke parts. The two paths share tokens and
-     mix freely (see "Building blocks").
-   - **Localize `<html lang>`** (template.html:23, the `<!-- /COOKIEBITE:LANG -->`
-     line — outside the named slots so it's easy to miss). For a non-Korean report the
-     full hand-edit checklist is: (a) `<html lang>`; (b) the **`window.REPORT_LOCALE`**
-     block in HEAD-THEME (`number`/`currency`/`symbol`/`bigUnits` — drives separators,
-     currency, `만/억` vs `K/M/B`, and the auto data-table / "min read" / chart-toggle
-     labels key off `REPORT_LOCALE.number`); and (c) hand-authored copy not under a
-     slot — the **`목차`/TOC heading** and any other UI words you typed. Applying a
-     preset sets `REPORT_LOCALE` for you.
-   - When you replace the demo `SECTIONS`/`REPORT-SCRIPT` wholesale, **delete each
-     removed section's matching script block too** — `CB.*` calls throw on a missing
-     host. For a non-dashboard starting point see the second worked example
-     (explainer/postmortem skeleton) in **`references/components.md`** so a narrative
-     report doesn't get bent into KPI-cards-plus-trend-chart.
-7. **Theme every chart** from the tokens — `CB.chart` merges over `baseChart` and the
-   runtime applies the quiet mark defaults (`CB.markSpecs`: thin bars with a rounded
-   data-end, surface gaps between stacked fills, ringed line dots). Pick the palette
-   by color job (step 4); never hard-code hexes or the library defaults.
-8. **Fold in the runtime** (mandatory): `bash scripts/inline.sh <report>.html -o
-   <report>.final.html` (see "Delivery").
-9. **Visually self-check** (required — see below). Render, look at the actual pixels,
-   sweep `references/anti-patterns.md`, fix (edit the source, re-inline), repeat.
-10. Open the inlined file for the user and hand it over.
+**A known-but-omitted capability fails fast** — its stub throws an error naming the exact
+marker addition needed. `compat` cannot be combined with a modular capability. The core
+records every runtime capability call for verification.
 
-## Interactivity
+## Inline (selective assembly)
 
-This is the dimension most easily left thin, so treat it as a first-class goal, not
-a garnish. A report the reader can poke at — filtering, sorting, toggling, drilling
-in — is far more useful than a static one.
+`bash scripts/inline.sh <report>.html -o <out>.html`. When the file carries a
+`COOKIEBITE:USE` marker, `inline.sh` routes it through the assembler
+(`scripts/assemble-report.mjs`), which inlines **only the declared dependencies**:
+compiled theme CSS, then declared external resources (**ECharts only if `chart` is
+declared**), then core CSS, core JS, the selected capability modules, then the authored
+report scripts — in that order. It rejects unknown capabilities and undeclared direct
+calls before writing; declared-but-unused capabilities are warnings. Assembly writes a
+temp file and renames only after every dependency resolves.
 
-**Tie-breaker:** if the data has ≥1 dimension a reader would want to slice / sort /
-zoom, hit the minimum bar; if it's a fixed summary with no dimension to explore (a
-three-number status), a static layout is correct — don't manufacture controls.
+It emits one dependency-summary JSON block (`id="cookiebite-dependency-summary"`):
+`mode`, `declared`, `includedModules`, `externalResources`, `versions`. **The inlined
+file is the deliverable** — verify and open *that*. A marker-less legacy report falls
+through to the monolithic path unchanged (see "Compatibility path").
 
-**Minimum bar by report type:**
-- **Data dashboard**: at least one segment/filter control (`CB.connectFilter`), one
-  chart with built-in interactivity on (legend toggle, `dataZoom`, drilldown, or
-  cross-chart `connect`), and any table over ~8 rows sortable/searchable (Grid.js).
-  The reader should be able to answer a question you didn't pre-chart.
-- **Narrative report** (postmortem, recap): an interactive timeline or flow
-  (hover/click for detail), expandable detail rows for action items / causes /
-  findings, and tabbed or filtered sections when there are peer views. For the one
-  chart the whole story hangs on, consider `CB.storyline` — a stepped walkthrough
-  where each beat re-shapes the same chart (emphasis, annotation, zoom) while the
-  caption says what to notice. One storyline per report at most; on every chart it's
-  noise.
-- **Explainer**: a TL;DR box up top, collapsible sections so the reader controls
-  depth, tabbed code samples where relevant (`CB.code` / `CB.codeTabs`), and glossary
-  tooltips on jargon. **An explainer without a single diagram is a red flag** — for
-  any sequence, relationship, or decision, draw it (`CB.mermaid`; for an *animated*
-  request flow, `references/motion.md` §6 — natively, never a GIF).
-- **Comparison / decision**: options side by side with the same rows aligned
-  (`CB.compare`), trade-offs colored with semantic tokens, and a recommendation.
-  See `references/interactions.md` §12.
-- **Code review / change report**: lead with a severity-coded findings list
-  (`CB.findings`, sorted worst-first), show the change as a diff (`CB.diff`), explain
-  non-obvious logic as pseudocode (`CB.pseudocode`) and real source as highlighted
-  cards (`CB.code`/`codeTabs`), and — when the report proposes next steps — a prompt
-  editor or copy-as-diff export (`references/interactions.md` §14).
+**Do not ship the output as a claude.ai Artifact** — the Artifact CSP blocks every
+external host, so any CDN library (fonts, ECharts) never loads. Deliver the file, or host
+it and share the link.
 
-**If the reader can edit or rearrange anything, end with a way to get the result
-out** — copy-as-markdown or download (`CB.copyButton` + `sectionToMarkdown`,
-interactions.md §13). An interactive page with no export is a dead end.
+## Verify (release gate)
 
-A report may go one step past *reading* into a small **editing interface** — a config
-form that tunes its own numbers, a prompt editor, reorder-then-copy-as-diff
-(interactions.md §14) — as long as the artifact stays a report about its own content.
-A standalone tool/app screen ("a draggable triage board") is product UI and **out of
-scope**. The boundary: edit → preview → export, always.
+The evidence verifier classifies rendered measurements into severity-tagged findings.
+`scripts/verify-report-dom.js` + `scripts/build-verification-report.mjs`, driven by
+`evals/verifier-runner.mjs`, produce `verification.json` (`schemaVersion`, `complete`,
+`passed`, `findings`, `inventory`, `manualReview`). Each finding carries a rule ID,
+severity, viewport, theme, selector/chart id, measured data, and screenshot/rectangle
+evidence. The deterministic pass runs at **390, 768, and 1280px**; core dark verification
+runs only when the seed declares `dark`.
 
-## Visual & readability craft
+**Hard findings block** (and gate the release): horizontal overflow, clipped or
+overlapping text/chart labels, degenerate charts, uncaught errors, required-resource
+failures, insufficient contrast, unreachable keyboard interaction, absent chart ARIA or
+data alternative, truncated bar baseline, and a declared/runtime **capability mismatch**.
+Warnings cover repeated literal candidates, extra surfaces/shadows/icons/controls, unused
+capabilities, and long documents with no navigation aid.
 
-The habits that make a report read as **designed** rather than AI-generated — leading
-numbers with meaning, setup lines and takeaway captions, annotated charts,
-deliberately-sized icons, Grid.js tables, capped line length, shallow hierarchy,
-inline jargon tooltips — plus **number/locale formatting**, **accessibility** (never
-color-alone; every chart needs a data-table alternative + `aria-label`), and the
-**copy-must-match-the-visual** rule are all in **`references/craft.md`**. Read it
-while filling the template with real content. The Quality checklist below re-encodes
-the must-pass items.
+**Some judgments are deliberately human** and live in `manualReview`: caption meaning vs
+data, status-by-color in arbitrary authored graphics, duplicated claims, prose-vs-visual
+suitability, and whether the conclusion is visible in five seconds. **A release is
+incomplete — exit 2 — while required manual-review entries are unrecorded**, not
+successful. Look at the actual pixels for the human judgments; you cannot tell whether a
+report reads right by reading its source.
 
-**`.cb-prose` / `.cb-lead` readability defaults.** For longform body text, these
-classes clamp line length to `--measure-prose` (default 68ch; `.cb-lead` 58ch).
-`COOKIEBITE.lead(html)` emits the standfirst; pass `{ measure:false }` to opt one
-paragraph out. The measure is a Look knob — see "Theming".
+## Compatibility path (the legacy full-runtime)
 
-## Visual self-check (required)
-
-You cannot tell whether a report looks right by reading its source. Charts overlap
-their labels, Korean text collides or clips, a flex row bleeds off the edge — none of
-it shows up in the HTML. **Render the page and look at the pixels.** Skipping this is
-the single biggest quality risk.
+The five legacy report types still work, unchanged, for when you genuinely need the
+helper library and full runtime (KPI card grids, `CB.*` helpers, storyline, Grid.js
+tables, the built-in light/dark toggle):
 
 ```bash
-bash scripts/verify-report.sh <path-to-report>.html
-# captures LIGHT desktop (1280px) + narrow (390px) + a dark pass:
-#   <dir>/.verify/full-desktop.png, desktop-tile-00.png, …
-#   <dir>/.verify/full-narrow.png,  narrow-tile-00.png,  …
-#   <dir>/.verify/full-dark.png,    dark-tile-00.png,    …  (if the toggle is present)
-#   plus checks-desktop.json / checks-narrow.json / checks-dark.json
+bash scripts/scaffold.sh <dashboard|review|postmortem|explainer|comparison> <out>.html
 ```
 
-It uses `agent-browser` (not Playwright) and accepts the **raw** report — if the file
-isn't inlined yet it folds the runtime into a throwaway `.verify/_inlined.html`, so
-the edit→verify loop stays one step (the `inline.sh` deliverable step still runs at
-hand-over). Desktop/narrow passes force the light theme; dark gets its own pass.
+These render from `assets/template-compat.html` with the full `assets/cookiebite.css` +
+`assets/cookiebite.js` runtime (Tailwind + ECharts + light JS). Inlining a **marker-less**
+legacy report keeps the monolithic inline path — `inline.sh` folds `cookiebite.css/.js`
+inline and leaves third-party libs on CDN. Legacy reports are never rewritten, and their
+scaffold goldens are frozen.
 
-The `checks-*.json` files flag the cheap structural problems: `horizontalOverflow` is
-the primary layout-break signal (Grid.js's internally-scrolling tables are excluded),
-collapsed chart containers, the **palette report** — every palette the runtime
-generated (`CB.__palettes`), judged by `scripts/validate-palette.mjs` (CVD separation,
-lightness band, chroma, contrast vs the live surface) — **`chartWarnings`**, the
-runtime's chart-honesty warnings (truncated zero-baseline, crowded bands, too many
-rows/series) — and **`labelIssues`**, the automated label pass: verify loads the page
-with `?cbrender=svg` so every chart label is a real `<text>` node, then flags labels
-**clipped** past their chart box and **overlapping** label pairs, per pass
-(desktop/narrow/dark). Fix palette FAILs (a CVD WARN requires secondary encoding —
-direct labels / the data table; a contrast WARN requires visible labels or the table
-view), and treat every chartWarning and labelIssue as a real defect, not advice —
-label collisions used to be catchable only by eyeballing tiles; now the machine
-catches them first, and the tiles remain for what it can't see (geometry, color,
-caption↔visual mismatches).
+Reach for this path when the material is a scan-and-slice dashboard, or a report whose
+value is in the interactive helper components — not as the default. **Load the legacy
+detail conditionally** — only when actually building one of these — from the existing
+`references/*.md` (component markup, helper API, interaction patterns). Do not read them
+for a freeform reading doc.
 
-Then **Read `full-desktop.png` and every `desktop-tile-*.png`** at legible size,
-**skim the narrow and dark tiles**, and scan for:
+## Localization
 
-- **Text/label overlap or collision** — chart axis/series labels, long Korean strings
-  (the most common failure; automated checks will NOT catch it).
-- **Clipped or cut-off text**, content bleeding past a card or the page edge.
-- **Broken/empty/degenerate charts** — blank canvas, collapsed Sankey/treemap,
-  unreadable legends, a chart with no height.
-- **Caption ↔ visual mismatches** — a caption describing something the chart doesn't
-  render.
-- **Off-brand or muddy color**, poor contrast, awkward gaps, broken alignment.
-- **Narrow**: TOC collapses, cards stack, nothing overflows. **Dark**: charts
-  re-themed, contrast intact, no status color washed out.
-
-Finish with a sweep of **`references/anti-patterns.md`** — the catalog of what goes
-wrong (color, form, marks, interaction, runtime footguns, locale). If the report
-matches an entry, it's wrong. Fix every issue, re-run, repeat until clean.
-
-## Theming
-
-The look is fully driven by **design tokens** exposed as CSS variables; the whole
-report re-themes by swapping one block. The template wires Tailwind to the tokens, so
-classes like `bg-surface`, `text-primary`, `text-secondary`, `border-line`,
-`text-accent`, `bg-accent`, `rounded-small`, `shadow-md`, and the `body-14` /
-`title-24` / `headline-36` type utilities work directly.
-
-The token contract (CSS vars on `:root`, set in the template's THEME block):
-
-- Font: `--font-family` (+ a font stylesheet `<link>`)
-- Accent: `--accent`, `--accent-strong`, `--accent-weak`, `--accent-on`, plus two
-  optional AA-safety tokens — `--accent-text` (darker accent for accent-**as-text**
-  sites) and `--accent-on-text` (dark ink for **small text on an accent fill** when
-  white fails the 4.5:1 floor). Both default sensibly when a preset omits them; the
-  full contract is in `references/design-system.md` → "Applying & defaulting themes".
-- Neutrals: `--c-bg`, `--c-surface`, `--c-primary`, `--c-secondary`, `--c-disabled`,
-  `--c-placeholder`, `--c-line`, `--c-line-weak`, `--c-disabled-bg`
-- Semantic: `--c-critical`, `--c-cautionary`, `--c-positive`, `--c-informative`
-- Locale (JS): `window.REPORT_LOCALE = { number, currency, symbol, bigUnits }` drives
-  the number helpers (thousands separators, `만/억` vs `K/M/B`).
-
-**Dark mode (built-in, free for every preset).** The runtime ships a top-right
-light/dark toggle and a generic `html[data-theme="dark"]` layer *outside* the
-swappable THEME block, so it works for any theme with no per-preset dark JSON: it
-overrides only the neutrals + `--accent-weak`; the accent stays, so brand identity
-holds. First load honours `prefers-color-scheme` (set `window.REPORT_THEME = 'light'`
-in the THEME block to force a fixed mode); the choice persists to `localStorage`.
-Canvas charts don't follow CSS vars, so on toggle the runtime re-reads tokens and
-re-renders every **registered** chart. **Keep that contract for hand-written
-charts**: after `echarts.init` + `setOption`, call
-`COOKIEBITE.registerChart(chart, renderFn)` (or `onThemeChange(cb)`, or listen for
-`'cookiebite:theme'`) and read colors through `CB.css()`/`baseChart`/`theme` — never
-hard-coded hexes, or they won't flip. `COOKIEBITE.chart()` registers automatically;
-pure CSS/SVG using `var(--*)`/`color-mix` re-themes with no registration. A preset
-whose accent is near-black can ship a dark-only `accentDark` override — see
-`references/design-system.md` → "Applying & defaulting themes".
-
-**The Look system (structure knobs — orthogonal to color).** Beyond color/font, a
-report has an optional **Look**: structural knobs — **density**, **corner radius**,
-**elevation**, **surface**, **border**, **chart-palette mode**, **heading font**,
-text **measure**, **page background**, **header** style, **semantic preset**, and
-**dark-mode tint**. Color asks "what hue?"; the Look asks "how sharp / dense /
-bordered / wide?". **Every knob defaults to today's look — a report with no Look is
-byte-identical.** Carried by `window.REPORT_LOOK = { …divergent knobs… }` and, in a
-preset, a sparse `theme.json` `look:{}`. The theme studio has a Look tab. Full knob
-table and the CSS-var/data-attr contract:
-`references/design-system.md` → "The Look system".
-
-**Choosing/changing the theme:**
-
-- **Default**: the built-in **Persimmon** preset (Pretendard, Tomato accent, ko-KR/₩,
-  East-Asian units). Use it unless the user wants otherwise.
-- **Preset library**: `assets/presets/*.json` — 10 ready themes: `persimmon`
-  (default), `neutral` (Inter, indigo, en-US), plus brand presets distilled from real
-  design systems (`stripe`, `vercel`, `linear`, `notion`, `supabase`, `sentry`,
-  `resend`, `raycast`). Apply via
-  **`python scripts/apply-theme.py <preset> <report>.html [-o out.html]`** — it
-  rewrites the THEME block + `<html lang>` + `REPORT_LOCALE` + any `look:{}`. If the
-  user names a brand ("make it look like Stripe"), use that preset.
-- **Deep-fidelity theming**: each brand preset has its full source design spec at
-  `assets/design-packs/<brand>/DESIGN.md` — read it when you want the brand's layout
-  and component principles, not just tokens.
-- **Custom / interactive**: open **`assets/theme-studio.html`** — a live editor with
-  the preset gallery, per-token pickers, a Look tab, and a preview; persists to
-  `localStorage`.
-- **Pasted theme.json / global default**: the token-to-THEME-block mapping and the
-  default mechanism (`assets/presets/default.json`; priority: explicit request >
-  saved default > built-in Persimmon) are in `references/design-system.md` →
-  "Applying & defaulting themes".
-
-## Building blocks
-
-> The fast path is a set of helpers on the global `COOKIEBITE` (alias `CB`)
-> namespace. **`references/helpers.md` is the API reference** — it opens with the
-> full helper index (what each emits) followed by field-level input shapes. Read it
-> before calling a helper for a non-payments report. `references/components.md` has
-> the hand-built markup the helpers emit; `references/snippets.md` has whole-section
-> recipes.
-
-**Freedom is paramount.** The runtime is a **helper library + exposed primitives**,
-not a closed framework. The fast path is shorthand for the repetitive ~80%; it never
-gates structure. You can always drop raw HTML and a hand-written ECharts option
-anywhere and keep it on-theme/dark-aware through the exposed primitives. Helpers emit
-the same markup the references teach, so mixing both in one report is fine.
-
-**The helper map** (full signatures in `helpers.md`):
-
-- **Figures & KPIs** — `kpis` (card grid + countup + delta + spark), `bigNumber`
-  (the hero figure), `gauge`/`gaugeGrid` (CSS progress rings), `deltaBadge`,
-  `trendChip`, `statusDot`.
-- **Charts** — `chart` (**the seam**: §10 view-toggle + data-table + aria scaffold
-  around an **always author-written** ECharts `option`, merged over `baseChart`,
-  registered for dark — never a `{kind}` enum; pass a **function** returning the
-  option when it derives colors from the palette functions — it re-runs on every
-  re-theme so the colors re-derive instead of staying baked; a `semantics:{x,y}` config declares
-  what each channel's number *means* — 'price'/'percent'/'rank'/… — and axis
-  formatting + rank inversion follow; misleading charts get structured warnings on
-  `CB.__chartWarnings`: truncated zero-baselines, crowded bands, too many rows — and
-  a category-row chart with no explicit height **grows with its row count**);
-  `shapes.*` (pure option builders:
-  waterfall, bullet, sparkline, scatter, radar, dumbbell, slope, lollipop, rangeDot,
-  histogram, stackedBar, boxplot, densityArea, marimekko — pass the result to
-  `CB.chart`); `funnel`, `heatmap` (calendar), `matrix`, and the full-render heavies
-  `treemap`/`sankey`/`gantt` (build their own card — do **not** wrap in `CB.chart`);
-  `threshold`/`annotate` (transformers over any option/chart).
-- **Structure & narrative** — `claims` (the exec summary as claims anchored to their
-  evidence sections), `storyline` (guided walkthrough stepper over one chart),
-  `findings` (severity list; `tone` doubles as the severity label), `timeline`,
-  `steps`, `leaderboard`, `compare` (decision grid), `cardGrid`, `actionItems`,
-  `whatChanged`, `table` (Grid.js with the footguns fixed;
-  `cellBar`/`cellHeat`/`cellSpark`/`cellMoney` column formatters), `diff`,
-  `pseudocode`, `code`/`codeTabs` (needs the highlight.js tag), `mermaid` (themed,
-  dark-aware, ELK layout).
-- **Editorial strings** (return **strings** — compose into any HTML) — `pill`,
-  `callout`, the admonition family `note/tip/warning/danger/example`, `quote`,
-  `takeaway` (TL;DR box), `lead`, `kicker`, `epigraph`, `pullquote`, `figure`
-  (numbered figcaption), `fn`/`endnotes` (paired-by-construction footnotes),
-  `legend`.
-- **Page chrome (opt-in)** — `toc` (enriches the hand-authored `#toc`; NO-OPs over
-  one you already filled), `search`, `densityToggle`, `altitudeToggle` (exec/full
-  reading altitude — hides `[data-altitude-detail]` sections), `permalinks`,
-  `copyReport`, `readingProgress`, `readTime`, `scrollReveal`, `print`, `audit`.
-- **Interaction & export** — `tabs`/`reveal` (lazy render + `resize()` — the fix for
-  the empty-chart-in-a-hidden-tab footgun), `connectFilter` (chip row → chart
-  updates; call the captured instance's `__cbUpdate(option)` in `onChange` so filters
-  survive a dark re-theme — worked example in `interactions.md` §1), `copyButton`,
-  `sectionToMarkdown`, `glossary` (needs the Tippy tags), `exportPNG`.
-- **Color, format & theme** — `categoricalColors(n, {mode})` (identity/emphasis
-  peers), `ramp(n)` (ordered), `diverging(n)` (polarity), `fmt(type)` (semantic
-  formatter: 'price'/'percent'/'percentPoint'/'delta'/'duration'/'rank'), `markSpecs`
-  (the quiet mark defaults — applied automatically by `CB.chart`), `applyLook`,
-  `registerChart`/`onThemeChange`, and the primitives below.
-
-There is deliberately **no** `header()`/`page()` layout-shell helper and **no** chart
-`{kind}` enum — those would recreate the closed-vocabulary failure mode; the header,
-footer, and layout shell stay hand-authored Tailwind.
-
-**What stays escape-hatch (full freedom):** every chart's `option` object, bespoke
-`@keyframes`/`color-mix(var(--accent)…)` CSS, hand SVG flows, quadrant boards, all
-Alpine filter/tab/accordion/scenario-slider interactions, and the config-form /
-prompt-editor / copy-as-diff editing UIs. Reach the **exposed primitives** to stay
-on-theme: the CSS-var tokens, `CB.css()`, `CB.readThemeVars()`, `CB.baseChart` +
-`CB.theme` (accent at `CB.theme.ACCENT`), `CB.accentRgba()`, `nf`/`money`/
-`moneyShort`, `hydrate()`/`refreshIcons()`, `copy()`/`download()`,
-`dataTableToggle()` (the data-table alt a hand-written chart still owes), `deepMerge`,
-`markSpecs`, `initChart()` (echarts.init that honours the verify-time `?cbrender=svg`
-flag — use it so hand charts join the automated label pass), `MOTION_OK`. (Legacy `window.*` aliases exist for older reports — new
-reports use the `CB.*` names; the list is at the end of `helpers.md`.)
-
-**The silent footguns live in `references/anti-patterns.md`** ("Runtime & helper
-footguns") — glossary parse-time timing, fabricated KPI baselines, Grid.js lexical
-sorts, `var(--*)` inside a canvas option, unregistered hand charts. Sweep it during
-the self-check; skim it before authoring the report script.
-
-**Layout essentials** (hand-authored, kept quiet):
-
-- **Panel grid (bento) for scan surfaces.** A dashboard is scanned, not read — don't
-  stack every section full-width in one long column. Compose SECTIONS with grid
-  rows: `<div class="grid grid-cols-1 lg:grid-cols-3 gap-24 mb-56">` holding
-  `<section id="…" class="scroll-mt-24 min-w-0 lg:col-span-2">` panels with quieter
-  `title-20` headers. Panels stay `<section id>`s so the TOC observer keeps working;
-  `CB.chart` resizes into its cell; everything stacks to one column on narrow for
-  free. Pair similar-height charts; the hero chart takes `col-span-2`; keep wide
-  forms (marimekko, wide tables) full-width — or give a wide form its own
-  `overflow-x-auto` wrapper with a `min-w-[…px]` inner so narrow screens scroll it
-  instead of crushing its labels. Narrative reports (postmortem, explainer) stay a
-  single column — they're read in order, not scanned. The dashboard scaffold emits
-  a bento row; the recipe is in `references/snippets.md`.
-- **TOC sidebar**: include on any report with 3+ sections — a right rail
-  (`sticky top-24`, `hidden lg:block`) beside a `flex flex-row-reverse` main column;
-  author only the `<ul id="toc">` entries in the `COOKIEBITE:TOC` slot (the runtime's
-  `initToc` observer wires active-section highlighting). **Localize the heading word**
-  (`목차` → "Contents") — it's inside the editable slot. The full markup shape is in
-  the template and `references/components.md` (TOC enrichment).
-- **Header**: title (`headline-36`/`title-28`), a one-line takeaway in
-  `text-secondary`, context chips (date, scope, author) in
-  `bg-accent-weak text-accent-strong`.
-- **Section**: a `title-20`/`title-24` heading, one-line setup intro, then the visual
-  as the centerpiece.
-- **Callouts / timelines / tables**: prefer the helpers; status via the `tone`
-  contract (icon + label, never color alone).
+Match copy to the source language (Korean source → Korean copy). For a non-Korean report,
+hand-edit: (a) `<html lang>` in the `COOKIEBITE:LANG` slot; (b) the seed's `locale`
+(`{ number, currency }`) which drives separators, currency, and `만/억` vs `K/M/B`; and
+(c) any UI words you typed that aren't under a slot. Applying a preset seed sets `locale`
+for you. The Persimmon default is Korean/Pretendard/₩; the neutral preset is
+Latin/Inter/en-US.
 
 ## Quality checklist
 
 Before handing over, verify:
 
-- [ ] Opens standalone (double-click works) after inlining; runtime folded in,
-      third-party libs via CDN; no console errors that break rendering.
-- [ ] The main takeaway is visible within ~5 seconds — a headline number or chart,
-      not buried in prose.
-- [ ] Sections read as an **argument**: each takeaway feeds a headline claim, bridges
-      connect them, and no section exists just to look complete (the anti-padding
-      rule — cut filler instead of writing it).
-- [ ] At least the key points are visualized (charts/cards/diagrams/timeline), not
-      just listed as text.
-- [ ] Exactly one accent color; semantic colors only for status/feedback; every
-      chart palette picked by its color job (identity / emphasis / order / polarity /
-      status) — and the verify script's palette report shows no unaddressed FAIL/WARN.
-- [ ] Theme tokens applied consistently (font, accent, neutrals via CSS vars);
-      type/spacing/radii/shadow on the template scales, no one-off hexes.
-- [ ] Charts are themed (no default rainbow), have titles/labels, a one-line takeaway
-      caption, and resize cleanly. No dual-axis chart anywhere; `chartWarnings` in
-      the verify checks is empty (no truncated baseline / crowded bands / row cap).
-- [ ] Every wide / time-series chart has `dataZoom` (slider + inside).
-- [ ] No chart renders blank: charts inside tabs/accordions init lazily on show and
-      `resize()` (clicked through in the visual check).
-- [ ] Icons are explicitly sized (~16–24px), consistent, never dwarfing the text.
-- [ ] Data tables beyond a few static rows use Grid.js via `CB.table` (raw numbers in
-      numeric columns).
-- [ ] KPI cards lead with the number + a delta badge **only when a real baseline
-      exists**; display-size figures stay proportional (`.nums`/tabular only where
-      numbers align in columns — tables, axes, delta columns).
-- [ ] Numbers consistently formatted (separators, 만/억 or K/M/B per locale, fixed
-      precision, %p vs %); nothing wraps mid-figure.
-- [ ] Every caption/label matches what its chart actually renders.
-- [ ] Status is never color-alone (icon/label paired); every chart has a data-table
-      alternative + `aria-label` (hand charts via `dataTableToggle`).
-- [ ] Meets the interactivity minimum bar for the report type; the reader can
-      explore, not just scroll. Every interaction earns its place.
-- [ ] Reads as designed and on-theme: restrained surfaces, shallow hierarchy,
-      scannable layout.
-- [ ] Sticky TOC sidebar when there are 3+ sections, active-section highlighting,
-      heading localized.
-- [ ] Responsive: survives the 390px narrow pass (TOC collapses, cards stack, no
-      overflow/clipping).
-- [ ] **Dark mode reads**: the toggle flips cleanly, charts re-theme, status colors
-      still pass — confirmed in the verify script's dark pass.
-- [ ] **Rendered and visually verified** with `scripts/verify-report.sh`; the
-      **anti-patterns sweep** (`references/anti-patterns.md`) found nothing; issues
-      fixed.
+- [ ] Opens standalone after inlining; declared dependencies folded in, third-party libs
+      via CDN; no console errors that break rendering.
+- [ ] The conclusion is visible within ~5 seconds — the claim/headline first, not buried
+      in prose (a manual-review judgment).
+- [ ] Sections read as an **argument**: each takeaway feeds a claim, bridges connect them,
+      no section exists just to look complete.
+- [ ] Reading vs dashboard chosen for the right reason — a dashboard only when readers
+      must scan/slice live dimensions.
+- [ ] Exactly one accent; authored text/background/on-accent unchanged and contrast-safe;
+      status never color-alone (icon/label paired).
+- [ ] Every declared `chart` has an `ariaLabel` and a `data:{columns,rows}` alternative;
+      no misleading-chart warnings (truncated baseline / crowded bands / row cap).
+- [ ] The marker declares exactly what's used — no undeclared calls, no unused
+      capabilities.
+- [ ] Numbers consistently formatted per locale; nothing wraps mid-figure; every caption
+      matches what its figure renders.
+- [ ] Survives the 390 / 768 / 1280 verifier passes with no hard findings; dark verified
+      when the seed declares `dark`.
+- [ ] **Verified** — `verification.json` has no unaddressed hard finding, and every
+      required manual-review entry is recorded.
 
 ## References
 
-- `assets/template.html` — slot-marked report skeleton (`<!-- COOKIEBITE:* -->`).
-  References the hosted runtime; ships the built-in light/dark toggle.
-- `scripts/scaffold.sh <type> <out.html>` — the non-demo starting point: template +
-  a small on-theme skeleton for the TYPE (`dashboard` | `review` | `postmortem` |
-  `explainer` | `comparison`). The `cookiebite new` command wraps it.
-- `assets/cookiebite.css` / `assets/cookiebite.js` — the **hosted runtime**: tokens,
-  dark layer, number helpers, `baseChart` + mark defaults, TOC observer, hydration,
-  and every `COOKIEBITE.*` helper. **Never edit per report** — folded in by
-  `scripts/inline.sh`.
-- `scripts/inline.sh` — fold the runtime into the report (mandatory final step).
-- `scripts/verify-report.sh` — render + screenshots (desktop/narrow/dark) + structural
-  checks + the palette validation, for the required visual self-check.
-- `scripts/validate-palette.mjs` — the standalone palette judge (CVD ΔE, lightness
-  band, chroma, contrast; `--ordinal` for ramps). Run by verify-report; usable by hand.
-- `references/helpers.md` — **the Helper API reference**: the full helper index, then
-  field-level input shapes (required vs optional keys, gotchas) per helper.
-- `references/anti-patterns.md` — **what goes wrong**: the negative checklist swept
-  during self-check (color, form, marks, interaction, runtime footguns, locale).
-- `references/snippets.md` — the section-recipe library: copy-paste on-theme section
-  blocks (markup → `SECTIONS`, script → `REPORT-SCRIPT`) and the TYPE skeletons.
-- `references/components.md` — hand-built component cheat-sheet: the `tone` contract,
-  diff / findings / pseudocode / checklist / SVG-flow / quadrant blocks, the TOC
-  shape, and the second (explainer/postmortem) worked example.
-- `references/design-system.md` — the token model, accent-token AA contract
-  (`--accent-text` / `--accent-on-text` / `accentDark`), the Look system, applying &
-  defaulting themes, and the documented Persimmon reference preset.
-- `references/libraries.md` — CDN catalog + **which chart/diagram when** + chart-type
-  gotchas (long-label collisions) + the palette-function contract.
-- `references/interactions.md` — copy-adaptable interaction patterns (filters, view
-  toggles, zoom/brush/drilldown/connect, sortable tables, accordions, scenario
-  sliders, sticky nav, glossary, comparison §12, state export §13, editing §14).
+- **`DESIGN.md`** — the frozen freeform contract: theme seed, resolved token ABI, core +
+  capability rules, assembly and verification contracts. The source of truth; read it
+  first.
+- `assets/template.html` — the reading (freeform) scaffold with `COOKIEBITE:*` slots and
+  the inert theme seed.
+- `assets/theme-compiler.js` / `scripts/compile-theme.mjs` / `assets/theme-seed.schema.json`
+  — the seed→`--cb-*` compiler and its schema.
+- `scripts/scaffold.sh` — reading default (no type) or a legacy type; `scripts/inline.sh`
+  → `scripts/assemble-report.mjs` — selective assembly (marker) or monolithic (legacy).
+- `scripts/verify-report-dom.js` / `scripts/build-verification-report.mjs` /
+  `evals/verifier-runner.mjs` — the evidence verifier (release gate).
+- `assets/presets/*.json` / `assets/theme-studio.html` — preset seeds and the live theme
+  editor.
+
+**Legacy full-runtime references — load conditionally, only when building a legacy type:**
+
+- `references/helpers.md` — the `CB.*` helper API index and per-helper input shapes.
+- `references/components.md` — hand-built component markup, the `tone` contract, worked
+  examples.
+- `references/snippets.md` — copy-paste on-theme section recipes and the TYPE skeletons.
+- `references/design-system.md` — the legacy token model, the Look system, applying &
+  defaulting themes.
+- `references/libraries.md` — CDN catalog, which chart/diagram when, chart-type gotchas.
+- `references/interactions.md` — filters, view toggles, zoom/drilldown, sortable tables,
+  comparison, state export, editing.
 - `references/craft.md` — visual & readability craft, number/locale formatting,
   accessibility, copy-must-match.
-- `references/motion.md` — opt-in animation (scroll reveals, GSAP, Lottie, animated
-  SVG flows §6) with reduced-motion guidance.
-- `assets/theme-studio.html` / `assets/presets/` / `assets/design-packs/` — the theme
-  editor, the 10 token presets, and each brand's full design spec.
+- `references/anti-patterns.md` — the negative checklist (color, form, marks, interaction,
+  runtime footguns, locale).
+- `references/motion.md` — opt-in animation with reduced-motion guidance.
+- `assets/cookiebite.css` / `assets/cookiebite.js` — the legacy monolithic runtime; never
+  edit per report, folded in by `inline.sh`.
