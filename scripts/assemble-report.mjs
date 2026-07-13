@@ -127,14 +127,23 @@ function assemble(html) {
     'missing core JS <script>',
   );
 
-  // 5. selected modules — fill the MODULES slot with inlined declared modules.
-  const moduleTags = modules
-    .map((c) => `<script id="cookiebite-module-${c}">\n${sanitize(readFile(MANIFEST.capabilities[c].module))}\n</script>`)
-    .join('\n  ');
-  output = output.replace(
-    /(<!--\s*COOKIEBITE:MODULES\s*-->)[\s\S]*?(<!--\s*\/COOKIEBITE:MODULES\s*-->)/i,
-    (_m, open, close) => `${open}\n  ${moduleTags}\n  ${close}`,
-  );
+  // 5. selected modules — inline each declared module. If the author wrote its
+  // <script src=".../capabilities/X.js"> directly, replace that in place; otherwise
+  // drop it into the MODULES slot. This supports both the reading template (slot)
+  // and hand-authored reports that list module scripts themselves.
+  const slotTags = [];
+  for (const c of modules) {
+    const tag = `<script id="cookiebite-module-${c}">\n${sanitize(readFile(MANIFEST.capabilities[c].module))}\n</script>`;
+    const srcPattern = new RegExp(`<script\\b[^>]*src=["'][^"']*capabilities/${c}\\.js["'][^>]*>\\s*</script>`, 'i');
+    if (srcPattern.test(output)) output = output.replace(srcPattern, () => tag);
+    else slotTags.push(tag);
+  }
+  if (slotTags.length) {
+    output = output.replace(
+      /(<!--\s*COOKIEBITE:MODULES\s*-->)[\s\S]*?(<!--\s*\/COOKIEBITE:MODULES\s*-->)/i,
+      (_m, open, close) => `${open}\n  ${slotTags.join('\n  ')}\n  ${close}`,
+    );
+  }
 
   // 6. dependency summary — one JSON block before </body>.
   const summary = {
