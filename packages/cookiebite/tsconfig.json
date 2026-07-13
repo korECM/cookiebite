@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2022",
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true,
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "cookiebite": ["./src/index.ts"],
+      "cookiebite/themes": ["./src/themes.ts"]
+    }
+  },
+  "include": ["src", "test/fixtures", "templates"]
+}

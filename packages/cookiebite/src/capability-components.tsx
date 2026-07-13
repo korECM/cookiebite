@@ -1,3 +1,5 @@
+// 컴포넌트 인덱스: Table({ columns, rows, sortable?, caption? }) — 정렬 표 (sortable이면 table capability 등록)
+//                Glossary({ term, definition }) — 용어 정의 (glossary capability 등록)
 import { useId, type ReactNode } from 'react';
 import { registerCall, registerCss } from './collect.ts';
 

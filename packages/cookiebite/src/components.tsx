@@ -1,3 +1,10 @@
+// 컴포넌트 인덱스 (1줄 시그니처):
+//   KpiRow({ items: KpiItem[] })                             — KPI 카드 줄 (dl)
+//   Claims({ items: ClaimItem[], title? })                   — 주장→증거 앵커 목록
+//   Findings({ items: FindingItem[] })                       — 심각도 배지 발견 목록
+//   Matrix({ rows, cols, data, max?, format?, ariaLabel, caption? }) — accent-alpha 히트 테이블
+//   RangeDot({ rows, domain?, format?, unit?, ariaLabel })   — min-max-value SVG figure
+//   (쉘: Report, Standfirst, Section, Sources / capability: Table, Glossary → capability-components.tsx)
 import { useId, type ReactNode } from 'react';
 import type { ThemeDocument } from './themes.ts';
 import { registerCss } from './collect.ts';
