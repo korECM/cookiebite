@@ -1,4 +1,4 @@
-import { Report, Section, Standfirst, KpiRow, Claims, Findings } from 'cookiebite';
+import { Report, Section, Standfirst, KpiRow, Claims, Findings, Matrix, RangeDot } from 'cookiebite';
 import { persimmon } from 'cookiebite/themes';
 
 export default (
@@ -74,6 +74,34 @@ export default (
             label: '잘된 점',
           },
         ]}
+      />
+    </Section>
+    <Section title="채널별 실패율">
+      <Matrix
+        rows={['카드', '계좌이체', '간편결제']}
+        cols={['월', '화', '수']}
+        data={[
+          [12, 18, 9],
+          [22, 41, 15],
+          [8, 11, 62],
+        ]}
+        max={100}
+        format={(v) => `${v}%`}
+        ariaLabel="채널별 요일 실패율"
+        caption="간편결제 수요일 실패율이 특히 높다"
+      />
+    </Section>
+    <Section title="응답 시간 분포">
+      <RangeDot
+        rows={[
+          { label: '승인 API', min: 80, max: 420, value: 190 },
+          { label: '재시도 큐', min: 120, max: 980, value: 640 },
+          { label: '환불 워커', min: 200, max: 760, value: 410 },
+        ]}
+        domain={[0, 1000]}
+        format={(v) => String(v)}
+        unit="ms"
+        ariaLabel="서비스별 응답 시간 범위와 중앙값"
       />
     </Section>
   </Report>

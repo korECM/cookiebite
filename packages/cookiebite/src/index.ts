@@ -1,4 +1,14 @@
-export { Report, Standfirst, Section, Sources, KpiRow, Claims, Findings } from './components.tsx';
+export {
+  Report,
+  Standfirst,
+  Section,
+  Sources,
+  KpiRow,
+  Claims,
+  Findings,
+  Matrix,
+  RangeDot,
+} from './components.tsx';
 export type {
   ReportProps,
   StandfirstProps,
@@ -7,6 +17,9 @@ export type {
   KpiItem,
   ClaimItem,
   FindingItem,
+  MatrixProps,
+  RangeDotRow,
+  RangeDotProps,
 } from './components.tsx';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';
 export { resetCollected, registerCall, registerCss, getCollected } from './collect.ts';

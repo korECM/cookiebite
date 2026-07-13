@@ -181,7 +181,8 @@ const FINDINGS_CSS = `.cb-findings { list-style: none; margin: 0; padding: 0;
 .cb-finding.cb-tone-info .cb-badge { border-color: var(--cb-accent); color: var(--cb-accent); }
 .cb-finding.cb-tone-success .cb-badge { border-color: var(--cb-accent-strong); color: var(--cb-accent-strong); }
 .cb-finding-title { margin: 0; color: var(--cb-text); }
-.cb-finding code { color: var(--cb-text-muted); font-size: 0.85em; }`;
+.cb-finding code { color: var(--cb-text-muted); font-size: 0.85em; }
+.cb-note { color: var(--cb-text-muted); font-size: 0.85em; margin: 0.25em 0 0; }`;
 
 /** 발견 목록. 심각도는 보더+텍스트 배지, 색은 accent 계열 보조로만. */
 export function Findings({ items }: { items: FindingItem[] }) {
@@ -199,5 +200,152 @@ export function Findings({ items }: { items: FindingItem[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+export interface MatrixProps {
+  rows: string[];
+  cols: string[];
+  data: number[][];
+  max?: number;
+  format?: (v: number) => string;
+  ariaLabel: string;
+  caption?: string;
+}
+
+const MATRIX_CSS = `.cb-matrix { margin: 0; }
+.cb-matrix table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cb-matrix th, .cb-matrix td { border: 1px solid var(--cb-divider);
+  padding: calc(var(--cb-space-unit) * 2px); text-align: center; }
+.cb-matrix th { color: var(--cb-text-muted); font-weight: 600; background: var(--cb-surface); }
+.cb-matrix figcaption { color: var(--cb-text-muted); font-size: 0.85em;
+  margin-block-start: calc(var(--cb-space-unit) * 2px); }`;
+
+/** 히트맵 테이블. accent color-mix 램프로 셀 강도를 표현하고 55% 이상에서 잉크를 뒤집는다. */
+export function Matrix({ rows, cols, data, max, format, ariaLabel, caption }: MatrixProps) {
+  registerCss('matrix', MATRIX_CSS);
+  const flat = data.flat();
+  const effectiveMax = max ?? (flat.length === 0 ? 0 : Math.max(...flat));
+
+  return (
+    <figure className="cb-matrix">
+      <table>
+        <caption>{ariaLabel}</caption>
+        <thead>
+          <tr>
+            <th scope="col" />
+            {cols.map((col) => (
+              <th scope="col" key={col}>
+                {col}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr key={row}>
+              <th scope="row">{row}</th>
+              {(data[ri] ?? []).map((v, ci) => {
+                const pct =
+                  effectiveMax <= 0 ? 0 : Math.min(60, Math.max(0, Math.round((v / effectiveMax) * 60)));
+                const flip = effectiveMax > 0 && v / effectiveMax > 0.55;
+                const style: { background: string; color?: string } = {
+                  background: `color-mix(in srgb, var(--cb-accent) ${pct}%, transparent)`,
+                };
+                if (flip) style.color = 'var(--cb-on-accent)';
+                return (
+                  <td key={`${ri}-${ci}`} style={style}>
+                    {format?.(v) ?? String(v)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {caption === undefined ? null : <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}
+
+export interface RangeDotRow {
+  label: string;
+  min: number;
+  max: number;
+  value: number;
+}
+
+export interface RangeDotProps {
+  rows: RangeDotRow[];
+  domain?: [number, number];
+  format?: (v: number) => string;
+  unit?: string;
+  ariaLabel: string;
+}
+
+const RANGEDOT_CSS = `.cb-rangedot { margin: 0; position: relative; }
+.cb-rangedot svg { display: block; width: 100%; height: auto; }
+.cb-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }`;
+
+/** min–max 캡슐과 value 도트를 한 SVG figure로 그린다. */
+export function RangeDot({ rows, domain, format, unit, ariaLabel }: RangeDotProps) {
+  registerCss('rangedot', RANGEDOT_CSS);
+  const lo = domain?.[0] ?? Math.min(...rows.map((r) => r.min));
+  const hi = domain?.[1] ?? Math.max(...rows.map((r) => r.max));
+  const xOf = (v: number) => (hi === lo ? 380 : 160 + ((v - lo) / (hi - lo)) * 440);
+  const height = rows.length * 40;
+
+  return (
+    <figure className="cb-rangedot" role="img" aria-label={ariaLabel}>
+      <svg viewBox={`0 0 640 ${height}`} role="presentation">
+        {rows.map((row, i) => {
+          const y = i * 40 + 20;
+          const xMin = xOf(row.min);
+          const xMax = xOf(row.max);
+          const xVal = xOf(row.value);
+          const valueText = `${format?.(row.value) ?? String(row.value)}${unit === undefined ? '' : unit}`;
+          return (
+            <g key={row.label}>
+              <text x={8} y={y} dominantBaseline="middle" fill="var(--cb-text)">
+                {row.label}
+              </text>
+              <line
+                x1={xMin}
+                y1={y}
+                x2={xMax}
+                y2={y}
+                stroke="var(--cb-divider)"
+                strokeWidth={6}
+                strokeLinecap="round"
+              />
+              <circle cx={xVal} cy={y} r={5} fill="var(--cb-accent)" />
+              <text x={xVal} y={y - 10} textAnchor="middle" fill="var(--cb-text-muted)" fontSize={11}>
+                {valueText}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <table className="cb-visually-hidden">
+        <thead>
+          <tr>
+            <th>label</th>
+            <th>min</th>
+            <th>value</th>
+            <th>max</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <td>{row.label}</td>
+              <td>{row.min}</td>
+              <td>{row.value}</td>
+              <td>{row.max}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </figure>
   );
 }
