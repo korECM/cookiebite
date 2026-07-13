@@ -13,9 +13,12 @@ export async function renderReport(reportPath) {
   const entry = [
     `import element from ${JSON.stringify(absolute)};`,
     "import { renderToStaticMarkup } from 'react-dom/server';",
+    "import { resetCollected, getCollected } from 'cookiebite';",
+    'resetCollected();',
     'export const displayName = element?.type?.displayName ?? null;',
     'export const props = element?.props ?? null;',
     "export const markup = displayName === 'CookiebiteReport' ? renderToStaticMarkup(element) : null;",
+    'export const collected = markup === null ? null : getCollected();',
   ].join('\n');
 
   const outDir = mkdtempSync(path.join(tmpdir(), 'cookiebite-'));
@@ -47,7 +50,7 @@ export async function renderReport(reportPath) {
       );
     }
     const { theme, title, lang = 'ko' } = mod.props;
-    return { markup: mod.markup, theme, title, lang };
+    return { markup: mod.markup, theme, title, lang, collected: mod.collected };
   } finally {
     rmSync(outDir, { recursive: true, force: true });
   }
