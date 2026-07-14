@@ -26,6 +26,11 @@ export function lintTokens(markup) {
     const value = dq ?? sq;
     if (!SAFE_VALUE.test(value)) scan(attr.toLowerCase(), value);
   }
+  // TW 임의값([...])만 스캔 — 대괄호 밖 클래스명(bg-card, red-500) 오탐 방지.
+  for (const [, dq, sq] of markup.matchAll(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
+    const value = dq ?? sq;
+    for (const [, inner] of value.matchAll(/\[([^\]]+)\]/g)) scan('class', inner);
+  }
   for (const [, css] of markup.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) scan('style-block', css);
   return violations;
 }

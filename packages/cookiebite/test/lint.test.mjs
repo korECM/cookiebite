@@ -42,3 +42,33 @@ test('flags length×length calc products, allows unitless multipliers', () => {
   assert.equal(lintTokens('<div style="gap: calc(var(--x) * 4px)">x</div>').length, 1);
   assert.equal(lintTokens('<div style="gap: calc(var(--cb-space-unit) * 4)">x</div>').length, 0);
 });
+
+test('flags color literals inside TW arbitrary-value class segments', () => {
+  const hex = lintTokens('<div class="bg-[#ff0000]">x</div>');
+  assert.equal(hex.length, 1);
+  assert.equal(hex[0].source, 'class');
+  assert.equal(hex[0].literal, '#ff0000');
+
+  const named = lintTokens('<div class="text-[red]">x</div>');
+  assert.equal(named.length, 1);
+  assert.equal(named[0].source, 'class');
+  assert.equal(named[0].literal, 'red');
+
+  const border = lintTokens('<div class="border-[#00ff00]">x</div>');
+  assert.equal(border.length, 1);
+  assert.equal(border[0].literal, '#00ff00');
+
+  const rgb = lintTokens('<div class="text-[rgb(1,2,3)]">x</div>');
+  assert.equal(rgb.length, 1);
+  assert.match(rgb[0].literal, /^rgb\(/i);
+
+  const shadow = lintTokens('<div class="shadow-[0_0_0_1px_#123456]">x</div>');
+  assert.equal(shadow.length, 1);
+  assert.equal(shadow[0].literal, '#123456');
+});
+
+test('allows token class names and non-color arbitrary values', () => {
+  assert.equal(lintTokens('<div class="bg-card">x</div>').length, 0);
+  assert.equal(lintTokens('<div class="w-[15px]">x</div>').length, 0);
+  assert.equal(lintTokens('<div class="grid-cols-[1fr_2fr]">x</div>').length, 0);
+});
