@@ -40,12 +40,14 @@ function evalPage(js) {
   return value;
 }
 
-ab('open', `file://${fixture}`);
-ab('wait', '1600');
+// Measure each breakpoint as a fresh render: set the viewport before opening
+// so width-sensitive layout initializes at that width. agent-browser 0.28's
+// bare `viewport` subcommand is a silent no-op — use `set viewport` instead.
 const viewports = [];
 for (const [w, h] of [[390, 900], [1280, 900]]) {
-  ab('viewport', String(w), String(h));
-  ab('wait', '300');
+  ab('set', 'viewport', String(w), String(h));
+  ab('open', `file://${fixture}`);
+  ab('wait', '1600');
   const view = evalPage(dom);
   if (view && typeof view === 'object') viewports.push(view);
 }
@@ -55,7 +57,7 @@ for (const [w, h] of [[390, 900], [1280, 900]]) {
 const declaredCaps = evalPage(`(function(){var s=document.getElementById('cookiebite-dependency-summary');return s?(JSON.parse(s.textContent).declared||[]):[];})()`);
 const capabilityChecks = [];
 if (Array.isArray(declaredCaps)) {
-  ab('viewport', '1280', '900');
+  ab('set', 'viewport', '1280', '900');
   ab('wait', '200');
   if (declaredCaps.includes('chart')) {
     const ok = evalPage(`!!document.querySelector('[role="img"] canvas, [role="img"] svg')`);
@@ -80,7 +82,7 @@ if (Array.isArray(declaredCaps)) {
 // toggles data-theme so the inlined dark tokens paint; dom.js then tags theme='dark'.
 const declaresDark = evalPage(`(function(){var s=document.getElementById('cookiebite-theme');if(!s)return false;try{return !!JSON.parse(s.textContent).dark;}catch(e){return false;}})()`);
 if (declaresDark === true) {
-  ab('viewport', '1280', '900');
+  ab('set', 'viewport', '1280', '900');
   ab('wait', '200');
   evalPage("(function(){try{window.CB.theme.set('dark');return 1;}catch(e){return 0;}})()");
   ab('wait', '200');
