@@ -1,10 +1,21 @@
 import { build } from 'esbuild';
+import { createRequire } from 'node:module';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function resolveReactNodeModules() {
+  try {
+    // flat install에서는 react가 상위 node_modules에 있다 — pkgRoot/node_modules 하드코딩은 비어 있다.
+    const pkgRequire = createRequire(path.join(pkgRoot, 'package.json'));
+    return path.dirname(path.dirname(pkgRequire.resolve('react/package.json')));
+  } catch {
+    return path.join(pkgRoot, 'node_modules');
+  }
+}
 
 export class BuildError extends Error {}
 
@@ -30,7 +41,7 @@ export async function renderReport(reportPath) {
       format: 'esm',
       platform: 'node',
       jsx: 'automatic',
-      nodePaths: [path.join(pkgRoot, 'node_modules')], // 패키지 밖에 있는 리포트도 react를 찾게 한다
+      nodePaths: [resolveReactNodeModules()], // 패키지 밖에 있는 리포트도 react를 찾게 한다
       alias: {
         'cookiebite/themes': path.join(pkgRoot, 'src/themes.ts'),
         cookiebite: path.join(pkgRoot, 'src/index.ts'),
