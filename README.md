@@ -26,25 +26,48 @@ It also renders the page and *looks at it* before handing it over, so the labels
   <strong>▶ <a href="https://korECM.github.io/cookiebite/">See the examples live</a></strong> — open them in your browser and poke around.
 </p>
 
-## The default is a reading document
+## Quickstart
 
-By default cookiebite writes a *reading report*: author-owned semantic HTML with only the small core runtime loaded, behavior left off. You start one, edit it, then inline just what it uses:
+Write a typed TSX report; `cookiebite build` renders a single self-contained HTML file.
+The build enforces the visual contract — token colors, chart aria labels, declared
+capabilities — so you focus on the story:
 
 ```bash
-bash scripts/scaffold.sh report.html    # a quiet reading skeleton — core runtime only
-# edit report.html: write your sections, and declare any capabilities in <!-- COOKIEBITE:USE -->
+bunx cookiebite new report.tsx           # typed starter
+bunx cookiebite build report.tsx         # typecheck + lint → report.html
+bunx cookiebite verify report.html --runs 3
+```
+
+Import components from `cookiebite` and themes from `cookiebite/themes`. Colors must be
+`var(--cb-*)` tokens (literals fail the build). Charts use a flint semantic spec
+(`type`, `semanticTypes`, `encodings`, `ariaLabel`). Twelve components cover the document
+shell, KPIs, claims, findings, tables, glossary, and charts — see
+[packages/cookiebite/README.md](packages/cookiebite/README.md). The full contract lives in
+[DESIGN.md](DESIGN.md).
+
+Worked TSX examples: [weekly-revenue.tsx](docs/examples-tsx/weekly-revenue.tsx),
+[incident-postmortem.tsx](docs/examples-tsx/incident-postmortem.tsx).
+
+## Legacy (rebuilding existing reports only)
+
+The older freeform path still works **only for rebuilding reports that already use it** —
+do not start new reports here:
+
+```bash
+bash scripts/scaffold.sh report.html    # quiet reading skeleton — core runtime only
+# edit report.html: write sections, declare capabilities in <!-- COOKIEBITE:USE -->
 bash scripts/inline.sh report.html      # assemble ONLY the dependencies you declared
 ```
 
-Behavior is opt-in through that empty `<!-- COOKIEBITE:USE -->` marker. Name `chart`, `table`, `glossary`, `motion`, or `export` and only those get pulled in — nothing you didn't ask for ships. The full contract lives in [DESIGN.md](DESIGN.md).
-
-Want the full interactive treatment out of the box? Pass one of five legacy types and cookiebite scaffolds the full-runtime compatibility template instead:
+Behavior is opt-in through `<!-- COOKIEBITE:USE -->`. Name `chart`, `table`, `glossary`,
+`motion`, or `export` and only those ship. For full-runtime compatibility templates:
 
 ```bash
 bash scripts/scaffold.sh dashboard report.html   # or: review, postmortem, explainer, comparison
 ```
 
-Those five render the full-runtime template with `assets/cookiebite.css` / `assets/cookiebite.js` — the rich reports shown below. The freeform reading report is the default; the typed reports are the explicit opt-in path.
+Those five render with `assets/cookiebite.css` / `assets/cookiebite.js` — the rich
+reports shown below.
 
 ## What it makes
 

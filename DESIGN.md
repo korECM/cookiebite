@@ -206,3 +206,10 @@ is unavailable. The nested theme skill resolves the sibling Cookiebite asset
 directory. Comparative evaluation builds baseline `184023c` and the candidate
 with identical prompts and recorded A/B randomization. Three independent blind
 human recordings are required before claiming preference acceptance.
+
+## TSX authoring layer
+
+The TSX authoring package (`packages/cookiebite`) is a consumer of this contract, not an
+extension of it. Report components emit markup, `--cb-*` tokens, and capability
+declarations that conform to sections 1–7 above; this document remains the frozen source
+of truth and is unchanged by the authoring layer.

@@ -26,9 +26,31 @@ cookiebite은 반대로 가요. Claude Code 스킬인데, 데이터를 던지면
   <strong>▶ <a href="https://korECM.github.io/cookiebite/">예시를 라이브로 보기</a></strong> — 브라우저로 열어서 직접 만져보세요.
 </p>
 
-## 기본은 읽기 문서예요
+## 퀵스타트
 
-cookiebite은 기본으로 *읽기 리포트*를 씁니다. 저자가 직접 쓴 시맨틱 HTML에 작은 core 런타임만 올라가고, 동작은 꺼진 상태예요. 하나 만들고, 고치고, 쓴 것만 인라인하면 됩니다.
+타입드 TSX 리포트를 쓰면 `cookiebite build`가 단일 HTML 파일로 렌더해요.
+빌드가 시각 계약(토큰 색, 차트 aria-label, capability 선언)을 강제해서 서사에 집중할 수 있어요.
+
+```bash
+bunx cookiebite new report.tsx
+bunx cookiebite build report.tsx
+bunx cookiebite verify report.html --runs 3
+```
+
+`cookiebite`에서 컴포넌트를, `cookiebite/themes`에서 테마를 import해요.
+색은 `var(--cb-*)` 토큰만 허용하고 리터럴은 빌드가 막아요.
+Chart는 flint semantic spec(`type`, `semanticTypes`, `encodings`, `ariaLabel`)을 써요.
+문서 쉘, KPI, 주장, 발견, 표, 용어집, 차트까지 12종 컴포넌트는
+[packages/cookiebite/README.md](packages/cookiebite/README.md)를 보세요.
+전체 계약은 [DESIGN.md](DESIGN.md)에 있어요.
+
+TSX 예시: [weekly-revenue.tsx](docs/examples-tsx/weekly-revenue.tsx),
+[incident-postmortem.tsx](docs/examples-tsx/incident-postmortem.tsx).
+
+## 레거시(기존 리포트 재빌드 전용)
+
+예전 freeform 경로는 **이미 그 방식을 쓰는 리포트를 재빌드할 때만** 동작해요.
+새 리포트는 여기서 시작하지 마세요.
 
 ```bash
 bash scripts/scaffold.sh report.html    # 조용한 읽기 스켈레톤 — core 런타임만
@@ -36,15 +58,15 @@ bash scripts/scaffold.sh report.html    # 조용한 읽기 스켈레톤 — core
 bash scripts/inline.sh report.html      # 선언한 의존성만 assemble
 ```
 
-동작은 비어 있는 `<!-- COOKIEBITE:USE -->` 마커로 옵트인해요. `chart`, `table`, `glossary`, `motion`, `export`를 적으면 그것만 딸려 오고, 안 적은 건 안 들어가요. 전체 계약은 [DESIGN.md](DESIGN.md)에 있어요.
-
-바로 풀 인터랙티브로 가고 싶으면 레거시 타입 다섯 개 중 하나를 넘기세요. 그러면 cookiebite이 풀 런타임 호환 템플릿을 스캐폴딩합니다.
+동작은 `<!-- COOKIEBITE:USE -->` 마커로 옵트인해요. `chart`, `table`, `glossary`,
+`motion`, `export`를 적으면 그것만 딸려 와요. 풀 런타임 호환 템플릿은 이렇게요.
 
 ```bash
 bash scripts/scaffold.sh dashboard report.html   # 또는: review, postmortem, explainer, comparison
 ```
 
-이 다섯 개는 `assets/cookiebite.css`, `assets/cookiebite.js`로 풀 런타임 템플릿을 렌더해요. 아래 보이는 풍부한 리포트가 그거예요. 프리폼 읽기 리포트가 기본이고, 타입 리포트는 명시적으로 고르는 옵트인 경로예요.
+이 다섯 개는 `assets/cookiebite.css`, `assets/cookiebite.js`로 렌더돼요.
+아래 보이는 풍부한 리포트가 그거예요.
 
 ## 무엇을 만드나
 
