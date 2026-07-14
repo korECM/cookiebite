@@ -101,6 +101,8 @@ function normalizeFunnel(option, spec) {
   for (const s of series) {
     if (s?.type !== 'funnel') continue;
     s.data = rebuilt.map((d) => ({ ...d }));
+    // 좁은 하단 조각에서 inside 라벨이 조각을 넘쳐 겹친다 — 항상 바깥에 그린다.
+    s.label = { ...(s.label ?? {}), position: 'outside' };
   }
   if (option.legend && Array.isArray(option.legend.data)) option.legend.data = names;
 }
