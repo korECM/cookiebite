@@ -32,3 +32,13 @@ test('allows tokens, keywords, and non-color hash usage', () => {
   assert.equal(lintTokens('<path fill="none" stroke="currentColor"></path>').length, 0);
   assert.equal(lintTokens('<a href="#section-1">이동</a>').length, 0);
 });
+
+test('flags uppercase named colors but ignores property-name contexts', () => {
+  assert.equal(lintTokens('<path fill="WHITE"></path>').length, 1);
+  assert.equal(lintTokens('<div style="white-space: nowrap">x</div>').length, 0);
+});
+
+test('flags length×length calc products, allows unitless multipliers', () => {
+  assert.equal(lintTokens('<div style="gap: calc(var(--x) * 4px)">x</div>').length, 1);
+  assert.equal(lintTokens('<div style="gap: calc(var(--cb-space-unit) * 4)">x</div>').length, 0);
+});
