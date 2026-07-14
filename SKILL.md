@@ -101,8 +101,9 @@ name. You may also use **Tailwind utility classes** on raw JSX (`className`), bu
 **semantic color utilities** resolve at build time: `bg-card`, `text-muted-foreground`,
 `border-border`, `bg-primary`, `text-primary-foreground`, `border-accent-strong`,
 `text-accent-strong` (and variants like `text-card-foreground`, `hover:bg-muted/50`).
-Palette steps (`bg-red-500`) and arbitrary colors (`bg-[#hex]`) — the build lint rejects
-them before Tailwind runs. The `@theme` layer exposes only `--cb-*` bridged tokens.
+Palette steps (`bg-red-500`) produce no CSS — the palette is wiped from `@theme`.
+Arbitrary colors (`bg-[#hex]`) are rejected by the build lint before Tailwind runs.
+The `@theme` layer exposes only `--cb-*` bridged tokens.
 
 | Component | Signature | Role |
 | --- | --- | --- |
