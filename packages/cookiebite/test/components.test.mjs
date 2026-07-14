@@ -35,6 +35,8 @@ test('rangedot renders one svg with capsule, dot, and hidden data table', async 
   assert.match(result.markup, /stroke="var\(--cb-divider\)"/);
   assert.match(result.markup, /fill="var\(--cb-accent\)"/);
   assert.match(result.markup, /cb-visually-hidden/);
+  // value label uses a thin space (U+2009) before the unit: "190 ms"
+  assert.match(result.markup, /190\u2009ms/);
 });
 
 test('Section id pins section and h2 anchors for Claims evidence', async () => {

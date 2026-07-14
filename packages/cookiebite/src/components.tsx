@@ -322,7 +322,8 @@ export function RangeDot({ rows, domain, format, unit, ariaLabel }: RangeDotProp
           const xMin = xOf(row.min);
           const xMax = xOf(row.max);
           const xVal = xOf(row.value);
-          const valueText = `${format?.(row.value) ?? String(row.value)}${unit === undefined ? '' : unit}`;
+          // U+2009 thin space keeps the unit readable without a full word gap.
+          const valueText = `${format?.(row.value) ?? String(row.value)}${unit === undefined ? '' : `\u2009${unit}`}`;
           return (
             <g key={row.label}>
               <text x={8} y={y} dominantBaseline="middle" fill="var(--cb-text)">
