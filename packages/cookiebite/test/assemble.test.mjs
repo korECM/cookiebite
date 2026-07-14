@@ -238,6 +238,7 @@ test('flags controls emits cookiebite-tsx-js with localStorage keys after core-j
   const block = html.match(/id="cookiebite-tsx-js">([\s\S]*?)<\/script>/)[1];
   assert.match(block, /cookiebite:theme/);
   assert.match(block, /cookiebite:density/);
+  assert.match(block, /DENSITIES\s*=\s*\[\s*'comfortable'\s*,\s*'compact'\s*,\s*'spacious'\s*\]/);
   assert.match(block, /data-cb-toggle/);
   assert.match(block, /CB\.theme\.set/);
   assert.match(block, /cookiebite:core-ready/);

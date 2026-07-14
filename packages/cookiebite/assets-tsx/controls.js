@@ -6,7 +6,9 @@
     return;
   }
 
-  var DENSITIES = ['compact', 'comfortable', 'spacious'];
+  // comfortable 기본(무속성)에서 첫 클릭이 compact가 되도록 순서 고정.
+  var DENSITIES = ['comfortable', 'compact', 'spacious'];
+
   var THEME_KEY = 'cookiebite:theme';
   var DENSITY_KEY = 'cookiebite:density';
 

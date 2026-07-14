@@ -51,6 +51,15 @@ const CONTROLS_CSS = `.cb-controls {
   outline-offset: 2px;
 }
 .cb-controls [aria-hidden="true"] { opacity: 0.85; }
+@media (max-width: 640px) {
+  .cb-controls {
+    position: static;
+    top: auto;
+    right: auto;
+    margin: calc(var(--cb-space-unit) * 4) calc(var(--cb-space-unit) * 4) 0 auto;
+    align-items: flex-end;
+  }
+}
 @media print {
   .cb-controls { display: none; }
 }`;

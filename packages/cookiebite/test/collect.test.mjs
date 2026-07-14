@@ -24,6 +24,10 @@ test('a capability-free report still collects default controls', async () => {
   assert.deepEqual(result.collected.calls, []);
   assert.deepEqual(result.collected.flags, ['controls']);
   assert.match(result.collected.css, /\.cb-controls/);
+  assert.match(
+    result.collected.css,
+    /@media\s*\(\s*max-width:\s*640px\s*\)[^{]*\{[^}]*\.cb-controls\s*\{[^}]*position:\s*static/,
+  );
   assert.match(result.markup, /data-cb-toggle="theme"/);
   assert.match(result.markup, /data-cb-toggle="density"/);
   assert.match(result.markup, /aria-pressed/);
