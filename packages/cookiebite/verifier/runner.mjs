@@ -96,12 +96,43 @@ export async function runVerification(htmlPath, opts = {}) {
     }
 
     // Dark pass — only when cookiebite-theme JSON declares dark.
+    // Previously set('dark') was try/catch→0 and the return ignored, so a race
+    // where CB.theme was not ready produced a light-tagged "dark" measurement.
     const declaresDark = evalPage(`(function(){var s=document.getElementById('cookiebite-theme');if(!s)return false;try{return !!JSON.parse(s.textContent).dark;}catch(e){return false;}})()`);
     if (declaresDark === true) {
       ab('set', 'viewport', '1280', '900');
       ab('wait', '200');
-      evalPage("(function(){try{window.CB.theme.set('dark');return 1;}catch(e){return 0;}})()");
+
+      let themeReady = false;
+      for (let i = 0; i < 10; i++) {
+        if (evalPage('!!window.CB && !!window.CB.theme') === true) {
+          themeReady = true;
+          break;
+        }
+        ab('wait', '200');
+      }
+      if (!themeReady) {
+        throw new Error("dark pass: window.CB.theme not ready after polling");
+      }
+
+      let setOk = false;
+      for (let i = 0; i < 10; i++) {
+        const applied = evalPage("(function(){try{window.CB.theme.set('dark');return 1;}catch(e){return 0;}})()");
+        if (applied === 1) {
+          setOk = true;
+          break;
+        }
+        ab('wait', '200');
+      }
+      if (!setOk) {
+        throw new Error("dark pass: CB.theme.set('dark') failed after retries");
+      }
+
       ab('wait', '200');
+      if (evalPage(`document.documentElement.getAttribute('data-theme') === 'dark'`) !== true) {
+        throw new Error("dark pass: data-theme is not 'dark' after CB.theme.set('dark')");
+      }
+
       const darkView = evalPage(dom);
       if (darkView && typeof darkView === 'object') viewports.push(darkView);
     }
