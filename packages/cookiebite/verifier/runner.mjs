@@ -51,13 +51,15 @@ export async function runVerification(htmlPath, opts = {}) {
     return value;
   }
 
-  ab('open', `file://${fixture}`);
-  ab('wait', '1600');
-
+  // Measure each breakpoint as a fresh render: set the viewport before opening
+  // so ECharts (and any width-sensitive layout) initializes at that width. A
+  // resize after init would leave the canvas at its stale width and spuriously
+  // overflow — we want what a user loading the report at that width actually sees.
   const viewports = [];
   for (const [w, h] of [[390, 900], [768, 900], [1280, 900]]) {
-    ab('viewport', String(w), String(h));
-    ab('wait', '300');
+    ab('set', 'viewport', String(w), String(h));
+    ab('open', `file://${fixture}`);
+    ab('wait', '1600');
     const view = evalPage(dom);
     if (view && typeof view === 'object') viewports.push(view);
   }
@@ -65,7 +67,7 @@ export async function runVerification(htmlPath, opts = {}) {
   const declaredCaps = evalPage(`(function(){var s=document.getElementById('cookiebite-dependency-summary');return s?(JSON.parse(s.textContent).declared||[]):[];})()`);
   const capabilityChecks = [];
   if (Array.isArray(declaredCaps)) {
-    ab('viewport', '1280', '900');
+    ab('set', 'viewport', '1280', '900');
     ab('wait', '200');
     if (declaredCaps.includes('chart')) {
       const ok = evalPage(`!!document.querySelector('.cb-chart canvas')`);
@@ -90,7 +92,7 @@ export async function runVerification(htmlPath, opts = {}) {
   const declaresDark = evalPage(`(function(){var s=document.getElementById('cookiebite-theme');if(!s)return false;try{return !!JSON.parse(s.textContent).dark;}catch(e){return false;}})()`);
   let darkView = null;
   if (declaresDark === true) {
-    ab('viewport', '1280', '900');
+    ab('set', 'viewport', '1280', '900');
     ab('wait', '200');
     evalPage("(function(){try{window.CB.theme.set('dark');return 1;}catch(e){return 0;}})()");
     ab('wait', '200');
