@@ -200,7 +200,7 @@ export interface ClaimItem {
   tone?: 'neutral' | 'info' | 'success' | 'warning' | 'critical';
 }
 
-// 도트(::before)·톤 변수는 TW가 못 함. 값 칩은 Badge 룩 TW.
+// 도트(::before)와 톤 변수는 TW가 못 함. 값 칩은 Badge 룩 TW.
 const CLAIMS_CSS = `.cb-claims { margin: 0; }
 .cb-claims-title { margin: 0 0 calc(var(--cb-space-unit) * 2); }
 .cb-claims ol { list-style: none; margin: 0; padding: 0;
