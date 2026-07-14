@@ -15,9 +15,47 @@ const CORE_JS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.js'
 const THEME_COMPILER_JS = readFileSync(path.join(pkgRoot, 'vendor/theme-compiler.cjs'), 'utf8');
 
 // assemble이 항상 방출하는 TSX 리포트 전역 규칙 (vendored core CSS 뒤, components CSS 앞).
-// 한국어 본문에서 조사가 단어와 갈라지지 않도록 keep-all로 어절 단위 줄바꿈을 강제하고,
-// 끊을 수 없는 긴 토큰(URL 등)만 overflow-wrap으로 흘린다. core CSS는 drift 가드라 건드리지 않는다.
-const TSX_CSS = `main { word-break: keep-all; overflow-wrap: anywhere; }`;
+// core CSS는 drift 가드라 건드리지 않는다. 폭/밀도/shadcn 브릿지는 이 계층에서만.
+//
+// 폭: core의 main { max-width: measure } 를 1080으로 override. p/li는 core가 이미
+// measure를 주므로 산문은 좁고 figure/table 등은 넓어진다. min(1080px, 100%)로
+// 390에서도 패딩 포함 오버플로를 막는다 (border-box + padding-inline).
+//
+// 밀도: --cb-space-unit/--cb-rhythm은 테마가 리터럴(px)로 컴파일한다. 같은 요소에서
+// var(--cb-space-unit)을 자기 정의에 쓰면 순환이 되므로, 컴파일된 리터럴을 calc에 심는다.
+// data-density 부재 시에는 override하지 않아 기본 룩이 바이트 동일하다.
+//
+// shadcn 브릿지: Task 1 @theme(--color-background 등)과 같은 --cb-* 매핑을
+// 미네임(--background)으로도 노출해 정적 shadcn 클래스 문자열이 테마를 탄다.
+function buildTsxCss(tokens = {}) {
+  const spaceUnit = tokens['--cb-space-unit'] ?? '4px';
+  const rhythm = tokens['--cb-rhythm'] ?? '28px';
+  return `main {
+  max-width: min(1080px, 100%);
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+:root {
+  --density-scale: 1;
+  --background: var(--cb-background);
+  --foreground: var(--cb-text);
+  --primary: var(--cb-accent);
+  --primary-foreground: var(--cb-on-accent);
+  --muted: var(--cb-surface);
+  --muted-foreground: var(--cb-text-muted);
+  --border: var(--cb-divider);
+  --card: var(--cb-surface);
+  --card-foreground: var(--cb-text);
+  --radius: var(--cb-radius);
+}
+:root[data-density="compact"] { --density-scale: .82; }
+:root[data-density="comfortable"] { --density-scale: 1; }
+:root[data-density="spacious"] { --density-scale: 1.18; }
+:root[data-density] {
+  --cb-space-unit: calc(${spaceUnit} * var(--density-scale));
+  --cb-rhythm: calc(${rhythm} * var(--density-scale));
+}`;
+}
 
 function escapeHtml(text) {
   return String(text)
@@ -152,7 +190,7 @@ ${fontLinks}${resourceTags ? `\n${resourceTags}` : ''}
 ${CORE_CSS}
   </style>
   <style id="cookiebite-tsx-css">
-${TSX_CSS}
+${buildTsxCss(compiled.tokens)}
   </style>${twCssBlock}${componentsCssBlock}
 </head>
 <body>

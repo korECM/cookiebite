@@ -48,6 +48,29 @@ test('tsx-css block is always emitted and keeps Korean text on word boundaries',
   assert.match(block, /overflow-wrap: anywhere/);
 });
 
+test('tsx-css widens main to 1080, ships density tiers, and bridges shadcn vars', () => {
+  // core는 main을 measure로 묶고 p/li만 measure를 유지하므로, tsx 계층에서 main만 1080으로 override한다.
+  // --cb-space-unit은 테마가 리터럴(4px)로 컴파일하므로, 밀도 스케일은 그 리터럴을 calc에 심어 순환 참조를 피한다.
+  const html = assembleDocument(base);
+  const block = html.match(/id="cookiebite-tsx-css">\s*([\s\S]*?)\s*<\/style>/)[1];
+  assert.match(block, /main\s*\{[^}]*max-width:\s*min\(1080px,\s*100%\)/);
+  assert.match(block, /:root\[data-density="compact"\][^{]*\{[^}]*--density-scale:\s*\.82/);
+  assert.match(block, /:root\[data-density="comfortable"\][^{]*\{[^}]*--density-scale:\s*1\b/);
+  assert.match(block, /:root\[data-density="spacious"\][^{]*\{[^}]*--density-scale:\s*1\.18/);
+  assert.match(block, /:root\[data-density\][^{]*\{[^}]*--cb-space-unit:\s*calc\(4px\s*\*\s*var\(--density-scale\)\)/);
+  assert.match(block, /:root\[data-density\][^{]*\{[^}]*--cb-rhythm:\s*calc\(28px\s*\*\s*var\(--density-scale\)\)/);
+  assert.match(block, /--background:\s*var\(--cb-background\)/);
+  assert.match(block, /--foreground:\s*var\(--cb-text\)/);
+  assert.match(block, /--primary:\s*var\(--cb-accent\)/);
+  assert.match(block, /--primary-foreground:\s*var\(--cb-on-accent\)/);
+  assert.match(block, /--muted:\s*var\(--cb-surface\)/);
+  assert.match(block, /--muted-foreground:\s*var\(--cb-text-muted\)/);
+  assert.match(block, /--border:\s*var\(--cb-divider\)/);
+  assert.match(block, /--card:\s*var\(--cb-surface\)/);
+  assert.match(block, /--card-foreground:\s*var\(--cb-text\)/);
+  assert.match(block, /--radius:\s*var\(--cb-radius\)/);
+});
+
 test('theme block round-trips as a JSON object', () => {
   const html = assembleDocument(base);
   const theme = JSON.parse(html.match(/id="cookiebite-theme">\s*([\s\S]*?)\s*<\/script>/)[1]);
