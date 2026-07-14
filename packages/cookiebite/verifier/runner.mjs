@@ -16,6 +16,14 @@ export class RunnerUnavailableError extends Error {
   }
 }
 
+/** Wrong input file (not a cookiebite report) — message-only at the CLI. */
+export class VerifyInputError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'VerifyInputError';
+  }
+}
+
 function resolveRunner() {
   for (const candidate of [['agent-browser'], ['npx', '-y', 'agent-browser'], ['bunx', 'agent-browser']]) {
     const probe = spawnSync(candidate[0], [...candidate.slice(1), '--version'], { encoding: 'utf8' });
@@ -64,7 +72,7 @@ export async function runVerification(htmlPath, opts = {}) {
       if (viewports.length === 0) {
         const hasSummary = evalPage(`!!document.getElementById('cookiebite-dependency-summary')`);
         if (!hasSummary) {
-          throw new Error('cookiebite 리포트가 아닙니다 — #cookiebite-dependency-summary 블록이 없습니다 (open 실패 또는 잘못된 파일)');
+          throw new VerifyInputError('cookiebite 리포트가 아닙니다 — #cookiebite-dependency-summary 블록이 없습니다 (open 실패 또는 잘못된 파일)');
         }
       }
       const view = evalPage(dom);
