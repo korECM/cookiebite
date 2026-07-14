@@ -128,9 +128,7 @@ export async function verifyCommand(args) {
   } catch (error) {
     // RunnerUnavailable / VerifyInput are user-facing — message only, no stack.
     // Compare by name so a distinct module copy still matches across the CLI boundary.
-    const quiet = error?.name === 'RunnerUnavailableError' || error?.name === 'VerifyInputError'
-      || error instanceof RunnerUnavailableError
-      || error instanceof VerifyInputError;
+    const quiet = error?.name === 'RunnerUnavailableError' || error?.name === 'VerifyInputError';
     process.stderr.write(`${quiet ? error.message : (error.stack || error.message)}\n`);
     process.exitCode = 3;
   }
