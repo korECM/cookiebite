@@ -38,8 +38,13 @@ bunx cookiebite verify report.html --runs 3
 ```
 
 `cookiebite`에서 컴포넌트를, `cookiebite/themes`에서 테마를 import해요.
-색은 `var(--cb-*)` 토큰만 허용하고 리터럴은 빌드가 막아요.
+색은 `var(--cb-*)` 토큰만 허용하고 리터럴은 빌드가 막아요. raw JSX에는 시맨틱 Tailwind
+색 유틸만 쓸 수 있어요 (`bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`,
+`text-primary-foreground`). 팔레트 단계나 임의 색은 CSS가 안 나와요.
+`<Report>`는 다크/밀도 토글을 기본으로 띄워요 (`controls={false}`로 끔).
+모든 테마는 다크 토큰을 갖고, 생략하면 빌드가 자동 파생해요.
 Chart는 flint semantic spec(`type`, `semanticTypes`, `encodings`, `ariaLabel`)을 써요.
+data key는 영어 식별자, 한글은 라벨과 본문에만.
 문서 쉘, KPI, 주장, 발견, 표, 용어집, 차트까지 12종 컴포넌트는
 [packages/cookiebite/README.md](packages/cookiebite/README.md)를 보세요.
 전체 계약은 [DESIGN.md](DESIGN.md)에 있어요.
@@ -111,7 +116,12 @@ bash scripts/scaffold.sh dashboard report.html   # 또는: review, postmortem, e
 
 ## 어떻게 품질을 지키나
 
-스킬이 리포트를 헤드리스 브라우저에서 렌더하고, 데스크톱이랑 좁은 폭으로 나눠서 스크린샷을 찍어요. 그리고 그 조각들을 직접 읽고 점검하죠. 겹친 라벨, 잘린 글자, 무너진 차트, 모바일에서 깨지는 레이아웃. 이런 건 HTML 소스나 문법 검사로는 안 잡혀요. 눈으로 봐야 잡히죠. 그래서 보고, 고치고, 또 봅니다. 스크린샷 도구는 [agent-browser](https://github.com/built-by-as/agent-browser)를 써요.
+스킬이 리포트를 헤드리스 브라우저에서 렌더하고, 데스크톱이랑 좁은 폭으로 나눠서
+스크린샷을 찍어요. **다크 패스는 모든 리포트에서 항상** 돌아요(테마마다 다크 토큰이
+실리니까). 그리고 그 조각들을 직접 읽고 점검하죠. 겹친 라벨, 잘린 글자, 무너진 차트,
+모바일에서 깨지는 레이아웃. 이런 건 HTML 소스나 문법 검사로는 안 잡혀요. 눈으로 봐야
+잡히죠. 그래서 보고, 고치고, 또 봅니다. 스크린샷 도구는
+[agent-browser](https://github.com/built-by-as/agent-browser)를 써요.
 
 색은 눈이 아니라 계산으로 잡아요. 리포트가 생성한 팔레트 전부를 내장 검증기가 판정해요. 색약 시뮬레이션(Machado + CIEDE2000) 기반 분리도, 밝기 밴드, 채도 하한, 실제 surface 대비까지요. 판정 결과는 스킬이 원래 읽던 체크 파일에 같이 들어가요. 완성된 리포트는 차트 안티패턴 카탈로그(이중 축, 순서 없는 카테고리에 명암 램프, 점마다 숫자 라벨 같은 것들)와도 대조하고 나서야 내보내요.
 

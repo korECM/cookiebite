@@ -3,6 +3,7 @@ import { persimmon } from 'cookiebite/themes';
 
 // 주장과 근거를 먼저 정리한다: 주장 한 개에서 세 개, 각 주장의 증거,
 // 독자의 첫 질문. 섹션은 목록이 아니라 논증 순서로 배치한다.
+// data/semanticTypes/encodings/columns의 key는 영어 식별자, 한글은 라벨과 본문에만.
 export default (
   <Report theme={persimmon} title="리포트 제목">
     <Standfirst kicker="리포트 종류, 기간" headline="한 문장으로 요약한 결론">

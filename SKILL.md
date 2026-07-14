@@ -50,6 +50,8 @@ bunx cookiebite verify report.html --runs 3
 2. **`bunx cookiebite new report.tsx`** scaffolds a typed starter: a `<Report>` with a
    theme import and a couple of sections. Fill it with the real narrative and data using
    the components below. Import components from `cookiebite`, themes from `cookiebite/themes`.
+   `<Report>` ships **dark and density toggles by default** (`controls` defaults to
+   `true`); pass `controls={false}` when readers should not see them.
    The file's **default export must be the `<Report …>` element itself**
    (`export default (<Report theme={…} title="…">…</Report>)`) — the build reads it to
    assemble the document; keep that shape if you write or regenerate the file by hand.
@@ -58,9 +60,10 @@ bunx cookiebite verify report.html --runs 3
    `report.html`. A type error, an off-palette color, an empty chart aria label, or a
    used-but-undeclared capability **fails the build** with a file/line message.
 4. **`bunx cookiebite verify report.html --runs 3`** renders the HTML at three breakpoints
-   (and a dark pass when the theme declares `dark`) and reports layout/accessibility
-   findings. `--runs 3` repeats the whole pass to catch flaky findings. It needs
-   `agent-browser` installed (`npm i -g agent-browser && agent-browser install`).
+   plus a **dark pass on every report** (all themes get dark tokens, derived when omitted)
+   and reports layout/accessibility findings. `--runs 3` repeats the whole pass to catch
+   flaky findings. It needs `agent-browser` installed
+   (`npm i -g agent-browser && agent-browser install`).
 5. **Look at the actual pixels** for the judgments the build can't make (see "Verify") and
    hand back the HTML.
 
@@ -94,11 +97,16 @@ crisp, and re-themeable; color them with `var(--cb-*)` tokens so the build's lin
 Import from `cookiebite`. Every component enhances the document — **none invents a card,
 section, or control you didn't ask for.** Any color you write in raw JSX must be a
 `var(--cb-*)` token (see "Theme"); the build's lint fails on a literal hex, rgb, or color
-name.
+name. You may also use **Tailwind utility classes** on raw JSX (`className`), but only
+**semantic color utilities** resolve at build time: `bg-card`, `text-muted-foreground`,
+`border-border`, `bg-primary`, `text-primary-foreground` (and variants like
+`text-card-foreground`, `hover:bg-muted/50`). Palette steps (`bg-red-500`) and arbitrary
+colors (`bg-[#hex]`) produce no CSS and are rejected — the `@theme` layer exposes only
+`--cb-*` bridged tokens.
 
 | Component | Signature | Role |
 | --- | --- | --- |
-| `Report` | `{ theme, title, lang?, children }` | Document shell. The build reads `theme` / `title` / `lang` to assemble `<head>`. Wraps everything. |
+| `Report` | `{ theme, title, lang?, controls?, children }` | Document shell. The build reads `theme` / `title` / `lang` to assemble `<head>`. `controls` defaults to `true` (fixed top-right dark and density toggles); `controls={false}` omits them. Wraps everything. |
 | `Standfirst` | `{ kicker?, headline, children? }` | Lead block: optional kicker line, the `h1`, an optional standfirst paragraph. |
 | `Section` | `{ title, children, id? }` | A `section` + `h2`. Give it an `id` to make it a `Claims` evidence anchor. |
 | `Sources` | `{ children }` | Source / method footer. |
@@ -114,6 +122,13 @@ name.
 The exact prop types live in the signature-index comment atop
 `packages/cookiebite/src/components.tsx` and `capability-components.tsx` — and the build
 typechecks your usage, so a wrong prop is a compile error, not a silent bug.
+
+## Authoring rules
+
+**English data keys.** Keys in `data` row objects, `semanticTypes`, `encodings`, and
+`Table` `columns` must be **English code identifiers** (`week`, `mrr`, `plan`) — the
+build and chart compiler treat them as field names. Put Korean (or any display copy) in
+labels, headers, `ariaLabel`, and authored prose only.
 
 ## Theme
 
@@ -142,8 +157,26 @@ overrides? }`. The eight `seed` values are the complete shared visual input:
 | `radius` | soft edge | integer `0..32` |
 | `surface` | surface strategy | `border`, `tonal`, or `shadow` |
 
-`schemaVersion: 1` is mandatory. Optional `dark` (a partial seed — omitted values inherit
-from `seed`) ships dark tokens and **turns on the verifier's dark pass automatically**.
+`schemaVersion: 1` is mandatory. **Every theme gets a dark palette.** When you omit
+`dark`, the build derives one automatically (dark background `#111114`, light text
+`#EDEDEF`, accent preserved with contrast tuning, `surface: 'tonal'`). The verifier
+**always runs a dark pass** — readers can also flip dark live via the default controls
+toggle. Optional explicit `dark` (a partial seed — omitted values inherit from `seed`)
+overrides that derivation.
+
+> **Warning — explicit `dark` authoring:** Declaring `dark` yourself **skips auto-derivation**.
+> You must then set `surface` deliberately — **`tonal` is recommended** for dark cards.
+> A partial `dark` with `surface: 'border'` or `'shadow'` leaves raised surfaces on white
+> tints; `bg-card` / KPI cards lose contrast against the dark page. Copy the derived
+> pattern from a preset or include `surface: 'tonal'` in your `dark` seed.
+
+**Layout width:** the main column is **1080px** wide; only prose (`p`, `li`) keeps the
+theme's `--cb-measure` line length. Charts, tables, KPI rows, and other wide blocks span
+the full container.
+
+**Density:** three tiers (`compact`, `comfortable`, `spacious`) via `data-density` on
+`<html>`, cycled by the default density toggle and persisted in `localStorage`.
+
 `overrides` may name only semantic roles (`textMuted`, `divider`, `accentStrong`,
 `surfaceRaised`, `focus`) — component names are invalid. `resources` owns external font
 stylesheets; naming a font family is not an implicit network request. `locale`
@@ -193,9 +226,9 @@ values reproduces a waterfall's story). Do not hand-write ECharts options.
 ## Verify
 
 `bunx cookiebite verify report.html` renders the built HTML in a real browser at **390,
-768, and 1280px** (plus a dark pass when the theme declares `dark`) and classifies findings
-by severity into `verification.json`. `--runs N` (1–10) repeats the whole pass to surface
-flaky findings; a hard finding counts as failure even if it's flaky.
+768, and 1280px** plus a **dark pass on every report** (all themes ship dark tokens) and
+classifies findings by severity into `verification.json`. `--runs N` (1–10) repeats the
+whole pass to surface flaky findings; a hard finding counts as failure even if it's flaky.
 
 **Exit codes:**
 
@@ -224,8 +257,8 @@ link.
 `var(--cb-*)` token; authored text/background/on-accent are unchanged and contrast-safe;
 every `Chart` has a non-empty `ariaLabel` and a `data:{columns,rows}` alternative; the
 capabilities you use (`chart`, `table`, `glossary`) are declared to match; props are
-well-typed. The verifier then enforces the 390/768/1280 passes (and dark when declared)
-with no hard findings.
+well-typed. The verifier then enforces the 390/768/1280 passes plus a dark pass on every
+report with no hard findings.
 
 **What still needs your judgment** (look at the rendered page):
 

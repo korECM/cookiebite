@@ -39,9 +39,14 @@ bunx cookiebite verify report.html --runs 3
 ```
 
 Import components from `cookiebite` and themes from `cookiebite/themes`. Colors must be
-`var(--cb-*)` tokens (literals fail the build). Charts use a flint semantic spec
-(`type`, `semanticTypes`, `encodings`, `ariaLabel`). Twelve components cover the document
-shell, KPIs, claims, findings, tables, glossary, and charts — see
+`var(--cb-*)` tokens (literals fail the build); raw JSX may also use semantic Tailwind
+utilities (`bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`,
+`text-primary-foreground`) — palette steps and arbitrary colors do not compile.
+`<Report>` ships dark and density toggles by default (`controls={false}` to hide).
+Every theme gets dark tokens (auto-derived when omitted). Charts use a flint semantic spec
+(`type`, `semanticTypes`, `encodings`, `ariaLabel`); data keys must be English
+identifiers. Twelve components cover the document shell, KPIs, claims, findings, tables,
+glossary, and charts — see
 [packages/cookiebite/README.md](packages/cookiebite/README.md). The full contract lives in
 [DESIGN.md](DESIGN.md).
 
@@ -112,7 +117,12 @@ When a report opts into behavior — or you scaffold a full-runtime type — thi
 
 ## How it stays good
 
-The skill renders each report in a headless browser and screenshots it in slices — desktop and a narrow width — then reads those slices and checks them. Overlapping labels, clipped text, a collapsed chart, a layout that breaks on a phone: none of that shows up in the HTML source or a syntax check. The only way to catch it is to look, so the skill looks, fixes what it finds, and looks again. The screenshot tool it uses is [agent-browser](https://github.com/built-by-as/agent-browser).
+The skill renders each report in a headless browser and screenshots it in slices — desktop,
+a narrow width, and **always a dark pass** (every theme ships dark tokens) — then reads
+those slices and checks them. Overlapping labels, clipped text, a collapsed chart, a layout
+that breaks on a phone: none of that shows up in the HTML source or a syntax check. The only
+way to catch it is to look, so the skill looks, fixes what it finds, and looks again. The
+screenshot tool it uses is [agent-browser](https://github.com/built-by-as/agent-browser).
 
 Colors get the same treatment, but computed instead of eyeballed: every palette a report generates is judged by a bundled validator — colorblind separation (Machado CVD simulation + CIEDE2000), lightness band, chroma floor, contrast against the actual surface — and the verdicts land in the same checks file the skill already reads. The finished report is also swept against a catalog of chart anti-patterns (dual axes, value-ramps on unordered categories, a number on every point, and friends) before it ships.
 
