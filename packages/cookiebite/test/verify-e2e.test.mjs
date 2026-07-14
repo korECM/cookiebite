@@ -139,3 +139,51 @@ test('controls theme toggle flips data-theme via CB.theme.set', { timeout: FIVE_
     ab(['close']);
   }
 });
+
+test('density compact shrinks table td padding via --spacing bridge', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-dens-'));
+  const html = path.join(dir, 'kitchen-sink.html');
+  const built = runCli(['build', fixture('kitchen-sink.tsx'), '-o', html]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+  const css = readFileSync(html, 'utf8');
+  assert.match(css, /--spacing:\s*calc\(0\.25rem\s*\*\s*var\(--density-scale\)\)/);
+
+  const session = `cb-dens-${process.pid}`;
+  const ab = (args) =>
+    spawnSync('agent-browser', [...args, '--session', session], { encoding: 'utf8', timeout: 60_000 });
+
+  try {
+    const opened = ab(['open', `file://${html}`]);
+    assert.equal(opened.status, 0, `open failed: ${opened.stderr}`);
+    ab(['wait', '500']);
+
+    const padPx = (stdout) => parseFloat(String(stdout).replace(/["'\s]/g, ''));
+
+    const padBefore = ab([
+      'eval',
+      'getComputedStyle(document.querySelector("td")).paddingTop',
+    ]);
+    assert.equal(padBefore.status, 0, padBefore.stderr);
+    const beforePx = padPx(padBefore.stdout);
+    assert.ok(Number.isFinite(beforePx) && beforePx > 0, `expected td padding, got ${padBefore.stdout}`);
+
+    const clicked = ab(['click', '[data-cb-toggle="density"]']);
+    assert.equal(clicked.status, 0, `density click failed: ${clicked.stderr}`);
+    ab(['wait', '200']);
+
+    const dens = ab(['eval', 'document.documentElement.getAttribute("data-density")']);
+    assert.match(dens.stdout, /compact/, `expected compact after first click, got ${dens.stdout}`);
+
+    const padAfter = ab([
+      'eval',
+      'getComputedStyle(document.querySelector("td")).paddingTop',
+    ]);
+    assert.equal(padAfter.status, 0, padAfter.stderr);
+    const afterPx = padPx(padAfter.stdout);
+    assert.ok(afterPx < beforePx, `compact td padding should shrink (${beforePx} → ${afterPx})`);
+  } finally {
+    ab(['close']);
+  }
+});

@@ -57,6 +57,10 @@ test('tsx-css widens main to 1080, ships density tiers, and bridges shadcn vars'
   assert.match(block, /:root\[data-density="compact"\][^{]*\{[^}]*--density-scale:\s*\.82/);
   assert.match(block, /:root\[data-density="comfortable"\][^{]*\{[^}]*--density-scale:\s*1\b/);
   assert.match(block, /:root\[data-density="spacious"\][^{]*\{[^}]*--density-scale:\s*1\.18/);
+  // TW spacing 브릿지: p-2/h-10 등이 밀도를 타도록 3단 각각에 --spacing 방출
+  assert.match(block, /:root\[data-density="compact"\][^{]*\{[^}]*--spacing:\s*calc\(0\.25rem\s*\*\s*var\(--density-scale\)\)/);
+  assert.match(block, /:root\[data-density="comfortable"\][^{]*\{[^}]*--spacing:\s*calc\(0\.25rem\s*\*\s*var\(--density-scale\)\)/);
+  assert.match(block, /:root\[data-density="spacious"\][^{]*\{[^}]*--spacing:\s*calc\(0\.25rem\s*\*\s*var\(--density-scale\)\)/);
   assert.match(block, /:root\[data-density\][^{]*\{[^}]*--cb-space-unit:\s*calc\(4px\s*\*\s*var\(--density-scale\)\)/);
   assert.match(block, /:root\[data-density\][^{]*\{[^}]*--cb-rhythm:\s*calc\(28px\s*\*\s*var\(--density-scale\)\)/);
   assert.match(block, /--background:\s*var\(--cb-background\)/);

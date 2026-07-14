@@ -12,8 +12,8 @@ bunx cookiebite verify report.html --runs 3
 
 - 색은 `var(--cb-*)` 토큰만 허용한다. hex, rgb, 색 이름 리터럴은 빌드가 실패한다.
 - raw JSX에서는 시맨틱 Tailwind 색 유틸만 허용한다 (`bg-card`, `text-muted-foreground`,
-  `border-border`, `bg-primary`, `text-primary-foreground`). `bg-red-500`, `bg-[#hex]`는
-  CSS가 산출되지 않는다.
+  `border-border`, `bg-primary`, `text-primary-foreground`, `border-accent-strong`,
+  `text-accent-strong`). `bg-red-500`, `bg-[#hex]`는 빌드 lint가 Tailwind 전에 거부한다.
 - default export는 `<Report theme={...} title="...">` 엘리먼트여야 한다.
 - 테마는 `cookiebite/themes`의 프리셋(persimmon, neutral, stripe 등)을 쓰거나
   같은 스키마의 객체를 직접 만든다. `dark`를 생략하면 빌드가 자동 파생한다.

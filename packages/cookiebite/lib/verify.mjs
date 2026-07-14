@@ -12,7 +12,12 @@ import { runVerification } from '../verifier/runner.mjs';
 const USAGE = '사용법: cookiebite verify <report.html> [--runs N] [--manual-ok] [-o out.json]';
 
 export function aggregateRuns(perRunFindings) {
-  const key = (f) => `${f.ruleId}|${f.selector ?? ''}|${f.viewport ?? ''}|${f.theme ?? ''}`;
+  // warning은 뷰포트/테마 귀속이 런마다 흔들려 가짜 flaky를 만든다 → ruleId|selector만.
+  // hard(error 등)는 뷰포트별 레이아웃 버그이므로 기존 4-tuple 유지.
+  const key = (f) =>
+    f.severity === 'warning'
+      ? `${f.ruleId}|${f.selector ?? ''}`
+      : `${f.ruleId}|${f.selector ?? ''}|${f.viewport ?? ''}|${f.theme ?? ''}`;
   const total = perRunFindings.length;
   const seen = new Map();
   for (const run of perRunFindings) {

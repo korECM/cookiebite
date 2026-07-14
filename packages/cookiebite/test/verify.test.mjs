@@ -82,6 +82,51 @@ test('aggregateRuns: hard in 1 of 3 runs still appears in findings and is flaky'
   assert.match(flaky[0], /^chart-not-rendered\|#c\|/);
 });
 
+test('aggregateRuns: warning with different viewport attribution across runs is not flaky', () => {
+  const at390 = {
+    ruleId: 'excess-shadow',
+    severity: 'warning',
+    selector: '.card',
+    viewport: 390,
+    theme: 'light',
+  };
+  const at1280 = {
+    ruleId: 'excess-shadow',
+    severity: 'warning',
+    selector: '.card',
+    viewport: 1280,
+    theme: 'light',
+  };
+  const { findings, flaky } = aggregateRuns([[at390], [at1280]]);
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].occurrences, 2);
+  assert.equal(findings[0].runs, 2);
+  assert.deepEqual(flaky, []);
+  assert.equal(flaky.length, 0);
+});
+
+test('aggregateRuns: hard findings stay viewport-keyed (same rule, different viewport = distinct)', () => {
+  const at390 = {
+    ruleId: 'horizontal-overflow',
+    severity: 'error',
+    selector: null,
+    viewport: 390,
+    theme: 'light',
+  };
+  const at1280 = {
+    ruleId: 'horizontal-overflow',
+    severity: 'error',
+    selector: null,
+    viewport: 1280,
+    theme: 'light',
+  };
+  const { findings, flaky } = aggregateRuns([[at390], [at1280]]);
+  assert.equal(findings.length, 2);
+  assert.equal(flaky.length, 2);
+  assert.ok(flaky.some((k) => k.includes('|390|')));
+  assert.ok(flaky.some((k) => k.includes('|1280|')));
+});
+
 test('--runs rejects 0, 11, and non-integer', () => {
   for (const bad of ['0', '11', 'x']) {
     const result = runCli(['verify', 'report.html', '--runs', bad]);

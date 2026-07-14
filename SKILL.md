@@ -99,10 +99,10 @@ section, or control you didn't ask for.** Any color you write in raw JSX must be
 `var(--cb-*)` token (see "Theme"); the build's lint fails on a literal hex, rgb, or color
 name. You may also use **Tailwind utility classes** on raw JSX (`className`), but only
 **semantic color utilities** resolve at build time: `bg-card`, `text-muted-foreground`,
-`border-border`, `bg-primary`, `text-primary-foreground` (and variants like
-`text-card-foreground`, `hover:bg-muted/50`). Palette steps (`bg-red-500`) and arbitrary
-colors (`bg-[#hex]`) produce no CSS and are rejected — the `@theme` layer exposes only
-`--cb-*` bridged tokens.
+`border-border`, `bg-primary`, `text-primary-foreground`, `border-accent-strong`,
+`text-accent-strong` (and variants like `text-card-foreground`, `hover:bg-muted/50`).
+Palette steps (`bg-red-500`) and arbitrary colors (`bg-[#hex]`) — the build lint rejects
+them before Tailwind runs. The `@theme` layer exposes only `--cb-*` bridged tokens.
 
 | Component | Signature | Role |
 | --- | --- | --- |

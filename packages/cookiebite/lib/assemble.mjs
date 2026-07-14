@@ -49,9 +49,18 @@ function buildTsxCss(tokens = {}) {
   --card-foreground: var(--cb-text);
   --radius: var(--cb-radius);
 }
-:root[data-density="compact"] { --density-scale: .82; }
-:root[data-density="comfortable"] { --density-scale: 1; }
-:root[data-density="spacious"] { --density-scale: 1.18; }
+:root[data-density="compact"] {
+  --density-scale: .82;
+  --spacing: calc(0.25rem * var(--density-scale));
+}
+:root[data-density="comfortable"] {
+  --density-scale: 1;
+  --spacing: calc(0.25rem * var(--density-scale));
+}
+:root[data-density="spacious"] {
+  --density-scale: 1.18;
+  --spacing: calc(0.25rem * var(--density-scale));
+}
 :root[data-density] {
   --cb-space-unit: calc(${spaceUnit} * var(--density-scale));
   --cb-rhythm: calc(${rhythm} * var(--density-scale));
