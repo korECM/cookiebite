@@ -62,19 +62,47 @@ function injectPalette(option, tokens) {
     muted,
   ];
   option.textStyle = { ...(option.textStyle ?? {}), color: text, fontFamily: 'inherit' };
-  // flint가 series[].itemStyle.color에 기본 팔레트 hex를 박아 두면 option.color가 무시된다.
+  // flint가 series[].itemStyle.color 또는 data[] 항목별 itemStyle.color에 기본 팔레트 hex를
+  // 박아 두면 option.color가 무시된다(예: funnel이 ECharts 기본 5색으로 샘). 둘 다 지운다.
   for (const series of Array.isArray(option.series) ? option.series : []) {
     if (series?.itemStyle && 'color' in series.itemStyle) delete series.itemStyle.color;
+    for (const datum of Array.isArray(series?.data) ? series.data : []) {
+      if (datum && typeof datum === 'object' && datum.itemStyle && 'color' in datum.itemStyle) {
+        delete datum.itemStyle.color;
+      }
+    }
   }
   for (const axisKey of ['xAxis', 'yAxis']) {
     const axes = Array.isArray(option[axisKey]) ? option[axisKey] : option[axisKey] ? [option[axisKey]] : [];
     for (const axis of axes) {
+      // raw 필드명(name)이 차트에 찍혀 회전 라벨과 겹친다. 의미는 ariaLabel/캡션이 진다.
+      delete axis.name;
       axis.axisLine = { ...(axis.axisLine ?? {}), lineStyle: { color: divider } };
       axis.axisLabel = { ...(axis.axisLabel ?? {}), color: muted };
       axis.splitLine = { ...(axis.splitLine ?? {}), lineStyle: { color: divider } };
     }
   }
   return option;
+}
+
+// flint의 funnel assembler는 카테고리별 행 수를 세어 value를 1로 고정하고 측정값을 name에 넣는다.
+// 사전 집계 데이터에선 이 탓에 세그먼트가 모두 같은 크기로 그려지고 라벨에 정체불명 "1"이 붙는다.
+// 실제 측정값(Quantity)으로 value를 채우고 name을 카테고리로 바로잡아 진짜 퍼널로 만든다.
+function normalizeFunnel(option, spec) {
+  const series = Array.isArray(option.series) ? option.series : [];
+  if (!series.some((s) => s?.type === 'funnel')) return;
+  const fieldOf = (enc) => (typeof enc === 'string' ? enc : enc.field);
+  const encodedFields = Object.values(spec.encodings).map(fieldOf);
+  const measureField = encodedFields.find((f) => spec.semanticTypes[f] === 'Quantity');
+  const categoryField = encodedFields.find((f) => spec.semanticTypes[f] !== 'Quantity');
+  if (measureField === undefined || categoryField === undefined) return;
+  const rebuilt = spec.data.map((row) => ({ name: String(row[categoryField]), value: row[measureField] }));
+  const names = rebuilt.map((d) => d.name);
+  for (const s of series) {
+    if (s?.type !== 'funnel') continue;
+    s.data = rebuilt.map((d) => ({ ...d }));
+  }
+  if (option.legend && Array.isArray(option.legend.data)) option.legend.data = names;
 }
 
 function compileOne(spec, tokens) {
@@ -86,11 +114,14 @@ function compileOne(spec, tokens) {
       encodings: Object.fromEntries(
         Object.entries(spec.encodings).map(([ch, enc]) => [ch, typeof enc === 'string' ? { field: enc } : enc]),
       ),
-      baseSize: { width: spec.width ?? 640, height: spec.height ?? 320 },
+      // 기본 width 800: flint 라벨 회전 휴리스틱이 baseSize 폭 기준이라 640이면
+      // 한 글자 요일("월","화")까지 세로로 돌린다. 넓게 잡아 불필요한 회전을 막는다.
+      baseSize: { width: spec.width ?? 800, height: spec.height ?? 320 },
     },
   };
   const dropped = [];
   const option = injectPalette(sanitize(assembleECharts(input), dropped), tokens);
+  normalizeFunnel(option, spec);
   const seriesList = Array.isArray(option.series) ? option.series : [];
   if (seriesList.some((s) => s?.type === 'custom')) {
     throw new ChartCompileError(

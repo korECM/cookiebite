@@ -82,6 +82,42 @@ test('a dark-declaring theme yields distinct dark colors', () => {
   assert.notDeepEqual(dark.textStyle, light.textStyle);
 });
 
+test('axis raw field names are stripped so they cannot collide with rotated labels', () => {
+  const { light } = compileChartOptions(barSpec, persimmon);
+  const axisOf = (a) => (Array.isArray(a) ? a[0] : a);
+  assert.equal('name' in axisOf(light.xAxis), false);
+  assert.equal('name' in axisOf(light.yAxis), false);
+});
+
+test('Funnel Chart sizes segments by the real measure, not flint 1-per-row', () => {
+  const funnelSpec = {
+    type: 'Funnel Chart',
+    data: [
+      { stage: '방문', count: 48200 },
+      { stage: '가입', count: 6140 },
+      { stage: '활성화', count: 3830 },
+    ],
+    semanticTypes: { stage: 'Category', count: 'Quantity' },
+    encodings: { x: 'stage', y: 'count' },
+  };
+  const { light } = compileChartOptions(funnelSpec, persimmon);
+  const series = light.series.find((s) => s.type === 'funnel');
+  assert.ok(series, 'expected a funnel series');
+  // name은 카테고리, value는 측정값 — flint의 name=측정값/value=1 인코딩을 바로잡는다.
+  assert.deepEqual(
+    series.data.map((d) => [d.name, d.value]),
+    [['방문', 48200], ['가입', 6140], ['활성화', 3830]],
+  );
+  // 정체불명 value:1 잔재가 없어야 한다.
+  assert.equal(series.data.some((d) => d.value === 1), false);
+  // data[] 항목별 기본 팔레트 색도 지워져 option.color로 칠한다.
+  assertNoDefaultPalette(light);
+  assertFunctionFree(light);
+  if (light.legend && Array.isArray(light.legend.data)) {
+    assert.deepEqual(light.legend.data, ['방문', '가입', '활성화']);
+  }
+});
+
 test('Waterfall Chart (custom series) is rejected at compile time', () => {
   const waterfallSpec = {
     type: 'Waterfall Chart',
