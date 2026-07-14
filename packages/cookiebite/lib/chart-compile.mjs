@@ -12,7 +12,12 @@ const require = createRequire(path.join(pkgRoot, 'package.json'));
 const { assembleECharts } = require('flint-chart');
 const { CookiebiteTheme } = require(path.join(pkgRoot, 'vendor/theme-compiler.cjs'));
 
-export class ChartCompileError extends Error {}
+export class ChartCompileError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'ChartCompileError';
+  }
+}
 
 // 함수 값과 `_` 접두 메타 키를 제거한 사본을 만든다. 제거된 함수 경로를 기록한다.
 function sanitize(value, dropped, pathName = 'option') {

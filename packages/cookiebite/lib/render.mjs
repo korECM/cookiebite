@@ -17,7 +17,12 @@ function resolveReactNodeModules() {
   }
 }
 
-export class BuildError extends Error {}
+export class BuildError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'BuildError';
+  }
+}
 
 export async function renderReport(reportPath) {
   const absolute = path.resolve(reportPath);
