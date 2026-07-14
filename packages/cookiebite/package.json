@@ -10,7 +10,7 @@
   },
   "type": "module",
   "bin": {
-    "cookiebite": "./bin/cookiebite.mjs"
+    "cookiebite": "bin/cookiebite.mjs"
   },
   "exports": {
     ".": "./src/index.ts",
