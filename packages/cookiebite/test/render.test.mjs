@@ -12,7 +12,8 @@ test('renderReport returns markup and Report props', async () => {
   assert.equal(result.title, '결제 성공률 리포트');
   assert.equal(result.lang, 'ko');
   assert.equal(result.theme.seed.accent, '#FA4D02');
-  assert.match(result.markup, /^<main>/);
+  // controls 기본 클러스터가 main 앞에 온다.
+  assert.match(result.markup, /class="cb-controls"[\s\S]*<main>/);
   assert.match(result.markup, /<h1>결제 성공률 99\.2%로 회복<\/h1>/);
   assert.match(result.markup, /<section aria-labelledby="[^"]+"><h2 id="[^"]+">원인<\/h2>/);
 });

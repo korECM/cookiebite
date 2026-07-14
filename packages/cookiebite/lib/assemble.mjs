@@ -106,7 +106,7 @@ const CAPABILITY_META = {
 };
 
 export function assembleDocument({ markup, theme, title, lang, collected, twCss = '' }) {
-  const { calls = [], css: componentCss = '' } = collected ?? {};
+  const { calls = [], css: componentCss = '', flags = [] } = collected ?? {};
   const capabilities = [...new Set(calls.map((c) => c.capability))].sort();
   for (const c of capabilities) {
     if (!CAPABILITY_META[c]) throw new Error(`unknown capability '${c}'`);
@@ -161,6 +161,11 @@ ${calls
 </script>`
     : '';
 
+  // flags 기반 정적 자산 — core-js 뒤, CB.theme 의존. core-ready 방어는 자산 자체가 가짐.
+  const tsxJsBlock = flags.includes('controls')
+    ? `<script id="cookiebite-tsx-js">\n${readFileSync(path.join(pkgRoot, 'assets-tsx/controls.js'), 'utf8')}\n</script>`
+    : '';
+
   const versions = { cookiebite: pkg.version };
   for (const name of externalResources) {
     const [key, ver] = RESOURCE_TAGS[name].version;
@@ -174,7 +179,7 @@ ${calls
     externalResources,
     versions,
   };
-  const bodyScripts = [moduleBlocks, reportScript].filter(Boolean).join('\n');
+  const bodyScripts = [moduleBlocks, tsxJsBlock, reportScript].filter(Boolean).join('\n');
   return `<!doctype html>
 <html lang="${escapeHtml(lang)}">
 <head>

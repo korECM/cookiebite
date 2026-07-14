@@ -19,6 +19,24 @@ test('data components render semantic markup with token-only styling', async () 
   assert.match(result.collected.css, /\.cb-kpis/);
 });
 
+test('Report controls cluster ships theme and density toggles by default', async () => {
+  const result = await renderReport(fixture('ok.tsx'));
+  assert.match(result.markup, /class="cb-controls"/);
+  assert.match(result.markup, /data-cb-toggle="theme"[^>]*aria-pressed/);
+  assert.match(result.markup, /data-cb-toggle="density"/);
+  assert.match(result.markup, /data-cb-density-label/);
+  // 아이콘+텍스트 — 색 단독 금지 (Dark 문안 + aria-hidden 글리프).
+  assert.match(result.markup, /aria-hidden="true">◐[\s\S]*Dark/);
+  assert.equal(lintTokens(`<style>${result.collected.css}</style>`).length, 0);
+  assert.match(result.collected.css, /position:\s*fixed/);
+  assert.match(result.collected.css, /@media print/);
+});
+
+test('Report controls={false} drops the cluster', async () => {
+  const result = await renderReport(fixture('controls-off.tsx'));
+  assert.doesNotMatch(result.markup, /cb-controls|data-cb-toggle/);
+});
+
 test('matrix ramps cells with a tokened accent overlay, ink stays --cb-text', async () => {
   const result = await renderReport(fixture('data-components.tsx'));
   // 강도는 accent 오버레이 불투명도로. td 자체 배경은 투명이라 대비 계측이 잉크 대 페이지 배경을 읽는다.

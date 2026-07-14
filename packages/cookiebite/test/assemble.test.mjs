@@ -228,3 +228,29 @@ test('explicitly identical light/dark chart options emit a static option object'
   assert.match(script, /option:\s*\{/);
   assert.doesNotMatch(script, /option:\s*function\s*\(/);
 });
+
+test('flags controls emits cookiebite-tsx-js with localStorage keys after core-js', () => {
+  const html = assembleDocument({
+    ...base,
+    collected: { calls: [], css: '', flags: ['controls'] },
+  });
+  assert.match(html, /id="cookiebite-tsx-js"/);
+  const block = html.match(/id="cookiebite-tsx-js">([\s\S]*?)<\/script>/)[1];
+  assert.match(block, /cookiebite:theme/);
+  assert.match(block, /cookiebite:density/);
+  assert.match(block, /data-cb-toggle/);
+  assert.match(block, /CB\.theme\.set/);
+  assert.match(block, /cookiebite:core-ready/);
+  const coreIdx = html.indexOf('id="cookiebite-core-js"');
+  const tsxIdx = html.indexOf('id="cookiebite-tsx-js"');
+  assert.ok(coreIdx > 0 && tsxIdx > coreIdx, 'tsx-js follows core-js');
+});
+
+test('omitted controls flag skips cookiebite-tsx-js', () => {
+  const html = assembleDocument({
+    ...base,
+    collected: { calls: [], css: '', flags: [] },
+  });
+  assert.doesNotMatch(html, /cookiebite-tsx-js/);
+  assert.doesNotMatch(html, /cookiebite:theme/);
+});

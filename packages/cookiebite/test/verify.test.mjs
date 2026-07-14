@@ -28,6 +28,7 @@ test('npm pack --dry-run includes verifier, vendor theme-compiler, and starter t
     'verifier/classify.mjs',
     'vendor/theme-compiler.cjs',
     'templates/starter.tsx',
+    'assets-tsx/controls.js',
   ]) {
     assert.ok(files.includes(required), `pack files missing ${required}`);
   }

@@ -97,3 +97,45 @@ test('every report runs a dark viewport pass (exit 0)', { timeout: FIVE_MIN }, (
   const themes = result.inventory.viewports.map((v) => v.theme);
   assert.ok(themes.includes('dark'), `expected a dark viewport measurement, got themes=${JSON.stringify(themes)}`);
 });
+
+test('controls theme toggle flips data-theme via CB.theme.set', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-ctrl-'));
+  const html = path.join(dir, 'ok.html');
+  const built = runCli(['build', fixture('ok.tsx'), '-o', html]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+
+  const session = `cb-ctrl-${process.pid}`;
+  const ab = (args) =>
+    spawnSync('agent-browser', [...args, '--session', session], { encoding: 'utf8', timeout: 60_000 });
+
+  try {
+    const opened = ab(['open', `file://${html}`]);
+    assert.equal(opened.status, 0, `open failed: ${opened.stderr}`);
+    // core boot + controls script.
+    ab(['wait', '500']);
+    const before = ab([
+      'eval',
+      'document.documentElement.getAttribute("data-theme")',
+    ]);
+    assert.equal(before.status, 0, before.stderr);
+    assert.match(before.stdout, /null|""|undefined/, `expected light (no attr), got ${before.stdout}`);
+
+    const clicked = ab(['click', '[data-cb-toggle="theme"]']);
+    assert.equal(clicked.status, 0, `click failed: ${clicked.stderr}`);
+    ab(['wait', '200']);
+
+    const after = ab(['eval', 'document.documentElement.getAttribute("data-theme")']);
+    assert.equal(after.status, 0, after.stderr);
+    assert.match(after.stdout, /dark/, `expected data-theme=dark after click, got ${after.stdout}`);
+
+    const pressed = ab([
+      'eval',
+      'document.querySelector(\'[data-cb-toggle="theme"]\').getAttribute("aria-pressed")',
+    ]);
+    assert.match(pressed.stdout, /true/);
+  } finally {
+    ab(['close']);
+  }
+});

@@ -17,6 +17,7 @@
     "./themes": "./src/themes.ts"
   },
   "files": [
+    "assets-tsx",
     "bin",
     "src",
     "lib",

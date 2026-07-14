@@ -1,4 +1,5 @@
 // 컴포넌트 인덱스 (1줄 시그니처):
+//   Report({ theme, title, lang?, controls?, children })     — 문서 쉘 (controls 기본 true: 다크/밀도 토글)
 //   Section({ title, children, id? })                        — 섹션 (id 주면 section/h2 앵커 고정)
 //   KpiRow({ items: KpiItem[] })                             — KPI 카드 줄 (dl)
 //   Claims({ items: ClaimItem[], title? })                   — 주장→증거 앵커 목록 (evidence: '#section-id')
@@ -10,21 +11,73 @@
 import { useId, type ReactNode } from 'react';
 import { resolveTheme } from '../lib/resolve-theme.mjs';
 import type { ThemeDocument } from './themes.ts';
-import { registerCss } from './collect.ts';
+import { registerCss, registerFlag } from './collect.ts';
 import { ThemeContext } from './theme-context.ts';
 
 export interface ReportProps {
   theme: ThemeDocument;
   title: string;
   lang?: string;
+  /** 다크/밀도 토글 클러스터. 기본 true — false면 마크업·JS 모두 생략. */
+  controls?: boolean;
   children: ReactNode;
 }
 
+const CONTROLS_CSS = `.cb-controls {
+  position: fixed;
+  top: calc(var(--cb-space-unit) * 4);
+  right: calc(var(--cb-space-unit) * 4);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cb-space-unit) * 2);
+}
+.cb-controls button {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--cb-space-unit) * 2);
+  padding: calc(var(--cb-space-unit) * 2) calc(var(--cb-space-unit) * 3);
+  border: 1px solid var(--cb-divider);
+  border-radius: var(--cb-radius);
+  background: var(--cb-surface);
+  color: var(--cb-text);
+  font: inherit;
+  font-size: 0.85em;
+  cursor: pointer;
+}
+.cb-controls button:hover { color: var(--cb-accent); border-color: var(--cb-accent); }
+.cb-controls button:focus-visible {
+  outline: 2px solid var(--cb-focus);
+  outline-offset: 2px;
+}
+.cb-controls [aria-hidden="true"] { opacity: 0.85; }
+@media print {
+  .cb-controls { display: none; }
+}`;
+
+function ControlsCluster() {
+  registerFlag('controls');
+  registerCss('controls', CONTROLS_CSS);
+  return (
+    <div className="cb-controls" role="group" aria-label="Report controls">
+      <button type="button" data-cb-toggle="theme" aria-pressed="false" aria-label="Toggle dark mode">
+        <span aria-hidden="true">◐</span>
+        Dark
+      </button>
+      <button type="button" data-cb-toggle="density" aria-label="Cycle density">
+        <span aria-hidden="true">☰</span>
+        <span data-cb-density-label="">comfortable</span>
+      </button>
+    </div>
+  );
+}
+
 /** 문서 루트. 빌더가 theme, title, lang prop을 읽어 <head>를 조립한다. */
-export function Report({ theme, children }: ReportProps) {
+export function Report({ theme, controls = true, children }: ReportProps) {
   // Chart compile이 context theme을 쓰므로 Provider에서 파생 dark를 채운다.
   return (
     <ThemeContext.Provider value={resolveTheme(theme)}>
+      {controls ? <ControlsCluster /> : null}
       <main>{children}</main>
     </ThemeContext.Provider>
   );
