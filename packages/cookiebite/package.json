@@ -16,7 +16,8 @@
     "src",
     "lib",
     "templates",
-    "vendor"
+    "vendor",
+    "verifier"
   ],
   "engines": {
     "node": ">=20"

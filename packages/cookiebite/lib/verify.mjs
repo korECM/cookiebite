@@ -1,13 +1,13 @@
 // lib/verify.mjs — cookiebite verify command: arg parse, multi-run flaky
 // aggregation, verification.json assembly, exit 0/1/2/3.
-import { writeFileSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import {
   classify,
   exitCodeFor,
   REQUIRED_MANUAL_REVIEW,
 } from '../verifier/classify.mjs';
-import { runVerification, RunnerUnavailableError } from '../verifier/runner.mjs';
+import { runVerification } from '../verifier/runner.mjs';
 
 const USAGE = '사용법: cookiebite verify <report.html> [--runs N] [--manual-ok] [-o out.json]';
 
@@ -78,6 +78,13 @@ export async function verifyCommand(args) {
   }
 
   const { html, runs, out, manualOk } = parsed;
+
+  if (!existsSync(html)) {
+    process.stderr.write('파일이 없습니다\n');
+    process.exitCode = 3;
+    return;
+  }
+
   const manualReview = manualOk
     ? REQUIRED_MANUAL_REVIEW.map((id) => ({ id, note: 'release-reviewed' }))
     : [];
@@ -119,11 +126,7 @@ export async function verifyCommand(args) {
     );
     process.exitCode = code;
   } catch (error) {
-    if (error instanceof RunnerUnavailableError) {
-      process.stderr.write(`${error.message}\n`);
-      process.exitCode = 3;
-      return;
-    }
-    throw error;
+    process.stderr.write(`${error.message}\n`);
+    process.exitCode = 3;
   }
 }

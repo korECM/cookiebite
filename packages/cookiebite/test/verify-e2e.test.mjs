@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,4 +61,16 @@ test('a deliberate 200vw block is caught as a hard horizontal-overflow (exit 1)'
   assert.equal(result.passed, false);
   const overflow = result.findings.find((f) => f.ruleId === 'horizontal-overflow' && f.severity === 'error');
   assert.ok(overflow, 'expected a hard horizontal-overflow finding');
+});
+
+test('non-cookiebite HTML exits 3 (not a report)', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-'));
+  const html = path.join(dir, 'not-a-report.html');
+  writeFileSync(html, '<html><body>x</body></html>\n');
+
+  const verified = runCli(['verify', html]);
+  assert.equal(verified.code, 3, `expected exit 3, got ${verified.code}: ${verified.stderr}`);
+  assert.match(verified.stderr, /cookiebite 리포트가 아닙니다/);
 });
