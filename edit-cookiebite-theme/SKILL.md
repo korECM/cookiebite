@@ -65,13 +65,11 @@ Keep it brief. Once the studio is open, the user:
 
 1. **Designs/tweaks** the theme in the live preview — start from a preset, nudge the
    accent, change neutrals/semantic colors, pick a font + locale.
-2. **Exports** it one of two ways:
-   - **Set as my default** — makes it the default for **every** future cookiebite report.
-   - **Copy for agent** — a prompt for **one** report.
-3. **Pastes that prompt back into the chat.** That paste is what actually applies the
-   theme — and **the cookiebite skill handles it**, not this one. Pasting a "Copy for
-   agent" prompt applies the theme to a report; pasting "Set as my default" saves it as
-   the global default. (See cookiebite's Theming section: "Applying a theme the user
-   pasted" and "Setting / using a default theme".)
+2. **Exports** the theme — a `ThemeDocument` (`{ schemaVersion, seed, … }`), the same
+   object the cookiebite TSX pipeline expects — for one report or as a reusable default.
+3. **Pastes that output back into the chat.** That paste is what actually applies the
+   theme — and **the cookiebite skill handles it**, not this one: it drops the
+   `ThemeDocument` into a report's `<Report theme={…}>` prop (or saves it as a default the
+   user's reports import). See the cookiebite skill's "Theme" section.
 
 So: this skill opens the editor; cookiebite consumes whatever the user designs.
