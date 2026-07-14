@@ -91,6 +91,12 @@ function compileOne(spec, tokens) {
   };
   const dropped = [];
   const option = injectPalette(sanitize(assembleECharts(input), dropped), tokens);
+  const seriesList = Array.isArray(option.series) ? option.series : [];
+  if (seriesList.some((s) => s?.type === 'custom')) {
+    throw new ChartCompileError(
+      `'${spec.type}' 차트는 함수 기반 렌더러(custom series)를 써서 현재 파이프라인이 지원하지 않습니다 — Bar Chart 등 선언형 타입으로 바꾸세요.`,
+    );
+  }
   const json = JSON.stringify(option);
   try {
     if (JSON.stringify(JSON.parse(json)) !== json) throw new Error('unstable');

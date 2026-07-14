@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compileChartOptions } from '../lib/chart-compile.mjs';
+import { ChartCompileError, compileChartOptions } from '../lib/chart-compile.mjs';
 import { persimmon } from '../src/themes.ts';
 
 const ECHARTS_DEFAULT_PALETTE =
@@ -80,4 +80,26 @@ test('a dark-declaring theme yields distinct dark colors', () => {
   const themed = { ...persimmon, dark: { background: '#111111', text: '#EDEDED' } };
   const { light, dark } = compileChartOptions(barSpec, themed);
   assert.notDeepEqual(dark.textStyle, light.textStyle);
+});
+
+test('Waterfall Chart (custom series) is rejected at compile time', () => {
+  const waterfallSpec = {
+    type: 'Waterfall Chart',
+    data: [
+      { stage: '시작', value: 100 },
+      { stage: '증가', value: 30 },
+      { stage: '감소', value: -20 },
+    ],
+    semanticTypes: { stage: 'Category', value: 'Quantity' },
+    encodings: { x: 'stage', y: 'value' },
+  };
+  assert.throws(
+    () => compileChartOptions(waterfallSpec, persimmon),
+    (err) => {
+      assert.ok(err instanceof ChartCompileError);
+      assert.match(err.message, /Waterfall Chart/);
+      assert.match(err.message, /선언형/);
+      return true;
+    },
+  );
 });
