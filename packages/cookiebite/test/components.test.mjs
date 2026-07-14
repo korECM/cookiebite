@@ -11,12 +11,17 @@ const fixture = (name) =>
 test('data components render semantic markup with token-only styling', async () => {
   const result = await renderReport(fixture('data-components.tsx'));
   assert.match(result.markup, /<dl class="cb-kpis">/);
+  assert.match(result.markup, /cb-kpi rounded-xl border border-border bg-card/);
+  assert.match(result.markup, /text-2xl font-semibold tracking-tight/);
   assert.match(result.markup, /cb-delta cb-tone-success/);
   assert.match(result.markup, /<ol[^>]*>[\s\S]*cb-claim/);
-  assert.match(result.markup, /cb-badge">Critical</);
+  assert.match(result.markup, /cb-claim-value[^"]*rounded-md border/);
+  assert.match(result.markup, /cb-badge[^"]*border-accent-strong[^"]*">Critical</);
+  assert.match(result.markup, /cb-matrix rounded-xl border border-border bg-card/);
   assert.equal(lintTokens(result.markup).length, 0); // 마크업 토큰 안전
   assert.equal(lintTokens(`<style>${result.collected.css}</style>`).length, 0); // CSS 청크 토큰 안전
   assert.match(result.collected.css, /\.cb-kpis/);
+  assert.match(result.collected.css, /\.cb-heat/);
 });
 
 test('Report controls cluster ships theme and density toggles by default', async () => {
@@ -49,7 +54,8 @@ test('matrix ramps cells with a tokened accent overlay, ink stays --cb-text', as
 
 test('rangedot renders one svg with capsule, dot, and hidden data table', async () => {
   const result = await renderReport(fixture('data-components.tsx'));
-  assert.match(result.markup, /<figure class="cb-rangedot" role="img"/);
+  assert.match(result.markup, /<figure class="cb-rangedot[^"]*" role="img"/);
+  assert.match(result.markup, /cb-rangedot rounded-xl border border-border bg-card/);
   assert.match(result.markup, /stroke="var\(--cb-divider\)"/);
   assert.match(result.markup, /fill="var\(--cb-accent\)"/);
   assert.match(result.markup, /cb-visually-hidden/);

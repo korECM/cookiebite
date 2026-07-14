@@ -18,3 +18,17 @@ test('markup with no Tailwind utilities returns an empty string', async () => {
   const css = await compileTw('<main><h1>plain</h1></main>');
   assert.equal(css, '');
 });
+
+test('rounded-xl maps to theme radius via --radius-xl', async () => {
+  const css = await compileTw('<div class="rounded-xl">card</div>');
+  assert.match(css, /--radius-xl:\s*var\(--radius\)/);
+  assert.match(css, /--radius:\s*var\(--cb-radius\)/);
+  assert.match(css, /\.rounded-xl\s*\{[^}]*border-radius:\s*var\(--radius-xl\)/);
+});
+
+test('hover:bg-muted/50 emits color-mix against the muted token', async () => {
+  const css = await compileTw('<tr class="hover:bg-muted/50">row</tr>');
+  assert.match(css, /hover\\:bg-muted\\\/50/);
+  assert.match(css, /var\(--color-muted\)|var\(--cb-surface\)/);
+  assert.match(css, /color-mix/);
+});

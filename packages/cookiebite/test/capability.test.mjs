@@ -25,7 +25,9 @@ test('kitchen-sink build wires capabilities end to end', () => {
 test('a non-sortable table registers no capability', async () => {
   const result = await renderReport(fixture('plain-table.tsx'));
   assert.deepEqual(result.collected.calls, []);
-  assert.match(result.markup, /<table[^>]*class="cb-table"/);
+  assert.match(result.markup, /<table[^>]*class="cb-table[^"]*"/);
+  assert.match(result.markup, /cb-table-wrap rounded-xl border border-border/);
+  assert.match(result.markup, /hover:bg-muted\/50/);
 });
 
 test('empty Glossary definition fails the build naming definition', () => {

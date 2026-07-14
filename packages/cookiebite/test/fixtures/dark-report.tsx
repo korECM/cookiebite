@@ -1,9 +1,11 @@
 import { Report, Standfirst, Section, Chart } from 'cookiebite';
 import { persimmon, type ThemeDocument } from 'cookiebite/themes';
 
+// surface: tonal — 컴파일러가 border/shadow면 --cb-surface=#FFFFFF로 두어
+// bg-card + text-card-foreground 다크 대비가 깨진다 (deriveDarkSeed와 동일).
 const darkTheme: ThemeDocument = {
   ...persimmon,
-  dark: { background: '#111111', text: '#EDEDED' },
+  dark: { background: '#111111', text: '#EDEDED', surface: 'tonal' },
 };
 
 export default (

@@ -13,7 +13,8 @@ const fixture = (name) =>
 
 test('Chart renders figure host and registers compiled chart call', async () => {
   const result = await renderReport(fixture('chart-report.tsx'));
-  assert.match(result.markup, /<figure class="cb-chart">/);
+  assert.match(result.markup, /<figure class="cb-chart[^"]*"/);
+  assert.match(result.markup, /cb-chart rounded-xl border border-border bg-card/);
   assert.match(result.markup, /<div id="[^"]+" style="height:320px"/);
   assert.equal(lintTokens(result.markup).length, 0);
 

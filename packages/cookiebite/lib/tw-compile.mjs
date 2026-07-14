@@ -26,6 +26,9 @@ const TW_INPUT = `
   --color-card-foreground: var(--cb-text);
   --color-accent-strong: var(--cb-accent-strong);
   --radius: var(--cb-radius);
+  /* shadcn rounded-md/xl이 테마 radius를 타도록 */
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-xl: var(--radius);
 }
 `;
 

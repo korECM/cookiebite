@@ -15,13 +15,18 @@ export interface TableProps {
   caption?: string;
 }
 
-const TABLE_CSS = `.cb-table { border-collapse: collapse; width: 100%; }
-.cb-table th, .cb-table td {
-  text-align: start;
-  padding: calc(var(--cb-space-unit) * 2) calc(var(--cb-space-unit) * 3);
-  border-bottom: 1px solid var(--cb-divider);
+// .cb-sort는 capability가 주입 — TW 스캔 불가, CSS 청크에서 스타일.
+// 표 룩(헤더 muted, hover, 여백)은 마크업 TW 유틸.
+const TABLE_CSS = `.cb-table-wrap { margin: 0; overflow: auto; }
+.cb-table { border-collapse: collapse; }
+.cb-table .cb-sort {
+  appearance: none; background: none; border: none; font: inherit;
+  font-weight: inherit; color: inherit; cursor: pointer; padding: 0;
+  display: inline-flex; align-items: center; gap: 0.4em;
 }
-.cb-table th { font-weight: 600; }`;
+.cb-table .cb-sort::after { content: ''; opacity: 0.35; font-size: 0.85em; }
+.cb-table th[aria-sort='ascending'] .cb-sort::after { content: '▲'; opacity: 1; }
+.cb-table th[aria-sort='descending'] .cb-sort::after { content: '▼'; opacity: 1; }`;
 
 /** 정렬 가능한 표. sortable이고 행이 있을 때만 table capability를 등록한다. */
 export function Table({ columns, rows, sortable, caption }: TableProps): ReactNode {
@@ -34,27 +39,41 @@ export function Table({ columns, rows, sortable, caption }: TableProps): ReactNo
   }
 
   return (
-    <table id={id} className="cb-table">
-      {caption === undefined ? null : <caption>{caption}</caption>}
-      <thead>
-        <tr>
-          {columns.map((col, i) => (
-            <th scope="col" key={i}>
-              {col.header}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((row, ri) => (
-          <tr key={ri}>
-            {row.map((cell, ci) => (
-              <td key={ci}>{cell}</td>
+    // shadcn/ui Table 정적 서브셋 (MIT) — 카드 래핑 + header muted + row hover
+    <div className="cb-table-wrap rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+      <table id={id} className="cb-table w-full caption-bottom text-sm">
+        {caption === undefined ? null : (
+          <caption className="mt-4 px-2 text-sm text-muted-foreground">{caption}</caption>
+        )}
+        <thead>
+          <tr className="border-b hover:bg-muted/50">
+            {columns.map((col, i) => (
+              <th
+                scope="col"
+                key={i}
+                className={`h-10 px-2 text-left align-middle font-medium text-muted-foreground ${col.numeric ? 'text-right' : ''}`}
+              >
+                {col.header}
+              </th>
             ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr key={ri} className="border-b transition-colors hover:bg-muted/50">
+              {row.map((cell, ci) => (
+                <td
+                  key={ci}
+                  className={`p-2 align-middle text-card-foreground ${columns[ci]?.numeric ? 'text-right tabular-nums' : ''}`}
+                >
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
