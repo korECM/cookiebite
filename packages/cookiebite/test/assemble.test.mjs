@@ -204,7 +204,8 @@ test('collected chart emits marker, module, echarts CDN, dark option picker, and
   assert.equal(summary.versions.echarts, '5.5.1');
 });
 
-test('identical light/dark chart options emit a static option object', () => {
+test('explicitly identical light/dark chart options emit a static option object', () => {
+  // 파생 dark는 light와 달라 분기 함수가 기본이다. light===dark를 명시한 극단만 정적.
   const option = { color: ['#FA4D02'], series: [{ type: 'bar', data: [1] }] };
   const collected = {
     calls: [

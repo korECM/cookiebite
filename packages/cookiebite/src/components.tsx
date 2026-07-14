@@ -8,6 +8,7 @@
 //   Chart({ type, data, semanticTypes, encodings, ariaLabel, height? }) — flint spec 차트 (chart.tsx, chart capability 등록)
 //   (쉘: Report, Standfirst, Section, Sources / capability: Table, Glossary → capability-components.tsx)
 import { useId, type ReactNode } from 'react';
+import { resolveTheme } from '../lib/resolve-theme.mjs';
 import type { ThemeDocument } from './themes.ts';
 import { registerCss } from './collect.ts';
 import { ThemeContext } from './theme-context.ts';
@@ -21,8 +22,9 @@ export interface ReportProps {
 
 /** 문서 루트. 빌더가 theme, title, lang prop을 읽어 <head>를 조립한다. */
 export function Report({ theme, children }: ReportProps) {
+  // Chart compile이 context theme을 쓰므로 Provider에서 파생 dark를 채운다.
   return (
-    <ThemeContext.Provider value={theme}>
+    <ThemeContext.Provider value={resolveTheme(theme)}>
       <main>{children}</main>
     </ThemeContext.Provider>
   );

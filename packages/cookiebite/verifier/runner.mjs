@@ -103,11 +103,9 @@ export async function runVerification(htmlPath, opts = {}) {
       }
     }
 
-    // Dark pass — only when cookiebite-theme JSON declares dark.
-    // Previously set('dark') was try/catch→0 and the return ignored, so a race
-    // where CB.theme was not ready produced a light-tagged "dark" measurement.
-    const declaresDark = evalPage(`(function(){var s=document.getElementById('cookiebite-theme');if(!s)return false;try{return !!JSON.parse(s.textContent).dark;}catch(e){return false;}})()`);
-    if (declaresDark === true) {
+    // Dark pass — always. resolveTheme이 모든 리포트에 dark를 채우므로 seed.dark
+    // 선언 여부를 게이트하지 않는다. CB.theme 준비 전 set은 재시도한다.
+    {
       ab('set', 'viewport', '1280', '900');
       ab('wait', '200');
 

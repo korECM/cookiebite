@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveTheme } from './resolve-theme.mjs';
 
 const require = createRequire(import.meta.url);
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -111,6 +112,8 @@ export function assembleDocument({ markup, theme, title, lang, collected, twCss 
     if (!CAPABILITY_META[c]) throw new Error(`unknown capability '${c}'`);
   }
 
+  // dark 미선언 테마에도 파생 dark를 채워 CSS·cookiebite-theme JSON이 항상 다크를 갖게 한다.
+  theme = resolveTheme(theme);
   const compiled = CookiebiteTheme.compile(theme);
   let themeCss = compiled.css;
   if (compiled.dark) {

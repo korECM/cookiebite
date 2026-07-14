@@ -39,9 +39,11 @@ test('kitchen-sink verifies clean end-to-end (exit 0, no hard findings)', { time
   assert.equal(result.runs, 1);
   const hard = result.findings.filter((f) => f.severity === 'error');
   assert.deepEqual(hard, [], `unexpected hard findings: ${JSON.stringify(hard)}`);
-  // The runner really resizes to each breakpoint, not 1280 three times.
+  // light 390/768/1280 + 파생 dark 1280 — 모든 리포트가 dark를 가진다.
   const widths = result.inventory.viewports.map((v) => v.width).sort((a, b) => a - b);
-  assert.deepEqual(widths, [390, 768, 1280]);
+  assert.deepEqual(widths, [390, 768, 1280, 1280]);
+  const themes = result.inventory.viewports.map((v) => v.theme);
+  assert.ok(themes.includes('dark'), `expected a dark viewport measurement, got themes=${JSON.stringify(themes)}`);
 });
 
 test('a deliberate 200vw block is caught as a hard horizontal-overflow (exit 1)', { timeout: FIVE_MIN }, (t) => {
@@ -75,13 +77,14 @@ test('non-cookiebite HTML exits 3 (not a report)', { timeout: FIVE_MIN }, (t) =>
   assert.match(verified.stderr, /cookiebite 리포트가 아닙니다/);
 });
 
-test('dark-declared theme runs a dark viewport pass (exit 0)', { timeout: FIVE_MIN }, (t) => {
+test('every report runs a dark viewport pass (exit 0)', { timeout: FIVE_MIN }, (t) => {
   if (!browserAvailable()) return t.skip('agent-browser not installed');
 
   const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-dark-'));
   const html = path.join(dir, 'dark-report.html');
   const out = path.join(dir, 'verification.json');
 
+  // 명시 dark 선언 픽스처 — 파생이 아니라 작성자 dark도 동일하게 다크 패스를 탄다.
   const built = runCli(['build', fixture('dark-report.tsx'), '-o', html]);
   assert.equal(built.code, 0, `build failed: ${built.stderr}`);
 
@@ -90,8 +93,7 @@ test('dark-declared theme runs a dark viewport pass (exit 0)', { timeout: FIVE_M
 
   const result = JSON.parse(readFileSync(out, 'utf8'));
   assert.equal(result.passed, true);
-  // runner measures light 390/768/1280 then, when cookiebite-theme.dark is set,
-  // a 1280 dark pass — inventory.viewports[].theme comes from CB.theme.mode().
+  // light 390/768/1280 + dark 1280 — inventory.viewports[].theme from CB.theme.mode().
   const themes = result.inventory.viewports.map((v) => v.theme);
   assert.ok(themes.includes('dark'), `expected a dark viewport measurement, got themes=${JSON.stringify(themes)}`);
 });
