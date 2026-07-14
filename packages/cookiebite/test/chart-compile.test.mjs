@@ -40,6 +40,8 @@ function assertFunctionFree(option) {
   assert.deepEqual(JSON.parse(JSON.stringify(option)), option);
 }
 
+const HEX = /^#[0-9A-Fa-f]{6}$/;
+
 test('compiled options are json-safe with theme palette injected', () => {
   const { light, dark } = compileChartOptions(barSpec, persimmon);
   assert.equal(light.series[0].type, 'bar');
@@ -47,6 +49,12 @@ test('compiled options are json-safe with theme palette injected', () => {
   assertNoDefaultPalette(light);
   // 팔레트 선두는 테마 accent
   assert.equal(light.color[0].toUpperCase(), '#FA4D02');
+  // 8색 ramp: 전부 유효 hex, 인접 색이 서로 다름
+  assert.equal(light.color.length, 8);
+  for (const c of light.color) assert.match(c, HEX);
+  for (let i = 1; i < light.color.length; i++) {
+    assert.notEqual(light.color[i].toUpperCase(), light.color[i - 1].toUpperCase());
+  }
   // 함수와 _ 메타 키가 제거되어 라운드트립이 무손실
   assertFunctionFree(light);
   assert.equal(Object.keys(light).some((k) => k.startsWith('_')), false);

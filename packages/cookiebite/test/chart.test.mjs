@@ -42,6 +42,13 @@ test('empty Chart ariaLabel fails the build naming ariaLabel', () => {
   assert.match(result.stderr, /ariaLabel/);
 });
 
+test('inhomogeneous Chart rows fail the build naming the missing key', () => {
+  const out = path.join(mkdtempSync(path.join(tmpdir(), 'cb-chart-inhomo-')), 'bad.html');
+  const result = runCli(['build', fixture('chart-report-inhomogeneous.tsx'), '-o', out]);
+  assert.equal(result.code, 1, result.stderr);
+  assert.match(result.stderr, /count/);
+});
+
 test('build chart-report emits chart module and echarts CDN', () => {
   const out = path.join(mkdtempSync(path.join(tmpdir(), 'cb-chart-e2e-')), 'chart.html');
   const result = runCli(['build', fixture('chart-report.tsx'), '-o', out]);

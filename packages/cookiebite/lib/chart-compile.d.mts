@@ -12,6 +12,6 @@ export interface ChartSpec {
 export declare function compileChartOptions(
   spec: ChartSpec,
   theme: ThemeDocument,
-): { light: object; dark: object };
+): { light: object; dark: object; dropped: string[] };
 
 export declare class ChartCompileError extends Error {}

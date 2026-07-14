@@ -160,3 +160,27 @@ test('collected chart emits marker, module, echarts CDN, dark option picker, and
   assert.ok(typeof summary.versions.cookiebite === 'string' && summary.versions.cookiebite.length > 0);
   assert.equal(summary.versions.echarts, '5.5.1');
 });
+
+test('identical light/dark chart options emit a static option object', () => {
+  const option = { color: ['#FA4D02'], series: [{ type: 'bar', data: [1] }] };
+  const collected = {
+    calls: [
+      {
+        capability: 'chart',
+        hostId: 'c-static',
+        options: {
+          light: option,
+          dark: option,
+          data: { columns: ['x', 'y'], rows: [['a', 1]] },
+          ariaLabel: '정적 옵션 차트',
+        },
+      },
+    ],
+    css: '',
+  };
+  const html = assembleDocument({ ...base, collected });
+  const script = html.match(/id="cookiebite-report-script">([\s\S]*?)<\/script>/)[1];
+  assert.doesNotMatch(script, /data-theme/);
+  assert.match(script, /option:\s*\{/);
+  assert.doesNotMatch(script, /option:\s*function\s*\(/);
+});

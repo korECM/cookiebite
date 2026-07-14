@@ -30,11 +30,37 @@ function sanitize(value, dropped, pathName = 'option') {
   return value;
 }
 
+function parseHex(hex) {
+  const n = hex.replace('#', '');
+  return [parseInt(n.slice(0, 2), 16), parseInt(n.slice(2, 4), 16), parseInt(n.slice(4, 6), 16)];
+}
+
+/** 두 hex의 RGB 채널을 t 비율로 선형 보간한다 (t=0 → a, t=1 → b). */
+function mixHex(a, b, t) {
+  const [ar, ag, ab] = parseHex(a);
+  const [br, bg, bb] = parseHex(b);
+  const ch = (x, y) => Math.round(x + (y - x) * t);
+  const hex = (n) => n.toString(16).padStart(2, '0').toUpperCase();
+  return `#${hex(ch(ar, br))}${hex(ch(ag, bg))}${hex(ch(ab, bb))}`;
+}
+
 function injectPalette(option, tokens) {
   const text = tokens['--cb-text'];
   const muted = tokens['--cb-text-muted'];
   const divider = tokens['--cb-divider'];
-  option.color = [tokens['--cb-accent'], tokens['--cb-accent-strong'], muted, text];
+  const accent = tokens['--cb-accent'];
+  const accentStrong = tokens['--cb-accent-strong'];
+  const background = tokens['--cb-background'];
+  option.color = [
+    accent,
+    accentStrong,
+    mixHex(accent, background, 0.35),
+    mixHex(accent, text, 0.35),
+    mixHex(accentStrong, background, 0.5),
+    mixHex(accent, background, 0.6),
+    mixHex(accent, text, 0.6),
+    muted,
+  ];
   option.textStyle = { ...(option.textStyle ?? {}), color: text, fontFamily: 'inherit' };
   // flint가 series[].itemStyle.color에 기본 팔레트 hex를 박아 두면 option.color가 무시된다.
   for (const series of Array.isArray(option.series) ? option.series : []) {
@@ -71,12 +97,13 @@ function compileOne(spec, tokens) {
   } catch (error) {
     throw new ChartCompileError(`chart option이 JSON-직렬화 안전하지 않습니다: ${error.message}`);
   }
-  return option;
+  return { option, dropped };
 }
 
 export function compileChartOptions(spec, themeDocument) {
   const compiled = CookiebiteTheme.compile(themeDocument);
-  const light = compileOne(spec, compiled.tokens);
-  const dark = compiled.dark ? compileOne(spec, compiled.dark.tokens) : light;
-  return { light, dark };
+  const lightResult = compileOne(spec, compiled.tokens);
+  const darkResult = compiled.dark ? compileOne(spec, compiled.dark.tokens) : lightResult;
+  const dropped = [...new Set([...lightResult.dropped, ...darkResult.dropped])];
+  return { light: lightResult.option, dark: darkResult.option, dropped };
 }

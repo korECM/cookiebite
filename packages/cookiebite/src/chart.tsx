@@ -35,13 +35,30 @@ export function Chart({
     throw new Error('Chart: data가 비어 있습니다 — 행을 채우거나 컴포넌트를 제거하세요.');
   }
 
-  registerCss('chart', CHART_CSS);
   const columns = Object.keys(data[0]);
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const keys = Object.keys(row);
+    const missing = columns.filter((c) => !(c in row));
+    const extra = keys.filter((k) => !columns.includes(k));
+    if (missing.length > 0 || extra.length > 0 || keys.length !== columns.length) {
+      const parts = [
+        missing.length > 0 ? `누락 키: ${missing.join(', ')}` : null,
+        extra.length > 0 ? `초과 키: ${extra.join(', ')}` : null,
+      ].filter(Boolean);
+      throw new Error(`Chart: data[${i}] 행이 균질하지 않습니다 — ${parts.join('; ')}`);
+    }
+  }
+
+  registerCss('chart', CHART_CSS);
   const rows = data.map((r) => columns.map((c) => r[c]));
-  const { light, dark } = compileChartOptions(
+  const { light, dark, dropped } = compileChartOptions(
     { type, data, semanticTypes, encodings, height },
     theme,
   );
+  if (dropped.length > 0) {
+    console.warn(`cookiebite: chart option에서 제거됨: ${dropped.join(', ')}`);
+  }
   registerCall({
     capability: 'chart',
     hostId,

@@ -46,9 +46,13 @@ const CAPABILITY_META = {
     resources: ['echarts'],
     renderCall(call) {
       const { light, dark, data, ariaLabel } = call.options;
+      const optionExpr =
+        JSON.stringify(light) === JSON.stringify(dark)
+          ? scriptSafeJson(light)
+          : `function () { return document.documentElement.getAttribute('data-theme') === 'dark' ? ${scriptSafeJson(dark)} : ${scriptSafeJson(light)}; }`;
       return [
         `window.CB.chart(document.getElementById(${scriptSafeJson(call.hostId)}), {`,
-        `  option: function () { return document.documentElement.getAttribute('data-theme') === 'dark' ? ${scriptSafeJson(dark)} : ${scriptSafeJson(light)}; },`,
+        `  option: ${optionExpr},`,
         `  data: ${scriptSafeJson(data)},`,
         `  ariaLabel: ${scriptSafeJson(ariaLabel)},`,
         `});`,
