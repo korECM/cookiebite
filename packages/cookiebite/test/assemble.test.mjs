@@ -6,12 +6,18 @@ import { persimmon } from '../src/themes.ts';
 const base = { markup: '<main><h1>제목</h1></main>', theme: persimmon, title: '테스트 <리포트>', lang: 'ko' };
 
 test('assembled document carries the canonical block ids in order', () => {
-  const html = assembleDocument(base);
+  const html = assembleDocument({
+    ...base,
+    twCss: '.bg-card { background-color: var(--color-card); }',
+    collected: { calls: [], css: '.cb-kpis { color: var(--cb-text); }' },
+  });
   const order = [
     'id="cookiebite-theme"',
     'id="cookiebite-theme-css"',
     'id="cookiebite-core-css"',
     'id="cookiebite-tsx-css"',
+    'id="cookiebite-tw-css"',
+    'id="cookiebite-components-css"',
     '<main><h1>제목</h1></main>',
     'id="cookiebite-dependency-summary"',
     'id="cookiebite-theme-compiler"',
@@ -27,6 +33,11 @@ test('assembled document carries the canonical block ids in order', () => {
   assert.match(html, /<title>테스트 &lt;리포트&gt;<\/title>/);
   assert.match(html, /--cb-accent:/);
   assert.match(html, /<link rel="stylesheet" href="https:\/\/cdn\.jsdelivr[^"]*pretendard[^"]*">/);
+});
+
+test('empty twCss omits the cookiebite-tw-css block', () => {
+  const html = assembleDocument(base);
+  assert.doesNotMatch(html, /cookiebite-tw-css/);
 });
 
 test('tsx-css block is always emitted and keeps Korean text on word boundaries', () => {

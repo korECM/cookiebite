@@ -66,7 +66,7 @@ const CAPABILITY_META = {
   },
 };
 
-export function assembleDocument({ markup, theme, title, lang, collected }) {
+export function assembleDocument({ markup, theme, title, lang, collected, twCss = '' }) {
   const { calls = [], css: componentCss = '' } = collected ?? {};
   const capabilities = [...new Set(calls.map((c) => c.capability))].sort();
   for (const c of capabilities) {
@@ -93,6 +93,10 @@ export function assembleDocument({ markup, theme, title, lang, collected }) {
     .join('\n');
 
   const useMarker = `<!-- COOKIEBITE:USE${capabilities.length ? ` ${capabilities.join(' ')}` : ''} -->`;
+  // 문서 순서: core → tsx-css → tw-css → components-css (tw는 컴포넌트 커스텀보다 먼저).
+  const twCssBlock = twCss
+    ? `\n  <style id="cookiebite-tw-css">\n${twCss}\n  </style>`
+    : '';
   const componentsCssBlock = componentCss
     ? `\n  <style id="cookiebite-components-css">\n${componentCss}\n  </style>`
     : '';
@@ -149,7 +153,7 @@ ${CORE_CSS}
   </style>
   <style id="cookiebite-tsx-css">
 ${TSX_CSS}
-  </style>${componentsCssBlock}
+  </style>${twCssBlock}${componentsCssBlock}
 </head>
 <body>
 ${markup}

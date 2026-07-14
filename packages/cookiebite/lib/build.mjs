@@ -4,6 +4,7 @@ import { assembleDocument } from './assemble.mjs';
 import { lintTokens } from './lint.mjs';
 import { BuildError, renderReport } from './render.mjs';
 import { typecheckReport } from './typecheck.mjs';
+import { compileTw } from './tw-compile.mjs';
 
 function parseArgs(args) {
   const positional = [];
@@ -44,7 +45,10 @@ export async function buildCommand(args) {
     );
   }
 
-  const html = assembleDocument({ markup, theme, title, lang, collected });
+  // 빌드당 1회: 렌더 마크업을 스캔해 사용된 TW 유틸만 인라인한다.
+  const twCss = await compileTw(markup);
+
+  const html = assembleDocument({ markup, theme, title, lang, collected, twCss });
   const tmp = `${out}.tmp`;
   writeFileSync(tmp, html);
   renameSync(tmp, out); // 원자적 교체: 부분 산출물이 배포되는 사고를 막는다
