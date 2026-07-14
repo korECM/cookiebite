@@ -74,3 +74,24 @@ test('non-cookiebite HTML exits 3 (not a report)', { timeout: FIVE_MIN }, (t) =>
   assert.equal(verified.code, 3, `expected exit 3, got ${verified.code}: ${verified.stderr}`);
   assert.match(verified.stderr, /cookiebite 리포트가 아닙니다/);
 });
+
+test('dark-declared theme runs a dark viewport pass (exit 0)', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-dark-'));
+  const html = path.join(dir, 'dark-report.html');
+  const out = path.join(dir, 'verification.json');
+
+  const built = runCli(['build', fixture('dark-report.tsx'), '-o', html]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+
+  const verified = runCli(['verify', html, '--runs', '1', '--manual-ok', '-o', out]);
+  assert.equal(verified.code, 0, `expected clean verify, got exit ${verified.code}: ${verified.stderr}`);
+
+  const result = JSON.parse(readFileSync(out, 'utf8'));
+  assert.equal(result.passed, true);
+  // runner measures light 390/768/1280 then, when cookiebite-theme.dark is set,
+  // a 1280 dark pass — inventory.viewports[].theme comes from CB.theme.mode().
+  const themes = result.inventory.viewports.map((v) => v.theme);
+  assert.ok(themes.includes('dark'), `expected a dark viewport measurement, got themes=${JSON.stringify(themes)}`);
+});

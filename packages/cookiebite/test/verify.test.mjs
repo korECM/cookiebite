@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,6 +12,25 @@ const pkg = JSON.parse(readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'))
 
 test("package.json files includes 'verifier'", () => {
   assert.ok(pkg.files.includes('verifier'));
+});
+
+test('npm pack --dry-run includes verifier, vendor theme-compiler, and starter template', () => {
+  const packed = spawnSync('npm', ['pack', '--dry-run', '--json'], {
+    cwd: pkgRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(packed.status, 0, `npm pack failed: ${packed.stderr}`);
+  const payload = JSON.parse(packed.stdout);
+  const files = (payload[0]?.files ?? []).map((f) => f.path);
+  for (const required of [
+    'verifier/dom.js',
+    'verifier/runner.mjs',
+    'verifier/classify.mjs',
+    'vendor/theme-compiler.cjs',
+    'templates/starter.tsx',
+  ]) {
+    assert.ok(files.includes(required), `pack files missing ${required}`);
+  }
 });
 
 test('aggregateRuns: warning in 1 of 3 runs is flaky', () => {

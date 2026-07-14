@@ -7,7 +7,7 @@ import {
   exitCodeFor,
   REQUIRED_MANUAL_REVIEW,
 } from '../verifier/classify.mjs';
-import { runVerification } from '../verifier/runner.mjs';
+import { runVerification, RunnerUnavailableError } from '../verifier/runner.mjs';
 
 const USAGE = '사용법: cookiebite verify <report.html> [--runs N] [--manual-ok] [-o out.json]';
 
@@ -126,7 +126,11 @@ export async function verifyCommand(args) {
     );
     process.exitCode = code;
   } catch (error) {
-    process.stderr.write(`${error.message}\n`);
+    if (error instanceof RunnerUnavailableError) {
+      process.stderr.write(`${error.message}\n`);
+    } else {
+      process.stderr.write(`${error.stack || error.message}\n`);
+    }
     process.exitCode = 3;
   }
 }
