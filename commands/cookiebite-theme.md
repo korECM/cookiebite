@@ -6,10 +6,13 @@ Use the **edit-cookiebite-theme** skill to open the cookiebite theme studio
 
 Once it's open, briefly walk the user through the flow: start from a preset, tweak the
 accent / neutrals / semantic colors / font / locale in the live preview, then export the
-theme and paste it back. The export is a `ThemeDocument` — the same `{ schemaVersion,
-seed, … }` object the TSX pipeline expects. Drop it into a report's `<Report theme={…}>`
-prop for one report, or save it as your default. Run `/cookiebite-apply` with the pasted
-output to have it applied for you.
+theme and paste it back. **The export is a studio-format object (`{ name, font, colors,
+locale }`), not a `ThemeDocument`** — to use it in a TSX report, its values are copied
+into a seed by hand (`colors.bg` → `background`, `colors.primary` → `text`,
+`colors.accent` → `accent`, `font.family` + `font.fallback` → `font`, `font.url` →
+`resources.fontStylesheets`, `locale` as-is; pick `spaceUnit` / `measure` / `radius` /
+`surface` from a preset). Run `/cookiebite-apply` with the pasted output to have that
+mapping done for you.
 
 If the user just wants one of the built-in presets (persimmon, neutral, stripe, vercel,
 linear, notion, supabase, sentry, resend, raycast), they don't need the studio at all —

@@ -50,6 +50,9 @@ bunx cookiebite verify report.html --runs 3
 2. **`bunx cookiebite new report.tsx`** scaffolds a typed starter: a `<Report>` with a
    theme import and a couple of sections. Fill it with the real narrative and data using
    the components below. Import components from `cookiebite`, themes from `cookiebite/themes`.
+   The file's **default export must be the `<Report …>` element itself**
+   (`export default (<Report theme={…} title="…">…</Report>)`) — the build reads it to
+   assemble the document; keep that shape if you write or regenerate the file by hand.
 3. **`bunx cookiebite build report.tsx`** typechecks the TSX, lints every color to the
    `var(--cb-*)` token ABI, compiles each `Chart` for light and dark, and emits a single
    `report.html`. A type error, an off-palette color, an empty chart aria label, or a
@@ -155,8 +158,16 @@ outline `3:1`, and only *derived* tones are tuned to satisfy them; a seed that c
 made contrast-safe fails the build. Reference `var(--cb-*)` tokens in any raw JSX style or
 hand SVG — never a hard-coded color.
 
-To design a theme visually, the **edit-cookiebite-theme** skill opens the live theme
-studio; its output is a `ThemeDocument` you drop into `theme`.
+**The two first-class ways to get a custom theme** are (a) a preset from
+`cookiebite/themes`, and (b) writing a `ThemeDocument` object yourself from the seed table
+above. The **edit-cookiebite-theme** skill's live theme studio is a third, visual way to
+*explore* colors — but its export is a different shape (`{ name, font, colors, locale }`),
+**not** a `ThemeDocument`, and there is no converter. To use a studio export, copy its
+values into a seed by hand: `colors.bg` → `background`, `colors.primary` → `text`,
+`colors.accent` → `accent`, `font.family` joined with `font.fallback` → `font`,
+`font.url` → `resources.fontStylesheets`, and `locale` carries over as-is. The remaining
+seed keys (`spaceUnit`, `measure`, `radius`, `surface`) aren't in the export — start from
+a preset's values (persimmon: `4`, `'68ch'`, `12`, `'border'`).
 
 ## Chart
 

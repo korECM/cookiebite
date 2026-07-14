@@ -65,11 +65,14 @@ Keep it brief. Once the studio is open, the user:
 
 1. **Designs/tweaks** the theme in the live preview — start from a preset, nudge the
    accent, change neutrals/semantic colors, pick a font + locale.
-2. **Exports** the theme — a `ThemeDocument` (`{ schemaVersion, seed, … }`), the same
-   object the cookiebite TSX pipeline expects — for one report or as a reusable default.
+2. **Exports** the theme — a studio-format object (`{ name, font, colors, locale }`).
+   Note this is **not** the TSX pipeline's `ThemeDocument`, and there is no converter.
 3. **Pastes that output back into the chat.** That paste is what actually applies the
-   theme — and **the cookiebite skill handles it**, not this one: it drops the
-   `ThemeDocument` into a report's `<Report theme={…}>` prop (or saves it as a default the
-   user's reports import). See the cookiebite skill's "Theme" section.
+   theme — and **the cookiebite skill handles it**, not this one: it maps the export's
+   values into a `ThemeDocument` seed by hand (`colors.bg` → `background`,
+   `colors.primary` → `text`, `colors.accent` → `accent`, `font.family` +
+   `font.fallback` → `font`, `font.url` → `resources.fontStylesheets`, `locale` as-is;
+   `spaceUnit` / `measure` / `radius` / `surface` come from a preset) and sets it as the
+   report's `<Report theme={…}>` prop. See the cookiebite skill's "Theme" section.
 
 So: this skill opens the editor; cookiebite consumes whatever the user designs.
