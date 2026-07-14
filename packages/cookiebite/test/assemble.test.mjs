@@ -11,6 +11,7 @@ test('assembled document carries the canonical block ids in order', () => {
     'id="cookiebite-theme"',
     'id="cookiebite-theme-css"',
     'id="cookiebite-core-css"',
+    'id="cookiebite-tsx-css"',
     '<main><h1>제목</h1></main>',
     'id="cookiebite-dependency-summary"',
     'id="cookiebite-theme-compiler"',
@@ -26,6 +27,14 @@ test('assembled document carries the canonical block ids in order', () => {
   assert.match(html, /<title>테스트 &lt;리포트&gt;<\/title>/);
   assert.match(html, /--cb-accent:/);
   assert.match(html, /<link rel="stylesheet" href="https:\/\/cdn\.jsdelivr[^"]*pretendard[^"]*">/);
+});
+
+test('tsx-css block is always emitted and keeps Korean text on word boundaries', () => {
+  // core CSS는 drift 가드라 손대지 않고, keep-all 규칙은 별도 tsx-css 블록으로 항상 방출한다.
+  const html = assembleDocument(base);
+  const block = html.match(/id="cookiebite-tsx-css">\s*([\s\S]*?)\s*<\/style>/)[1];
+  assert.match(block, /main \{[^}]*word-break: keep-all/);
+  assert.match(block, /overflow-wrap: anywhere/);
 });
 
 test('theme block round-trips as a JSON object', () => {

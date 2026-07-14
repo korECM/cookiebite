@@ -18,7 +18,7 @@ export interface TableProps {
 const TABLE_CSS = `.cb-table { border-collapse: collapse; width: 100%; }
 .cb-table th, .cb-table td {
   text-align: start;
-  padding: calc(var(--cb-space-unit) * 2px) calc(var(--cb-space-unit) * 3px);
+  padding: calc(var(--cb-space-unit) * 2) calc(var(--cb-space-unit) * 3);
   border-bottom: 1px solid var(--cb-divider);
 }
 .cb-table th { font-weight: 600; }`;

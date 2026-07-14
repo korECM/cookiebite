@@ -87,14 +87,14 @@ export interface KpiItem {
 const ARROW = { up: '▲', down: '▼', flat: '—' } as const;
 
 const KPIS_CSS = `.cb-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-  gap: calc(var(--cb-space-unit) * 4px); margin: 0; }
+  gap: calc(var(--cb-space-unit) * 4); margin: 0; align-items: start; }
 .cb-kpi { border: 1px solid var(--cb-divider); border-radius: var(--cb-radius);
-  padding: calc(var(--cb-space-unit) * 4px); background: var(--cb-surface); }
+  padding: calc(var(--cb-space-unit) * 4); background: var(--cb-surface); }
 .cb-kpi dt { color: var(--cb-text-muted); font-size: 0.85em; }
 .cb-kpi dd { margin: 0; }
 .cb-kpi strong { font-size: 1.6em; font-variant-numeric: tabular-nums; }
 .cb-kpi small { color: var(--cb-text-muted); }
-.cb-delta { font-size: 0.8em; margin-inline-start: 0.5em; text-wrap: nowrap; }
+.cb-delta { display: block; font-size: 0.8em; margin-block-start: 0.35em; }
 .cb-tone-success { color: var(--cb-accent-strong); }
 .cb-tone-critical { color: var(--cb-accent-strong); font-weight: 600; }
 .cb-note { color: var(--cb-text-muted); font-size: 0.85em; margin: 0.25em 0 0; }`;
@@ -131,11 +131,11 @@ export interface ClaimItem {
 }
 
 const CLAIMS_CSS = `.cb-claims { margin: 0; }
-.cb-claims-title { color: var(--cb-text-muted); font-size: 0.85em; margin: 0 0 calc(var(--cb-space-unit) * 2px); }
+.cb-claims-title { color: var(--cb-text-muted); font-size: 0.85em; margin: 0 0 calc(var(--cb-space-unit) * 2); }
 .cb-claims ol { list-style: none; margin: 0; padding: 0;
-  display: grid; gap: calc(var(--cb-space-unit) * 2px); }
-.cb-claim { display: flex; align-items: baseline; gap: calc(var(--cb-space-unit) * 2px);
-  padding-inline-start: calc(var(--cb-space-unit) * 3px); color: var(--cb-text); }
+  display: grid; gap: calc(var(--cb-space-unit) * 2); }
+.cb-claim { display: flex; align-items: baseline; gap: calc(var(--cb-space-unit) * 2);
+  padding-inline-start: calc(var(--cb-space-unit) * 3); color: var(--cb-text); }
 .cb-claim::before { content: ""; flex: none; align-self: center;
   width: 0.5em; height: 0.5em; border-radius: 50%;
   background: var(--cb-claim-dot, var(--cb-text-muted)); }
@@ -188,11 +188,11 @@ const SEV_LABEL = {
 } as const;
 
 const FINDINGS_CSS = `.cb-findings { list-style: none; margin: 0; padding: 0;
-  display: grid; gap: calc(var(--cb-space-unit) * 3px); }
-.cb-finding { display: flex; align-items: baseline; gap: calc(var(--cb-space-unit) * 3px); }
+  display: grid; gap: calc(var(--cb-space-unit) * 3); }
+.cb-finding { display: flex; align-items: baseline; gap: calc(var(--cb-space-unit) * 3); }
 .cb-badge { flex: none; border: 1px solid var(--cb-divider); border-radius: var(--cb-radius);
-  padding: calc(var(--cb-space-unit) * 0.5px) calc(var(--cb-space-unit) * 1.5px);
-  font-size: 0.75em; font-weight: 600; text-transform: uppercase;
+  padding: calc(var(--cb-space-unit) * 1) calc(var(--cb-space-unit) * 2.5);
+  font-size: 0.75em; font-weight: 600; line-height: 1.5; text-transform: uppercase;
   letter-spacing: 0.02em; color: var(--cb-text-muted); text-wrap: nowrap; }
 .cb-finding.cb-tone-critical .cb-badge { border-color: var(--cb-accent-strong); color: var(--cb-accent-strong); }
 .cb-finding.cb-tone-warning .cb-badge { border-color: var(--cb-accent); color: var(--cb-accent-strong); }
@@ -234,13 +234,13 @@ export interface MatrixProps {
 const MATRIX_CSS = `.cb-matrix { margin: 0; }
 .cb-matrix table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .cb-matrix th, .cb-matrix td { border: 1px solid var(--cb-divider);
-  padding: calc(var(--cb-space-unit) * 2px); text-align: center; }
+  padding: calc(var(--cb-space-unit) * 2); text-align: center; }
 .cb-matrix td { position: relative; isolation: isolate; color: var(--cb-text); }
 .cb-matrix .cb-heat { position: absolute; inset: 0; z-index: -1;
   background: var(--cb-accent); }
 .cb-matrix th { color: var(--cb-text-muted); font-weight: 600; background: var(--cb-surface); }
 .cb-matrix figcaption { color: var(--cb-text-muted); font-size: 0.85em;
-  margin-block-start: calc(var(--cb-space-unit) * 2px); }`;
+  margin-block-start: calc(var(--cb-space-unit) * 2); }`;
 
 /** 히트맵 테이블. 셀마다 accent 오버레이 불투명도로 강도를 표현한다. 잉크는 항상 --cb-text. */
 export function Matrix({ rows, cols, data, max, format, ariaLabel, caption }: MatrixProps) {

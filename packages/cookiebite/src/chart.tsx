@@ -12,7 +12,7 @@ export interface ChartProps {
   height?: number;
 }
 
-const CHART_CSS = `.cb-chart { margin: calc(var(--cb-space-unit) * 6px) 0; } .cb-chart > div { width: 100%; }`;
+const CHART_CSS = `.cb-chart { margin: calc(var(--cb-space-unit) * 6) 0; } .cb-chart > div { width: 100%; }`;
 
 /** flint chartType + 데이터를 빌드 시점에 컴파일해 chart capability로 등록한다. */
 export function Chart({

@@ -14,6 +14,11 @@ const CORE_JS = readFileSync(path.join(pkgRoot, 'vendor/core/cookiebite-core.js'
 // capabilities never wire onto their hosts).
 const THEME_COMPILER_JS = readFileSync(path.join(pkgRoot, 'vendor/theme-compiler.cjs'), 'utf8');
 
+// assemble이 항상 방출하는 TSX 리포트 전역 규칙 (vendored core CSS 뒤, components CSS 앞).
+// 한국어 본문에서 조사가 단어와 갈라지지 않도록 keep-all로 어절 단위 줄바꿈을 강제하고,
+// 끊을 수 없는 긴 토큰(URL 등)만 overflow-wrap으로 흘린다. core CSS는 drift 가드라 건드리지 않는다.
+const TSX_CSS = `main { word-break: keep-all; overflow-wrap: anywhere; }`;
+
 function escapeHtml(text) {
   return String(text)
     .replaceAll('&', '&amp;')
@@ -141,6 +146,9 @@ ${themeCss}
 ${fontLinks}${resourceTags ? `\n${resourceTags}` : ''}
   <style id="cookiebite-core-css">
 ${CORE_CSS}
+  </style>
+  <style id="cookiebite-tsx-css">
+${TSX_CSS}
   </style>${componentsCssBlock}
 </head>
 <body>
