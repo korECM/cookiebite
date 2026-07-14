@@ -126,25 +126,25 @@ export default (
       <Claims
         items={[
           {
-            claim: '1. 설정 오타가 풀 상한을 100에서 10으로 낮췄다',
+            claim: '설정 오타가 풀 상한을 100에서 10으로 낮췄다',
             value: '의도치 않은 변경',
             tone: 'critical',
           },
           {
-            claim: '2. 평상 트래픽만으로 풀이 즉시 포화됐다',
+            claim: '평상 트래픽만으로 풀이 즉시 포화됐다',
             tone: 'warning',
           },
           {
-            claim: '3. 요청이 빈 연결을 기다리며 대기 큐에 쌓였다',
+            claim: '요청이 빈 연결을 기다리며 대기 큐에 쌓였다',
             tone: 'warning',
           },
           {
-            claim: '4. 대기 시간이 요청 지연으로 드러나 p99가 4.2초까지 올랐다',
+            claim: '대기 시간이 요청 지연으로 드러나 p99가 4.2초까지 올랐다',
             evidence: '#latency',
             tone: 'warning',
           },
           {
-            claim: '5. 쿼리를 세 번 쓰는 체크아웃이 가장 먼저 타임아웃됐다',
+            claim: '쿼리를 세 번 쓰는 체크아웃이 가장 먼저 타임아웃됐다',
             value: '체크아웃 14% 실패',
             tone: 'critical',
           },
