@@ -205,7 +205,8 @@ flaky findings; a hard finding counts as failure even if it's flaky.
   contrast, unreachable keyboard interaction, or a missing chart aria/data alternative.
 - `2` — a required `manualReview` entry is unrecorded (a release is *incomplete*, not
   passed, until you record it). `--manual-ok` skips this gate.
-- `3` — the runner (agent-browser) is unavailable.
+- `3` — verification could not run: agent-browser missing, the file does not exist,
+  the page is not a cookiebite report, or the dark pass failed to initialize.
 
 **Some judgments are deliberately human** and land in `manualReview`: whether a caption
 matches what its figure renders, whether status color is paired with a label in

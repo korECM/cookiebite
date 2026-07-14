@@ -36,7 +36,7 @@ bunx cookiebite verify report.html --runs 3
 
 검증기는 390px, 768px, 1280px 세 브레이크포인트에서 각각 fresh render로 레이아웃과 접근성을 측정한다. Report에 dark 테마가 선언되어 있으면 라이트 패스에 이어 다크 모드 패스를 한 번 더 돈다.
 
-종료 코드는 다음 규약을 따른다. 0은 통과이고 1은 hard finding이 남았을 때다. 2는 required manualReview 항목이 아직 기록되지 않았을 때이며 `--manual-ok`로 해당 게이트를 건너뛸 수 있다. 3은 agent-browser 등 러너가 없을 때다.
+종료 코드는 다음 규약을 따른다. 0은 통과이고 1은 hard finding이 남았을 때다. 2는 required manualReview 항목이 아직 기록되지 않았을 때이며 `--manual-ok`로 해당 게이트를 건너뛸 수 있다. 3은 검증을 실행하지 못했을 때다 — agent-browser 부재, 파일 없음, cookiebite 리포트가 아닌 페이지, 다크 패스 초기화 실패가 여기에 해당한다.
 
 `--runs N`(1부터 10까지)은 전체 검증 패스를 N번 반복해 flaky를 잡는다. 어떤 finding이 일부 런에서만 나타나면 verification.json의 flaky 목록에 표시되지만 hard finding은 flaky로 분류되어도 실패로 처리된다.
 
