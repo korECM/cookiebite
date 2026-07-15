@@ -27,6 +27,13 @@ test('v3 renderReport: local components/ui/card.tsx shadows package', async () =
   assert.doesNotMatch(result.markup, /data-slot="card"/);
 });
 
+test('v3 renderReport: Radix Tabs SSR has data-slot and trigger text', async () => {
+  const result = await renderReport(fixture('hydration-tabs.tsx'));
+  assert.match(result.markup, /data-slot="tabs"/);
+  assert.match(result.markup, /tab-one-label/);
+  assert.equal(result.theme, null);
+});
+
 test('v3 renderReport: unknown @/ alias rejects with supported prefixes', async () => {
   await assert.rejects(
     () => renderReport(fixture('unknown-alias.tsx')),

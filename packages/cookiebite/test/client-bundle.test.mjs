@@ -11,6 +11,9 @@ test('buildClientBundle includes hydrateRoot and hydration flag; NODE_ENV define
   const { js } = await buildClientBundle(fixture('hydration-card.tsx'));
   assert.match(js, /hydrateRoot/);
   assert.match(js, /__COOKIEBITE_HYDRATED__/);
+  assert.match(js, /__COOKIEBITE_HYDRATION_ERROR__/);
+  assert.match(js, /__COOKIEBITE_HYDRATION_WARNINGS__/);
+  assert.match(js, /onRecoverableError/);
   assert.doesNotMatch(js, /process\.env\.NODE_ENV/);
 });
 
