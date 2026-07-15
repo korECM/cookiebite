@@ -296,6 +296,16 @@ export default function App() {
           className="min-h-[300px] w-full"
         >
           <AreaChart accessibilityLayer data={trendData}>
+            <defs>
+              <linearGradient id="fillMrr" x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="5%"
+                  stopColor="var(--color-mrr)"
+                  stopOpacity={0.28}
+                />
+                <stop offset="95%" stopOpacity={0.04} />
+              </linearGradient>
+            </defs>
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey="week"
@@ -308,9 +318,9 @@ export default function App() {
             <Area
               dataKey="mrr"
               type="monotone"
-              fill="var(--color-mrr)"
-              fillOpacity={0.25}
+              fill="url(#fillMrr)"
               stroke="var(--color-mrr)"
+              strokeWidth={2}
             />
           </AreaChart>
         </ChartContainer>

@@ -56,6 +56,14 @@ test('all 10 presets compile without throw and light differs from dark', () => {
     assert.notEqual(light['--foreground'], dark['--foreground'], `${name}: fg differs`);
     assert.equal(light['--radius'], `${doc.seed.radius}px`);
     assert.equal(light['--primary'].toUpperCase(), doc.seed.accent.toUpperCase());
+    // Stripe editorial layering: page tint ≠ pure card
+    assert.notEqual(light['--background'], light['--card'], `${name}: light bg≠card`);
+    assert.equal(light['--card'].toUpperCase(), doc.seed.background.toUpperCase(), `${name}: card=seed.bg`);
+    assert.notEqual(dark['--background'], dark['--card'], `${name}: dark bg≠card`);
+    assert.ok(light['--success'], `${name}: light --success`);
+    assert.ok(light['--success-foreground'], `${name}: light --success-foreground`);
+    assert.ok(dark['--success'], `${name}: dark --success`);
+    assert.ok(dark['--success-foreground'], `${name}: dark --success-foreground`);
   }
 });
 

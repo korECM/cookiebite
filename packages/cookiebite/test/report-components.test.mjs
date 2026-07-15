@@ -25,12 +25,15 @@ test('report sources contain no hex color literals', () => {
   }
 });
 
-test('KpiRow: equal-height grid, tabular-nums, delta badge, caption mt-auto', async () => {
+test('KpiRow: equal-height grid, tabular-nums, stripe delta text, caption mt-auto', async () => {
   const { markup } = await renderReport(fixture('report-components.tsx'));
 
   assert.match(markup, /auto-rows-fr/);
   assert.match(markup, /tabular-nums/);
-  assert.match(markup, /data-slot="badge"/);
+  assert.match(markup, /inline-flex items-center gap-0\.5 text-xs font-medium tabular-nums/);
+  assert.match(markup, /text-success/);
+  assert.match(markup, /text-destructive/);
+  assert.match(markup, /uppercase tracking-wide/);
   assert.match(markup, /mt-auto/);
   assert.match(markup, /Success rate/);
   assert.match(markup, /\+3\.1pp/);

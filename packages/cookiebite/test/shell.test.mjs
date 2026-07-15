@@ -15,12 +15,25 @@ test('shell Report SSR: title, kicker, toc anchors, controls aria', async () => 
   assert.match(markup, /주간 리포트/);
   assert.match(markup, /배포 롤백 이후/);
 
+  // Stripe editorial: accent-tick kicker + title leading
+  assert.match(markup, /rounded-full bg-primary/);
+  assert.match(markup, /tracking-\[0\.08em\]/);
+  assert.match(markup, /leading-\[1\.15\]/);
+
+  // Section: tick + text-xl, no border-b underline
+  assert.match(markup, /text-xl font-semibold tracking-tight/);
+  assert.doesNotMatch(markup, /border-b border-border/);
+
+  // TOC left-rail
+  assert.match(markup, /border-l-2 border-transparent/);
   assert.match(markup, /aria-label="Table of contents"/);
   assert.match(markup, /href="#cause"/);
   assert.match(markup, /href="#next-steps"/);
   assert.match(markup, /id="cause"/);
   assert.match(markup, /id="next-steps"/);
 
+  // Controls cluster chrome
+  assert.match(markup, /rounded-lg border bg-card p-0\.5 shadow-xs/);
   assert.match(markup, /aria-label="Toggle dark mode"/);
   assert.match(markup, /aria-label="Cycle density"/);
   assert.match(markup, /aria-label="Report controls"/);

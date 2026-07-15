@@ -21,7 +21,14 @@
     let node = el;
     while (node && node !== document.documentElement) {
       const bg = getComputedStyle(node).backgroundColor;
-      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') return parseRgb(bg);
+      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
+        const nums = (bg.match(/[\d.]+/g) || []).map(Number);
+        // TW opacity utilities (bg-primary/10) resolve to rgba(r,g,b,a) where
+        // r,g,b are the opaque token — ignoring a would treat a 10% wash as
+        // solid primary and false-fail text contrast. Skip translucent layers.
+        const alpha = nums.length >= 4 ? nums[3] : 1;
+        if (alpha >= 0.99) return [nums[0], nums[1], nums[2]];
+      }
       node = node.parentElement;
     }
     return parseRgb(getComputedStyle(document.body).backgroundColor);

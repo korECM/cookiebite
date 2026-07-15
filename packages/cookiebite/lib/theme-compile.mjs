@@ -19,6 +19,8 @@ const SHADCN_COLOR_VARS = [
   '--accent',
   '--accent-foreground',
   '--destructive',
+  '--success',
+  '--success-foreground',
   '--border',
   '--input',
   '--ring',
@@ -34,6 +36,7 @@ const CONTRAST_GATES = [
   { fg: '--primary-foreground', bg: '--primary', min: 4.5 },
   { fg: '--card-foreground', bg: '--card', min: 4.5 },
   { fg: '--muted-foreground', bg: '--muted', min: 3.0 },
+  { fg: '--success', bg: '--card', min: 3.0 },
 ];
 
 // --- deriveDarkSeed (구 resolve-theme에서 이식) ---
@@ -109,10 +112,6 @@ function contrastRatio(a, b) {
   const L2 = luminanceFromRgb(colorToRgb(b));
   const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
   return (hi + 0.05) / (lo + 0.05);
-}
-
-function isLightHex(hex) {
-  return luminanceFromRgb(parseHex(normalizeToHex(hex))) > 0.5;
 }
 
 function onAccent(accent, text) {
@@ -253,11 +252,21 @@ function resolveDarkSeed(seed, darkPartial) {
   return { ...seed, ...deriveDarkSeed(seed) };
 }
 
-function deriveCard(seed) {
-  if (seed.surface === 'tonal') return mix(seed.background, seed.accent, 0.04);
-  // border | shadow: 배경에서 살짝 띄운 raised surface (시드를 무시하는 고정 흰색 금지)
-  if (isLightHex(seed.background)) return mix(seed.background, '#FFFFFF', 0.7);
-  return mix(seed.background, seed.text, 0.05);
+/**
+ * Theme-tuned green for deltas/status. Starts at hsl(152 60% 36%) light /
+ * hsl(152 55% 55%) dark, then nudges lightness until success-on-card ≥ 3.0.
+ */
+function deriveSuccess(card, mode) {
+  const h = 152;
+  const s = mode === 'dark' ? 0.55 : 0.6;
+  let l = mode === 'dark' ? 0.55 : 0.36;
+  let color = toHex(hslToRgb(h, s, l));
+  for (let i = 0; i < 40; i += 1) {
+    if (contrastRatio(color, card) >= 3.0) return color;
+    l = mode === 'dark' ? Math.min(0.85, l + 0.02) : Math.max(0.12, l - 0.02);
+    color = toHex(hslToRgb(h, s, l));
+  }
+  return color;
 }
 
 function deriveDestructive(accent, mode) {
@@ -295,13 +304,27 @@ function chartHarmony(accent, mode) {
 }
 
 function compileBlock(seed, mode) {
-  const background = normalizeToHex(seed.background).toUpperCase();
+  const seedBg = normalizeToHex(seed.background).toUpperCase();
   const foreground = normalizeToHex(seed.text).toUpperCase();
   const primary = normalizeToHex(seed.accent).toUpperCase();
   const primaryFg = onAccent(primary, foreground);
-  const card = deriveCard({ ...seed, background, accent: primary, text: foreground });
+
+  // Stripe editorial layering: page tint ≠ card. Light cards float on a
+  // subtle gray page; dark cards lift slightly off the page background.
+  let background;
+  let card;
+  let popover;
+  if (mode === 'light') {
+    background = mix(seedBg, foreground, 0.03);
+    card = seedBg;
+    popover = seedBg;
+  } else {
+    background = seedBg;
+    card = mix(seedBg, '#FFFFFF', 0.045);
+    popover = card;
+  }
+
   const cardFg = foreground;
-  const popover = card;
   const popoverFg = foreground;
   const muted = mix(background, foreground, mode === 'dark' ? 0.1 : 0.06);
   const mutedFg = mix(foreground, background, 0.34);
@@ -310,6 +333,8 @@ function compileBlock(seed, mode) {
   const accent = mix(background, primary, mode === 'dark' ? 0.22 : 0.12);
   const accentFg = contrastRatio(foreground, accent) >= 4.5 ? foreground : onAccent(accent, foreground);
   const destructive = deriveDestructive(primary, mode);
+  const success = deriveSuccess(card, mode);
+  const successFg = onAccent(success, foreground);
   const border = mix(foreground, background, 0.85);
   const input = border;
   const ring = primary;
@@ -332,6 +357,8 @@ function compileBlock(seed, mode) {
     '--accent': accent,
     '--accent-foreground': accentFg,
     '--destructive': destructive,
+    '--success': success,
+    '--success-foreground': successFg,
     '--border': border,
     '--input': input,
     '--ring': ring,
@@ -402,6 +429,19 @@ export function compileTheme(theme) {
     const { '.dark': darkPatch, ...rootPatch } = overrides;
     light = applyOverrides(light, rootPatch);
     dark = applyOverrides(dark, darkPatch);
+    // card override can invalidate success-on-card; retune unless author set --success
+    if (typeof rootPatch?.['--success'] !== 'string') {
+      light['--success'] = deriveSuccess(light['--card'], 'light');
+      if (typeof rootPatch?.['--success-foreground'] !== 'string') {
+        light['--success-foreground'] = onAccent(light['--success'], light['--foreground']);
+      }
+    }
+    if (typeof darkPatch?.['--success'] !== 'string') {
+      dark['--success'] = deriveSuccess(dark['--card'], 'dark');
+      if (typeof darkPatch?.['--success-foreground'] !== 'string') {
+        dark['--success-foreground'] = onAccent(dark['--success'], dark['--foreground']);
+      }
+    }
     // root overrides는 :root만; 다크에 같은 키를 덮지 않음 (스펙: `.dark` 키가 다크 패치)
     assertContrastGates(light, 'light after overrides');
     assertContrastGates(dark, 'dark after overrides');

@@ -1,5 +1,4 @@
-import { ArrowDown, ArrowUp } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
@@ -51,17 +50,19 @@ export function KpiRow({ items, className }: KpiRowProps) {
         const good = item.delta ? deltaIsGood(item.delta) : false;
         const Icon =
           item.delta?.direction === 'up'
-            ? ArrowUp
+            ? ArrowUpRight
             : item.delta?.direction === 'down'
-              ? ArrowDown
+              ? ArrowDownRight
               : null;
 
         return (
           <Card key={item.label} className="flex h-full flex-col">
             <CardContent className="flex flex-1 flex-col gap-2">
-              <div className="text-sm text-muted-foreground">{item.label}</div>
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {item.label}
+              </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-semibold tracking-tight tabular-nums text-card-foreground">
+                <span className="text-3xl font-semibold tracking-tight tabular-nums">
                   {item.value}
                 </span>
                 {item.unit ? (
@@ -71,18 +72,15 @@ export function KpiRow({ items, className }: KpiRowProps) {
                 ) : null}
               </div>
               {item.delta && Icon ? (
-                <Badge
-                  variant={good ? 'secondary' : 'outline'}
+                <span
                   className={cn(
-                    'gap-1',
-                    good
-                      ? 'text-foreground'
-                      : 'border-destructive text-destructive',
+                    'inline-flex items-center gap-0.5 text-xs font-medium tabular-nums',
+                    good ? 'text-success' : 'text-destructive',
                   )}
                 >
-                  <Icon className="size-3" aria-hidden />
+                  <Icon className="size-3.5" aria-hidden />
                   {item.delta.value}
-                </Badge>
+                </span>
               ) : null}
               {item.caption ? (
                 <p className="mt-auto text-xs text-muted-foreground">

@@ -77,7 +77,10 @@ export function Controls({ className }: { className?: string }): ReactNode {
 
   return (
     <div
-      className={cn('flex items-center gap-1', className)}
+      className={cn(
+        'flex items-center gap-0.5 rounded-lg border bg-card p-0.5 shadow-xs',
+        className,
+      )}
       role="group"
       aria-label="Report controls"
     >

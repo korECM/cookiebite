@@ -138,11 +138,14 @@ function ReportHeader({
     <header className="mx-auto flex max-w-[1080px] items-start justify-between gap-6 px-6 pt-10 pb-8">
       <div className="min-w-0 flex-1 space-y-3">
         {kicker ? (
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {kicker}
-          </p>
+          <div className="flex items-center gap-2">
+            <span className="h-3.5 w-1 rounded-full bg-primary" />
+            <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              {kicker}
+            </span>
+          </div>
         ) : null}
-        <h1 className="text-balance text-4xl font-bold tracking-tight text-foreground">
+        <h1 className="text-4xl font-bold tracking-tight text-balance leading-[1.15]">
           {title}
         </h1>
         {standfirst}

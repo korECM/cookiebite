@@ -39,6 +39,11 @@ test('paged SSR: nav has one item per Page with matching #hrefs', async () => {
   assert.match(markup, /href="#evidence"/);
   assert.match(markup, /href="#next"/);
 
+  // Desktop left-rail (no bg-muted pill); mobile keeps pill with bg-primary/10 active
+  assert.match(markup, /border-l-2 border-transparent/);
+  assert.match(markup, /bg-primary\/10/);
+  assert.doesNotMatch(markup, /bg-muted text-foreground/);
+
   // 모바일+데스크톱 각 1세트 → href는 페이지당 2회
   assert.equal((markup.match(/href="#overview"/g) ?? []).length, 2);
   assert.equal((markup.match(/href="#evidence"/g) ?? []).length, 2);

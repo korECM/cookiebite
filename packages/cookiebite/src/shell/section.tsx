@@ -12,9 +12,10 @@ export interface SectionProps {
 export function Section({ id, title, lede, children, className }: SectionProps) {
   return (
     <section id={id} className={cn('scroll-mt-8 space-y-4', className)}>
-      <h2 className="border-b border-border pb-2 text-2xl font-semibold tracking-tight text-foreground">
-        {title}
-      </h2>
+      <div className="flex items-center gap-2.5">
+        <span className="h-4 w-1 rounded-full bg-primary" />
+        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+      </div>
       {lede ? (
         <p className="max-w-prose text-muted-foreground text-pretty">{lede}</p>
       ) : null}
