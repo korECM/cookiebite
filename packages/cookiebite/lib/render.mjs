@@ -17,6 +17,14 @@ export function resolveReactNodeModules() {
   }
 }
 
+/** SSR/클라이언트 번들 공통 — 패키지 밖 리포트도 recharts 등 저작 deps를 찾게 한다. */
+export function resolveNodeModulesPaths() {
+  const paths = [path.join(pkgRoot, 'node_modules')];
+  const reactNm = resolveReactNodeModules();
+  if (reactNm !== paths[0]) paths.push(reactNm);
+  return paths;
+}
+
 export class BuildError extends Error {
   constructor(message) {
     super(message);
@@ -87,7 +95,7 @@ function sharedEsbuildOptions(absolute) {
   return {
     bundle: true,
     jsx: 'automatic',
-    nodePaths: [resolveReactNodeModules()],
+    nodePaths: resolveNodeModulesPaths(),
     plugins: [createAtAliasPlugin(reportDir)],
     alias: cookiebiteAliases(),
     define: {

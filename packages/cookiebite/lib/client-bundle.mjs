@@ -4,7 +4,7 @@ import {
   cookiebiteAliases,
   createAtAliasPlugin,
   pkgRoot,
-  resolveReactNodeModules,
+  resolveNodeModulesPaths,
 } from './render.mjs';
 
 /**
@@ -43,7 +43,7 @@ export async function buildClientBundle(tsxPath) {
     platform: 'browser',
     minify: true,
     jsx: 'automatic',
-    nodePaths: [resolveReactNodeModules()],
+    nodePaths: resolveNodeModulesPaths(),
     plugins: [createAtAliasPlugin(reportDir)],
     alias: cookiebiteAliases(),
     define: {

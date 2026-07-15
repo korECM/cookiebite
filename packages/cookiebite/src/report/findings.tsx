@@ -39,11 +39,15 @@ const SEVERITY = {
 
 export function Findings({ items, className }: FindingsProps) {
   return (
-    <div className={cn('flex flex-col gap-3', className)}>
+    <div className={cn('flex min-w-0 max-w-full flex-col gap-3', className)}>
       {items.map((item) => {
         const { Icon, variant, iconClass } = SEVERITY[item.severity];
         return (
-          <Alert key={item.title} variant={variant}>
+          <Alert
+            key={item.title}
+            variant={variant}
+            className="box-border min-w-0 max-w-full"
+          >
             <Icon className={iconClass} aria-hidden />
             <AlertTitle>{item.title}</AlertTitle>
             {item.detail ? (

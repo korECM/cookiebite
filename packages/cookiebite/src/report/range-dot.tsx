@@ -70,8 +70,7 @@ export function RangeDot({ items, domain, className }: RangeDotProps) {
               />
             </div>
             <div className="min-w-[4rem] text-right text-xs tabular-nums text-muted-foreground">
-              {item.value}
-              {unit}
+              {`${item.value}${unit}`}
             </div>
           </div>
         );

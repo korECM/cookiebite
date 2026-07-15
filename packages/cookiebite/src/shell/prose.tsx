@@ -43,7 +43,7 @@ export function Sources({ items, className }: SourcesProps) {
             <span>{item.label}</span>
           )}
           {item.note ? (
-            <span className="text-muted-foreground"> — {item.note}</span>
+            <span className="text-muted-foreground">{` — ${item.note}`}</span>
           ) : null}
         </li>
       ))}

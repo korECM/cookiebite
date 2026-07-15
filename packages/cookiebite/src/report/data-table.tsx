@@ -73,7 +73,7 @@ export function DataTable<TData, TValue = unknown>({
   });
 
   return (
-    <div className={cn('rounded-md border border-border', className)}>
+    <div className={cn('w-full min-w-0 overflow-x-auto rounded-md border border-border', className)}>
       <Table>
         <TableHeader>
           {table.getHeaderGroups().map((headerGroup) => (
