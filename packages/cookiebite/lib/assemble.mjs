@@ -4,7 +4,7 @@ import { BASE_CSS } from './tw-compile.mjs';
 const THEME_STORAGE_KEY = 'cookiebite-theme';
 const DENSITY_STORAGE_KEY = 'cookiebite-density';
 const SHELL_CSS =
-  ':root[data-density="compact"]{--spacing:0.2rem}:root[data-density="spacious"]{--spacing:0.3rem}';
+  ':root[data-density="compact"]{--spacing:0.2rem}:root[data-density="spacious"]{--spacing:0.3rem}@media print{[data-page].hidden{display:block!important}}';
 
 function escapeHtml(text) {
   return String(text)

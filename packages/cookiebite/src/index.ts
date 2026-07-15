@@ -8,6 +8,18 @@ export {
   type SectionProps,
 } from './shell/section.tsx';
 export {
+  Page,
+  type PageProps,
+} from './shell/page.tsx';
+export {
+  PageNav,
+  PageNavMobile,
+  PageNavDesktop,
+  resolveInitialPageId,
+  type PageNavItem,
+  type PageNavProps,
+} from './shell/nav.tsx';
+export {
   Standfirst,
   Sources,
   Glossary,

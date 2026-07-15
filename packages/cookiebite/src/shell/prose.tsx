@@ -30,8 +30,8 @@ export interface SourcesProps {
 export function Sources({ items, className }: SourcesProps) {
   return (
     <ol className={cn('list-decimal space-y-1 pl-5 text-sm text-foreground', className)}>
-      {items.map((item) => (
-        <li key={item.label} className="max-w-prose">
+      {items.map((item, i) => (
+        <li key={`${item.label}-${i}`} className="max-w-prose">
           {item.href ? (
             <a
               href={item.href}
@@ -65,8 +65,8 @@ export interface GlossaryProps {
 export function Glossary({ terms, className }: GlossaryProps) {
   return (
     <dl className={cn('grid gap-3 sm:grid-cols-[minmax(8rem,auto)_1fr]', className)}>
-      {terms.map((t) => (
-        <div key={t.term} className="contents">
+      {terms.map((t, i) => (
+        <div key={`${t.term}-${i}`} className="contents">
           <dt className="font-medium text-foreground">{t.term}</dt>
           <dd className="text-muted-foreground">{t.def}</dd>
         </div>
