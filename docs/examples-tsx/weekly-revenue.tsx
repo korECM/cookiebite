@@ -252,7 +252,7 @@ export default function App() {
               value: '62.4',
               unit: '%',
               delta: { value: '1.8pp', direction: 'up', good: true },
-              caption: '신규 가입 중 7일 내 아하 순간 도달 비율',
+              caption: '가입 7일 내 아하 순간 도달',
             },
           ]}
         />

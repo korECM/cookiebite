@@ -201,6 +201,17 @@ export function PagedController({ pageIds, children }: PagedControllerProps) {
     );
     setActiveId(next);
     setHydrated(true);
+
+    // back/forward + same-document '#page-id' links. navigate() uses
+    // history.replaceState, which does not fire hashchange — so this
+    // listener won't fight our own switches. Dedupe by resolved id anyway
+    // (cheap; safe if pushState / location.hash assignment is ever used).
+    function onHashChange() {
+      const resolved = resolveInitialPageId(location.hash, ids);
+      setActiveId((current) => (current === resolved ? current : resolved));
+    }
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
   }, [pageIdsKey]);
 
   function navigate(id: string) {

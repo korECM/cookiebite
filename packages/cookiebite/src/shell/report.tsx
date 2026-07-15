@@ -164,7 +164,7 @@ function ArticleLayout({
   const { standfirst, body } = splitChildren(children);
 
   return (
-    <div className={cn('bg-background text-foreground', className)}>
+    <div className={cn('break-keep bg-background text-foreground', className)}>
       <ReportHeader
         title={title}
         kicker={kicker}
@@ -201,7 +201,7 @@ function PagedLayout({
   }));
 
   return (
-    <div className={cn('bg-background text-foreground', className)}>
+    <div className={cn('break-keep bg-background text-foreground', className)}>
       <ReportHeader
         title={title}
         kicker={kicker}

@@ -25,6 +25,9 @@ test('shell Report SSR: title, kicker, toc anchors, controls aria', async () => 
   assert.match(markup, /aria-label="Cycle density"/);
   assert.match(markup, /aria-label="Report controls"/);
 
+  // Korean word-break: keep-all on Report root (inherits to whole document)
+  assert.match(markup, /class="[^"]*\bbreak-keep\b/);
+
   assert.match(markup, /<ol[\s\S]*pay-gateway logs/);
   assert.match(markup, /<dl[\s\S]*success_rate/);
   assert.match(markup, /retry_cap/);
