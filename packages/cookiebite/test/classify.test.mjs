@@ -11,44 +11,159 @@ const allManualReview = REQUIRED_MANUAL_REVIEW.map((id) => ({ id, note: 'reviewe
 function measurements(overrides = {}) {
   return {
     report: {
-      mode: 'core',
-      declared: ['chart'],
-      calledAtRuntime: ['chart'],
-      includedModules: ['chart'],
-      externalResources: ['echarts'],
-      dependencyBytes: 12000,
+      mode: 'v3',
+      includedModules: [],
+      externalResources: [],
+      dependencyBytes: null,
     },
     viewports: [{
       width: 1280,
       theme: 'light',
       overflow: false,
-      charts: [{ id: '#c', hasCanvas: true, hasAria: true, hasDataAlt: true }],
+      charts: [{ id: '[data-chart=c]', hasSvg: true, shapeCount: 3, empty: false }],
       contrast: [],
       console: [],
       resources: [],
+      hydrationTimeout: false,
+      hydrationError: null,
+      hydrationWarnings: [],
     }],
     manualReview: allManualReview,
     ...overrides,
   };
 }
 
-test('charts[].hasCanvas === false is hard chart-not-rendered', () => {
+test('happy path with rendered chart is clean (exit 0)', () => {
+  const result = classify(measurements());
+  const hard = result.findings.filter((f) => f.severity === 'error');
+  assert.equal(hard.length, 0);
+  assert.equal(result.passed, true);
+  assert.equal(exitCodeFor(result), 0);
+});
+
+test('hydration-failed is hard error', () => {
   const result = classify(measurements({
     viewports: [{
       width: 1280,
       theme: 'light',
       overflow: false,
-      charts: [{ id: '#broken', hasCanvas: false }],
+      charts: [],
       contrast: [],
       console: [],
       resources: [],
+      hydrationTimeout: false,
+      hydrationError: 'Error: boom',
+      hydrationWarnings: [],
     }],
   }));
-  const f = result.findings.find((x) => x.ruleId === 'chart-not-rendered');
-  assert.ok(f, 'expected chart-not-rendered finding');
+  const f = result.findings.find((x) => x.ruleId === 'hydration-failed');
+  assert.ok(f, 'expected hydration-failed');
   assert.equal(f.severity, 'error');
-  assert.equal(f.selector, '#broken');
+  assert.match(String(f.measured), /boom/);
   assert.equal(exitCodeFor(result), 1);
+});
+
+test('hydration-timeout is hard error', () => {
+  const result = classify(measurements({
+    viewports: [{
+      width: 1280,
+      theme: 'light',
+      overflow: false,
+      charts: [],
+      contrast: [],
+      console: [],
+      resources: [],
+      hydrationTimeout: true,
+      hydrationError: null,
+      hydrationWarnings: [],
+    }],
+  }));
+  const f = result.findings.find((x) => x.ruleId === 'hydration-timeout');
+  assert.ok(f);
+  assert.equal(f.severity, 'error');
+  assert.equal(exitCodeFor(result), 1);
+});
+
+test('hydration-warning (recoverable mismatch) is hard error', () => {
+  const result = classify(measurements({
+    viewports: [{
+      width: 1280,
+      theme: 'light',
+      overflow: false,
+      charts: [],
+      contrast: [],
+      console: [],
+      resources: [],
+      hydrationTimeout: false,
+      hydrationError: null,
+      hydrationWarnings: ['Error: Hydration failed because the server rendered HTML...'],
+    }],
+  }));
+  const f = result.findings.find((x) => x.ruleId === 'hydration-warning');
+  assert.ok(f);
+  assert.equal(f.severity, 'error');
+  assert.equal(exitCodeFor(result), 1);
+});
+
+test('console-error is hard; Hydration failed warn text also hard', () => {
+  const result = classify(measurements({
+    viewports: [{
+      width: 1280,
+      theme: 'light',
+      overflow: false,
+      charts: [],
+      contrast: [],
+      console: [
+        { level: 'error', text: 'Uncaught TypeError: x is not a function' },
+        { level: 'warning', text: 'Hydration failed because the initial UI does not match' },
+      ],
+      resources: [],
+      hydrationTimeout: false,
+      hydrationError: null,
+      hydrationWarnings: [],
+    }],
+  }));
+  const errs = result.findings.filter((x) => x.ruleId === 'console-error');
+  assert.equal(errs.length, 2);
+  assert.ok(errs.every((f) => f.severity === 'error'));
+  assert.equal(exitCodeFor(result), 1);
+});
+
+test('chart-empty when [data-slot=chart] has no SVG shapes', () => {
+  const result = classify(measurements({
+    viewports: [{
+      width: 1280,
+      theme: 'light',
+      overflow: false,
+      charts: [{ id: '[data-chart=broken]', hasSvg: false, shapeCount: 0, empty: true }],
+      contrast: [],
+      console: [],
+      resources: [],
+      hydrationTimeout: false,
+      hydrationError: null,
+      hydrationWarnings: [],
+    }],
+  }));
+  const f = result.findings.find((x) => x.ruleId === 'chart-empty');
+  assert.ok(f, 'expected chart-empty');
+  assert.equal(f.severity, 'error');
+  assert.equal(f.selector, '[data-chart=broken]');
+  assert.equal(exitCodeFor(result), 1);
+});
+
+test('retired chart-not-rendered / capability rules are gone', () => {
+  const result = classify(measurements({
+    report: {
+      mode: 'v3',
+      declared: ['chart'],
+      calledAtRuntime: [],
+      includedModules: [],
+      capabilityChecks: [{ capability: 'chart', action: 'render', ok: false }],
+    },
+  }));
+  assert.equal(result.findings.some((f) => f.ruleId === 'chart-not-rendered'), false);
+  assert.equal(result.findings.some((f) => f.ruleId === 'capability-not-functional'), false);
+  assert.equal(result.findings.some((f) => f.ruleId === 'capability-declared-unused'), false);
 });
 
 test('warning findings dedup across viewports by ruleId+selector', () => {
@@ -62,6 +177,9 @@ test('warning findings dedup across viewports by ruleId+selector', () => {
     resources: [],
     docLength: 9000,
     hasNav: false,
+    hydrationTimeout: false,
+    hydrationError: null,
+    hydrationWarnings: [],
   });
   const result = classify(measurements({
     viewports: [longView(390), longView(768), longView(1280)],
@@ -80,6 +198,9 @@ test('hard findings stay per-viewport (no warning-style dedup)', () => {
     contrast: [],
     console: [],
     resources: [],
+    hydrationTimeout: false,
+    hydrationError: null,
+    hydrationWarnings: [],
   });
   const result = classify(measurements({
     viewports: [overflowView(390), overflowView(768), overflowView(1280)],
@@ -99,6 +220,9 @@ test('existing hard overflow rule still classifies (regression)', () => {
       contrast: [],
       console: [],
       resources: [],
+      hydrationTimeout: false,
+      hydrationError: null,
+      hydrationWarnings: [],
     }],
   }));
   const f = result.findings.find((x) => x.ruleId === 'horizontal-overflow');
@@ -125,7 +249,8 @@ test('REQUIRED_MANUAL_REVIEW and exitCodeFor are unchanged', () => {
 
   const hard = classify(measurements({
     viewports: [{
-      width: 1280, theme: 'light', overflow: true, charts: [], contrast: [], console: [], resources: [],
+      width: 1280, theme: 'light', overflow: true, charts: [], contrast: [], console: [],
+      resources: [], hydrationTimeout: false, hydrationError: null, hydrationWarnings: [],
     }],
   }));
   assert.equal(exitCodeFor(hard), 1);

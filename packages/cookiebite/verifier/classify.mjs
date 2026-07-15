@@ -1,6 +1,6 @@
-// build-verification-report.mjs — turn raw browser measurements into a versioned,
-// severity-tagged verification.json (DESIGN.md §6). Deterministic checks become
-// findings; genuinely human judgments stay in manualReview. Release exit codes:
+// classify.mjs — turn raw browser measurements into a versioned,
+// severity-tagged verification.json. Deterministic checks become findings;
+// genuinely human judgments stay in manualReview. Release exit codes:
 // 1 when any hard finding exists, 2 when verification/required review is incomplete,
 // 0 when clean. `classify` is pure so it can be unit-tested without a browser.
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -27,12 +27,46 @@ function finding(ruleId, severity, view, extra) {
   };
 }
 
+function truncate(text, max = 300) {
+  const s = String(text ?? '');
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
 export function classify(measurements) {
   const findings = [];
   const report = measurements.report || {};
   const views = measurements.viewports || [];
 
   for (const view of views) {
+    if (view.hydrationTimeout) {
+      findings.push(finding('hydration-timeout', HARD, view, {
+        reason: 'window.__COOKIEBITE_HYDRATED__ was not set within 10s',
+      }));
+    }
+    if (view.hydrationError) {
+      findings.push(finding('hydration-failed', HARD, view, {
+        measured: truncate(view.hydrationError),
+        reason: 'hydrateRoot threw; static markup remains but interactivity failed',
+      }));
+    }
+    for (const warning of view.hydrationWarnings || []) {
+      findings.push(finding('hydration-warning', HARD, view, {
+        measured: truncate(warning),
+        reason: 'React recoverable hydration mismatch (SSR/client text diverge)',
+      }));
+    }
+    for (const entry of view.console || []) {
+      const text = entry.text || '';
+      const isError = entry.level === 'error'
+        || /Hydration failed/i.test(text);
+      if (isError) {
+        findings.push(finding('console-error', HARD, view, {
+          measured: truncate(text),
+          reason: 'the page logged a console error or pageerror',
+        }));
+      }
+    }
+
     if (view.overflow) {
       findings.push(finding('horizontal-overflow', HARD, view, {
         measured: view.overflow, reason: 'the document scrolls horizontally at this viewport',
@@ -44,18 +78,12 @@ export function classify(measurements) {
       }));
     }
     for (const chart of view.charts || []) {
-      if (chart.hasCanvas === false) {
-        findings.push(finding('chart-not-rendered', HARD, view, {
-          selector: chart.id, reason: 'chart host has no rendered canvas',
+      if (chart.empty || chart.hasSvg === false || !(chart.shapeCount > 0)) {
+        findings.push(finding('chart-empty', HARD, view, {
+          selector: chart.id,
+          reason: 'chart host has no SVG shapes (path/rect/circle) after hydration',
         }));
       }
-      if (chart.degenerate) findings.push(finding('degenerate-chart', HARD, view, { selector: chart.id, reason: 'chart collapsed to zero size or has no series' }));
-      if (!chart.hasAria) findings.push(finding('chart-missing-aria', HARD, view, { selector: chart.id, reason: 'chart host has no accessible name' }));
-      if (!chart.hasDataAlt) findings.push(finding('chart-missing-data-alternative', HARD, view, { selector: chart.id, reason: 'chart has no structured data equivalent' }));
-      if (chart.baselineTruncated) findings.push(finding('truncated-bar-baseline', HARD, view, { selector: chart.id, reason: 'bar chart does not start at zero, exaggerating differences' }));
-    }
-    for (const entry of view.console || []) {
-      if (entry.level === 'error') findings.push(finding('uncaught-error', HARD, view, { measured: entry.text, reason: 'the page logged an uncaught error' }));
     }
     for (const resource of view.resources || []) {
       if (resource.failed) findings.push(finding('resource-failure', HARD, view, { measured: resource.url, reason: 'a required resource failed to load' }));
@@ -86,32 +114,11 @@ export function classify(measurements) {
     }
   }
 
-  // Declared/runtime capability parity — a hard mismatch.
-  const declared = new Set(report.declared || []);
-  const called = new Set(report.calledAtRuntime || []);
-  for (const capability of declared) {
-    if (capability !== 'compat' && !called.has(capability)) {
-      findings.push(finding('capability-declared-unused', WARN, null, { selector: capability, reason: 'capability declared in the marker but never called at runtime' }));
-    }
-  }
-  for (const capability of called) {
-    if (!declared.has(capability)) {
-      findings.push(finding('capability-undeclared-call', HARD, null, { selector: capability, reason: 'capability called at runtime but not declared in the marker' }));
-    }
-  }
-
-  // Declared capabilities must actually respond to their registered action when driven.
-  for (const check of report.capabilityChecks || []) {
-    if (!check.ok) {
-      findings.push(finding('capability-not-functional', HARD, null, {
-        selector: check.capability,
-        reason: `declared capability '${check.capability}' did not respond to its '${check.action}' action`,
-      }));
-    }
-  }
-
   const dependencyBytes = report.dependencyBytes ?? null;
-  findings.push(finding('dependency-inventory', INFO, null, { measured: dependencyBytes, reason: `report ships ${report.includedModules ? report.includedModules.length : 0} module(s)` }));
+  findings.push(finding('dependency-inventory', INFO, null, {
+    measured: dependencyBytes,
+    reason: `report ships ${report.includedModules ? report.includedModules.length : 0} module(s)`,
+  }));
 
   const recorded = new Set((measurements.manualReview || []).map((m) => m.id));
   const manualReview = REQUIRED_MANUAL_REVIEW.map((id) => ({
@@ -144,7 +151,7 @@ export function classify(measurements) {
     findings: deduped,
     inventory: {
       viewports: views.map((v) => ({ width: v.width, theme: v.theme })),
-      mode: report.mode || null,
+      mode: report.mode || 'v3',
       includedModules: report.includedModules || [],
       externalResources: report.externalResources || [],
       dependencyBytes,
@@ -164,7 +171,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const input = process.argv[2];
   const outIndex = process.argv.indexOf('-o');
   const out = outIndex >= 0 ? process.argv[outIndex + 1] : null;
-  if (!input) { process.stderr.write('usage: node scripts/build-verification-report.mjs <measurements.json> [-o verification.json]\n'); process.exit(3); }
+  if (!input) { process.stderr.write('usage: node verifier/classify.mjs <measurements.json> [-o verification.json]\n'); process.exit(3); }
   const measurements = JSON.parse(readFileSync(input, 'utf8'));
   const result = classify(measurements);
   const json = JSON.stringify(result, null, 2);

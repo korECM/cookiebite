@@ -1,5 +1,4 @@
-// verify-e2e.test.mjs — build smokes for v3 HTML; full verify runner e2e is Task 10
-// (CB.theme / data-theme → classList.dark + hydration flags).
+// verify-e2e.test.mjs — build smokes + full verify runner against v3 hydrated HTML.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -86,6 +85,57 @@ test('non-cookiebite HTML exits 3 (not a report)', { timeout: FIVE_MIN }, (t) =>
   assert.match(verified.stderr, /cookiebite 리포트가 아닙니다/);
 });
 
-test('full verify runner e2e deferred to Task 10', (t) => {
-  t.skip('Task 10: hydration + classList.dark verify gate (CB.theme retired)');
+test('verify-ok fixture: build + verify --manual-ok exits 0 / hard 0', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-verify-ok-'));
+  const htmlPath = path.join(dir, 'verify-ok.html');
+  const outJson = path.join(dir, 'verification.json');
+
+  const built = runCli(['build', fixture('verify-ok.tsx'), '-o', htmlPath]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+  assertV3Document(readFileSync(htmlPath, 'utf8'));
+
+  const verified = runCli(['verify', htmlPath, '--manual-ok', '-o', outJson], {
+    timeout: FIVE_MIN,
+  });
+  assert.equal(verified.code, 0, `verify failed: ${verified.stderr}\n${verified.stdout}`);
+  assert.match(verified.stderr, /PASS/);
+
+  const report = JSON.parse(readFileSync(outJson, 'utf8'));
+  const hard = report.findings.filter((f) => f.severity === 'error');
+  assert.equal(hard.length, 0, `unexpected hard: ${JSON.stringify(hard, null, 2)}`);
+  assert.ok(
+    report.inventory.viewports.some((v) => v.theme === 'dark'),
+    'dark pass must appear in inventory',
+  );
+  assert.equal(report.inventory.viewports.length, 4, '390+768+1280+dark');
+});
+
+test('verify-hydration-break: hydration-warning is hard', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-hydrate-break-'));
+  const htmlPath = path.join(dir, 'break-break.html');
+  const outJson = path.join(dir, 'verification.json');
+
+  const built = runCli(['build', fixture('verify-hydration-break.tsx'), '-o', htmlPath]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+
+  const verified = runCli(['verify', htmlPath, '--manual-ok', '-o', outJson], {
+    timeout: FIVE_MIN,
+  });
+  assert.equal(verified.code, 1, `expected exit 1, got ${verified.code}: ${verified.stderr}`);
+
+  const report = JSON.parse(readFileSync(outJson, 'utf8'));
+  const hard = report.findings.filter((f) => f.severity === 'error');
+  const hydrationHard = hard.filter((f) =>
+    f.ruleId === 'hydration-warning'
+    || f.ruleId === 'hydration-failed'
+    || f.ruleId === 'console-error',
+  );
+  assert.ok(
+    hydrationHard.length > 0,
+    `expected hydration-related hard finding, got: ${JSON.stringify(hard, null, 2)}`,
+  );
 });

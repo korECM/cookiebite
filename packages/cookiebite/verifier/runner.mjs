@@ -1,6 +1,6 @@
-// verifier/runner.mjs — drive agent-browser over a report HTML, collect
-// measurements at 390/768/1280 (+ conditional dark), return raw viewports +
-// report for classify. Pattern from evals/verifier-runner.mjs (read-only ref).
+// verifier/runner.mjs — drive agent-browser over a v3 hydrated report HTML,
+// collect measurements at 390/768/1280 (+ always-dark), return raw viewports +
+// report for classify. Waits for window.__COOKIEBITE_HYDRATED__ / ERROR.
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,9 @@ import path from 'node:path';
 
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dom = readFileSync(path.join(pkgRoot, 'verifier/dom.js'), 'utf8');
+
+const HYDRATION_TIMEOUT_MS = 10_000;
+const CHART_WAIT_MS = 5_000;
 
 export class RunnerUnavailableError extends Error {
   constructor(message = 'agent-browser not found. Install: npm i -g agent-browser && agent-browser install') {
@@ -30,6 +33,11 @@ function resolveRunner() {
     if (probe.status === 0) return candidate;
   }
   throw new RunnerUnavailableError();
+}
+
+function truncate(text, max = 300) {
+  const s = String(text ?? '');
+  return s.length > max ? s.slice(0, max) : s;
 }
 
 /**
@@ -59,99 +67,158 @@ export async function runVerification(htmlPath, opts = {}) {
     return value;
   }
 
+  function abJson(...args) {
+    const r = ab(...args, '--json');
+    try {
+      return JSON.parse((r.stdout || '').trim());
+    } catch {
+      return null;
+    }
+  }
+
+  function collectConsoleErrors() {
+    const messages = [];
+    const cons = abJson('console');
+    for (const m of cons?.data?.messages || []) {
+      const text = truncate(m.text || '');
+      if (m.type === 'error' || /Hydration failed/i.test(text)) {
+        messages.push({ level: 'error', text });
+      }
+    }
+    const errs = abJson('errors');
+    for (const e of errs?.data?.errors || []) {
+      messages.push({ level: 'error', text: truncate(e.text || '') });
+    }
+    return messages;
+  }
+
+  function waitForHydration() {
+    const deadline = Date.now() + HYDRATION_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      const state = evalPage(`({
+        hydrated: window.__COOKIEBITE_HYDRATED__ === true,
+        error: window.__COOKIEBITE_HYDRATION_ERROR__ || null,
+        warnings: Array.isArray(window.__COOKIEBITE_HYDRATION_WARNINGS__)
+          ? window.__COOKIEBITE_HYDRATION_WARNINGS__.slice()
+          : []
+      })`);
+      if (state && (state.hydrated || state.error)) {
+        return {
+          hydrated: !!state.hydrated,
+          error: state.error || null,
+          warnings: state.warnings || [],
+          timeout: false,
+        };
+      }
+      ab('wait', '200');
+    }
+    const state = evalPage(`({
+      hydrated: window.__COOKIEBITE_HYDRATED__ === true,
+      error: window.__COOKIEBITE_HYDRATION_ERROR__ || null,
+      warnings: Array.isArray(window.__COOKIEBITE_HYDRATION_WARNINGS__)
+        ? window.__COOKIEBITE_HYDRATION_WARNINGS__.slice()
+        : []
+    })`) || {};
+    return {
+      hydrated: !!state.hydrated,
+      error: state.error || null,
+      warnings: state.warnings || [],
+      timeout: !(state.hydrated || state.error),
+    };
+  }
+
+  /** ResponsiveContainer paints after hydrate — poll until shapes exist or give up. */
+  function waitForCharts() {
+    const deadline = Date.now() + CHART_WAIT_MS;
+    while (Date.now() < deadline) {
+      const empty = evalPage(`(function(){
+        var charts = document.querySelectorAll('[data-slot=chart]');
+        if (!charts.length) return 0;
+        var n = 0;
+        charts.forEach(function(c){
+          var svg = c.querySelector('.recharts-wrapper svg') || c.querySelector('svg');
+          if (!svg || !svg.querySelector('path, rect, circle')) n++;
+        });
+        return n;
+      })()`);
+      if (empty === 0) return;
+      ab('wait', '200');
+    }
+  }
+
+  /**
+   * @param {{ dark?: boolean, assertDocument?: boolean }} opts
+   */
+  function measurePass({ dark = false, assertDocument = false } = {}) {
+    ab('console', '--clear');
+    ab('errors', '--clear');
+    ab('open', `file://${fixture}`);
+
+    if (assertDocument) {
+      const ok = evalPage(
+        `!!(document.getElementById('root') && document.getElementById('cookiebite-app'))`,
+      );
+      if (ok !== true) {
+        throw new VerifyInputError(
+          'cookiebite 리포트가 아닙니다 — #root / #cookiebite-app 블록이 없습니다 (open 실패 또는 잘못된 파일)',
+        );
+      }
+    }
+
+    const hydration = waitForHydration();
+    if (dark) {
+      evalPage(`document.documentElement.classList.add('dark')`);
+      ab('wait', '200');
+    }
+    if (hydration.hydrated && !hydration.error) {
+      waitForCharts();
+    } else {
+      ab('wait', '400');
+    }
+
+    const view = evalPage(dom);
+    if (!view || typeof view !== 'object') return null;
+
+    view.hydrationTimeout = hydration.timeout === true;
+    view.hydrationError = hydration.error || null;
+    view.hydrationWarnings = (hydration.warnings || []).map((w) => truncate(w));
+    view.console = collectConsoleErrors();
+    if (dark) view.theme = 'dark';
+    return view;
+  }
+
   try {
     // Measure each breakpoint as a fresh render: set the viewport before opening
-    // so ECharts (and any width-sensitive layout) initializes at that width. A
-    // resize after init would leave the canvas at its stale width and spuriously
-    // overflow — we want what a user loading the report at that width actually sees.
+    // so ResponsiveContainer initializes at that width.
     const viewports = [];
     for (const [w, h] of [[390, 900], [768, 900], [1280, 900]]) {
       ab('set', 'viewport', String(w), String(h));
-      ab('open', `file://${fixture}`);
-      ab('wait', '1600');
-      if (viewports.length === 0) {
-        const hasSummary = evalPage(`!!document.getElementById('cookiebite-dependency-summary')`);
-        if (!hasSummary) {
-          throw new VerifyInputError('cookiebite 리포트가 아닙니다 — #cookiebite-dependency-summary 블록이 없습니다 (open 실패 또는 잘못된 파일)');
-        }
-      }
-      const view = evalPage(dom);
-      if (view && typeof view === 'object') viewports.push(view);
+      const view = measurePass({ assertDocument: viewports.length === 0 });
+      if (view) viewports.push(view);
     }
 
-    const declaredCaps = evalPage(`(function(){var s=document.getElementById('cookiebite-dependency-summary');return s?(JSON.parse(s.textContent).declared||[]):[];})()`);
-    const capabilityChecks = [];
-    if (Array.isArray(declaredCaps)) {
-      ab('set', 'viewport', '1280', '900');
-      ab('wait', '200');
-      if (declaredCaps.includes('chart')) {
-        const ok = evalPage(`!!document.querySelector('.cb-chart canvas')`);
-        capabilityChecks.push({ capability: 'chart', action: 'render', ok: ok === true });
-      }
-      if (declaredCaps.includes('table')) {
-        ab('click', 'th button.cb-sort');
-        ab('wait', '150');
-        const ok = evalPage(`!!document.querySelector('th[aria-sort]')`);
-        capabilityChecks.push({ capability: 'table', action: 'sort', ok: ok === true });
-      }
-      if (declaredCaps.includes('glossary')) {
-        ab('focus', '[aria-describedby]');
-        ab('wait', '150');
-        const ok = evalPage(`(function(){var d=document.querySelector('.cb-glossary-def');return d?!d.hidden:false;})()`);
-        ab('eval', `(function(){var t=document.querySelector('[aria-describedby]');if(t)t.blur();return 0;})()`);
-        capabilityChecks.push({ capability: 'glossary', action: 'open', ok: ok === true });
-      }
-    }
-
-    // Dark pass — always. resolveTheme이 모든 리포트에 dark를 채우므로 seed.dark
-    // 선언 여부를 게이트하지 않는다. CB.theme 준비 전 set은 재시도한다.
+    // Dark pass — always. Theme is documentElement.classList 'dark' (no CB.theme).
     {
       ab('set', 'viewport', '1280', '900');
-      ab('wait', '200');
-
-      let themeReady = false;
-      for (let i = 0; i < 10; i++) {
-        if (evalPage('!!window.CB && !!window.CB.theme') === true) {
-          themeReady = true;
-          break;
-        }
-        ab('wait', '200');
+      const darkView = measurePass({ dark: true });
+      if (darkView) viewports.push(darkView);
+      if (darkView && evalPage(`document.documentElement.classList.contains('dark')`) !== true) {
+        throw new Error("dark pass: documentElement missing class 'dark'");
       }
-      if (!themeReady) {
-        throw new Error("dark pass: window.CB.theme not ready after polling");
-      }
-
-      let setOk = false;
-      for (let i = 0; i < 10; i++) {
-        const applied = evalPage("(function(){try{window.CB.theme.set('dark');return 1;}catch(e){return 0;}})()");
-        if (applied === 1) {
-          setOk = true;
-          break;
-        }
-        ab('wait', '200');
-      }
-      if (!setOk) {
-        throw new Error("dark pass: CB.theme.set('dark') failed after retries");
-      }
-
-      ab('wait', '200');
-      if (evalPage(`document.documentElement.getAttribute('data-theme') === 'dark'`) !== true) {
-        throw new Error("dark pass: data-theme is not 'dark' after CB.theme.set('dark')");
-      }
-
-      const darkView = evalPage(dom);
-      if (darkView && typeof darkView === 'object') viewports.push(darkView);
     }
 
-    const report = evalPage(`(function(){var s=document.getElementById('cookiebite-dependency-summary');var d=s?JSON.parse(s.textContent):{};d.calledAtRuntime=(window.CB&&CB.calls)?[...new Set(CB.calls.filter(function(c){return c.type==='call';}).map(function(c){return c.capability;}))]:[];return JSON.stringify(d);})()`);
-
-    const reportObj = (report && typeof report === 'object') ? report : {};
-    if (viewports.length) {
-      reportObj.calledAtRuntime = reportObj.calledAtRuntime || viewports[0].calledAtRuntime || [];
-    }
-    reportObj.capabilityChecks = capabilityChecks;
-
-    return { viewports, report: reportObj };
+    return {
+      viewports,
+      report: {
+        mode: 'v3',
+        declared: [],
+        calledAtRuntime: [],
+        includedModules: [],
+        externalResources: [],
+        dependencyBytes: null,
+        capabilityChecks: [],
+      },
+    };
   } finally {
     ab('close');
   }

@@ -1,8 +1,6 @@
-// verifier/dom.js — vendored from scripts/verify-report-dom.js (intentional fork).
-// Runs INSIDE the page (via agent-browser eval) and returns one viewport's
-// measurements as JSON for verifier/classify.mjs. Slim vs original:
-//   - textClips/clips: exclude elements under overflow-x auto/scroll ancestors
-//   - charts: per-.cb-chart { id, hasCanvas } (not global [role=img] canvas/svg)
+// verifier/dom.js — runs INSIDE the page (via agent-browser eval) and returns
+// one viewport's measurements as JSON for verifier/classify.mjs.
+// v3: charts are [data-slot=chart] Recharts SVGs; theme is .dark on <html>.
 (function measureViewport() {
   function parseRgb(value) {
     const nums = (value.match(/[\d.]+/g) || []).map(Number);
@@ -37,34 +35,26 @@
     return false;
   }
 
-  const CB = window.CB;
-  const mode = (CB && CB.theme && CB.theme.mode) ? CB.theme.mode() : 'light';
+  const mode = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
   const view = { width: window.innerWidth, theme: mode };
 
   view.overflow = document.documentElement.scrollWidth > window.innerWidth + 1
     ? document.documentElement.scrollWidth : false;
 
-  // Per-.cb-chart canvas presence — RangeDot/[role=img] svg must not spoof render.
-  view.charts = [...document.querySelectorAll('.cb-chart')].map((host) => {
-    const inner = host.querySelector('[id]') || host;
-    const rect = host.getBoundingClientRect();
+  // Per-[data-slot=chart] Recharts SVG presence + shape count.
+  view.charts = [...document.querySelectorAll('[data-slot=chart]')].map((host) => {
+    const svg = host.querySelector('.recharts-wrapper svg') || host.querySelector('svg');
+    const shapes = svg ? svg.querySelectorAll('path, rect, circle') : [];
+    const chartId = host.getAttribute('data-chart');
     return {
-      id: inner.id ? `#${inner.id}` : '.cb-chart',
-      hasCanvas: !!host.querySelector('canvas'),
-      hasAria: !!(
-        inner.getAttribute('aria-label')
-        || inner.getAttribute('aria-labelledby')
-        || host.getAttribute('aria-label')
-        || host.getAttribute('aria-labelledby')
-      ),
-      hasDataAlt: !!host.querySelector('table'),
-      degenerate: rect.width < 2 || rect.height < 2,
-      baselineTruncated: host.hasAttribute('data-cb-baseline-truncated')
-        || inner.hasAttribute('data-cb-baseline-truncated'),
+      id: chartId ? `[data-chart=${chartId}]` : '[data-slot=chart]',
+      hasSvg: !!svg,
+      shapeCount: shapes.length,
+      empty: !svg || shapes.length === 0,
     };
   });
 
-  // Text clips (HTML sibling of chart label issues) — skip scroll-wrapper noise.
+  // Text clips — skip scroll-wrapper noise.
   view.clips = [];
   [...document.querySelectorAll('body *')].forEach((el) => {
     if (view.clips.length >= 20) return;
@@ -91,12 +81,18 @@
       const ratio = contrast(parseRgb(cs.color), effectiveBg(el));
       return { selector: el.tagName.toLowerCase(), ratio, required: 4.5, kind: 'text' };
     })
-    .filter((c) => c && c.ratio < 4.5); // only report failures; keeps the payload small
+    .filter((c) => c && c.ratio < 4.5);
 
-  view.keyboard = [...document.querySelectorAll('button, a[href], [tabindex], summary')]
-    .map((el) => ({ selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(), reachable: el.tabIndex >= 0 && !el.disabled }));
+  // tabindex="-1" is intentional (e.g. Recharts internals) — not a defect.
+  view.keyboard = [...document.querySelectorAll(
+    'button, a[href], summary, [tabindex]:not([tabindex="-1"])',
+  )]
+    .map((el) => ({
+      selector: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
+      reachable: el.tabIndex >= 0 && !el.disabled,
+    }));
 
-  view.surfaces = document.querySelectorAll('[class*="card"], [style*="box-shadow"], section > div[style*="background"]').length;
+  view.surfaces = document.querySelectorAll('[data-slot="card"]').length;
   view.shadows = [...document.querySelectorAll('*')].filter((el) => {
     const s = getComputedStyle(el).boxShadow;
     return s && s !== 'none';
@@ -105,10 +101,6 @@
   view.controls = document.querySelectorAll('button, input, select, [role="button"]').length;
   view.docLength = document.body.textContent.replace(/\s+/g, ' ').trim().length;
   view.hasNav = !!document.querySelector('nav, [role="navigation"], a[href^="#"]');
-
-  view.calledAtRuntime = (CB && CB.calls)
-    ? [...new Set(CB.calls.filter((c) => c.type === 'call').map((c) => c.capability))]
-    : [];
 
   return JSON.stringify(view);
 }());
