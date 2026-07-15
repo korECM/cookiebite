@@ -47,7 +47,7 @@ const bridgeData = [
 ];
 
 const trendConfig = {
-  mrr: { label: 'MRR ($K)', color: 'var(--chart-3)' },
+  mrr: { label: 'MRR ($K)', color: 'var(--chart-1)' },
 } satisfies ChartConfig;
 
 const trendData = [

@@ -30,7 +30,7 @@ test('KpiRow: equal-height grid, tabular-nums, stripe delta text, caption mt-aut
 
   assert.match(markup, /auto-rows-fr/);
   assert.match(markup, /tabular-nums/);
-  assert.match(markup, /inline-flex items-center gap-0\.5 text-xs font-medium tabular-nums/);
+  assert.match(markup, /inline-flex items-center gap-0\.5 whitespace-nowrap text-xs font-medium tabular-nums/);
   assert.match(markup, /text-success/);
   assert.match(markup, /text-destructive/);
   assert.match(markup, /uppercase tracking-wide/);

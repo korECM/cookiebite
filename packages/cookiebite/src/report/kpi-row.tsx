@@ -74,7 +74,7 @@ export function KpiRow({ items, className }: KpiRowProps) {
               {item.delta && Icon ? (
                 <span
                   className={cn(
-                    'inline-flex items-center gap-0.5 text-xs font-medium tabular-nums',
+                    'inline-flex items-center gap-0.5 whitespace-nowrap text-xs font-medium tabular-nums',
                     good ? 'text-success' : 'text-destructive',
                   )}
                 >
