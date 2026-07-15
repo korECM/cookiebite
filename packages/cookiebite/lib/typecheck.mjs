@@ -41,6 +41,8 @@ export function typecheckReport(reportPath) {
     paths: {
       cookiebite: ['./src/index.ts'],
       'cookiebite/themes': ['./src/themes.ts'],
+      '@/components/ui/*': ['./src/ui/*'],
+      '@/lib/*': ['./src/lib/*'],
       react: reactPaths.react,
       'react/jsx-runtime': reactPaths['react/jsx-runtime'],
     },
