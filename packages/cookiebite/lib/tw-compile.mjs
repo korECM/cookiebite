@@ -1,7 +1,5 @@
 // packages/cookiebite/lib/tw-compile.mjs
-// 리포트 빌드 시점: Tailwind 유틸리티 CSS 산출.
-// - compileTw(markup): 구 경로 — 렌더 마크업 스캔 (Task 7에서 삭제)
-// - compileTwSources({ tsxPath }): v3 — 소스 파일 스캔 + shadcn @theme
+// 리포트 빌드 시점: Tailwind 유틸리티 CSS 산출 (소스 스캔 + shadcn @theme).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -9,31 +7,6 @@ import { compile } from '@tailwindcss/node';
 import { Scanner } from '@tailwindcss/oxide';
 
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-
-// preflight 제외(core reset과 충돌 방지). theme는 스페이싱 등 기본 스케일용,
-// --color-*: initial 로 기본 팔레트를 지운 뒤 --cb-* 시맨틱만 노출한다.
-const TW_INPUT = `
-@import "tailwindcss/theme" layer(theme);
-@import "tailwindcss/utilities" layer(utilities);
-
-@theme {
-  --color-*: initial;
-  --color-background: var(--cb-background);
-  --color-foreground: var(--cb-text);
-  --color-primary: var(--cb-accent);
-  --color-primary-foreground: var(--cb-on-accent);
-  --color-muted: var(--cb-surface);
-  --color-muted-foreground: var(--cb-text-muted);
-  --color-border: var(--cb-divider);
-  --color-card: var(--cb-surface);
-  --color-card-foreground: var(--cb-text);
-  --color-accent-strong: var(--cb-accent-strong);
-  --radius: var(--cb-radius);
-  /* shadcn rounded-md/xl이 테마 radius를 타도록 */
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-xl: var(--radius);
-}
-`;
 
 const THEME_INLINE = `
 @theme inline {
@@ -90,27 +63,10 @@ ${THEME_INLINE}
 }
 
 /**
- * shadcn이 기대하는 최소 base. assemble의 core reset(box-sizing 등)과 중복하지 않음.
- * Task 7 assemble이 cookiebite-base 블록으로 소비.
+ * shadcn이 기대하는 최소 base. assemble이 cookiebite-base 블록으로 소비.
  */
 export const BASE_CSS =
   '*,::before,::after{border-color:var(--border)}body{background-color:var(--background);color:var(--foreground)}';
-
-/**
- * @param {string} markup 렌더된 HTML 마크업
- * @returns {Promise<string>} 사용된 유틸리티 CSS. 없으면 빈 문자열.
- */
-export async function compileTw(markup) {
-  const candidates = new Scanner({}).scanFiles([{ content: markup, extension: 'html' }]);
-  const { build } = await compile(TW_INPUT, {
-    base: pkgRoot,
-    onDependency() {},
-  });
-  const css = build(candidates);
-  // 유틸 규칙이 없으면 `@layer utilities;` 배너만 남는다 — 블록 생략을 위해 빈 문자열.
-  if (!css.includes('{')) return '';
-  return css;
-}
 
 /**
  * 리포트 디렉토리의 로컬 shadowing 파일(components/, lib/)을 재귀 수집.

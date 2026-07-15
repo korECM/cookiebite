@@ -53,8 +53,11 @@ test('shell exports THEME_STORAGE_KEY and SHELL_CSS', () => {
   assert.match(controlsSrc, /data-density="spacious"/);
   assert.match(controlsSrc, /--spacing:0\.3rem/);
 
+  const indexSrc = readFileSync(path.join(root, 'src/index.ts'), 'utf8');
+  assert.match(indexSrc, /THEME_STORAGE_KEY/);
+  assert.match(indexSrc, /DENSITY_STORAGE_KEY/);
+  assert.match(indexSrc, /SHELL_CSS/);
+
   const v3Src = readFileSync(path.join(root, 'src/v3.ts'), 'utf8');
-  assert.match(v3Src, /THEME_STORAGE_KEY/);
-  assert.match(v3Src, /DENSITY_STORAGE_KEY/);
-  assert.match(v3Src, /SHELL_CSS/);
+  assert.match(v3Src, /export \* from ['"]\.\/index/);
 });

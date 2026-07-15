@@ -1,6 +1,11 @@
 import { build } from 'esbuild';
 import path from 'node:path';
-import { createAtAliasPlugin, pkgRoot, resolveReactNodeModules } from './render.mjs';
+import {
+  cookiebiteAliases,
+  createAtAliasPlugin,
+  pkgRoot,
+  resolveReactNodeModules,
+} from './render.mjs';
 
 /**
  * Browser hydration IIFE. Sets window.__COOKIEBITE_HYDRATED__ on success,
@@ -40,10 +45,7 @@ export async function buildClientBundle(tsxPath) {
     jsx: 'automatic',
     nodePaths: [resolveReactNodeModules()],
     plugins: [createAtAliasPlugin(reportDir)],
-    alias: {
-      'cookiebite/themes': path.join(pkgRoot, 'src/themes.ts'),
-      cookiebite: path.join(pkgRoot, 'src/index.ts'),
-    },
+    alias: cookiebiteAliases(),
     define: {
       'process.env.NODE_ENV': '"production"',
       __COOKIEBITE_PKG_ROOT__: JSON.stringify(pkgRoot),

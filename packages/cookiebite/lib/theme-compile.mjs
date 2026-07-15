@@ -3,8 +3,6 @@
  * 대비 게이트 실패 시 Error(쌍 이름 + 실측 비율).
  */
 
-import { deriveDarkSeed } from './resolve-theme.mjs';
-
 const SHADCN_COLOR_VARS = [
   '--background',
   '--foreground',
@@ -38,7 +36,46 @@ const CONTRAST_GATES = [
   { fg: '--muted-foreground', bg: '--muted', min: 3.0 },
 ];
 
-// --- sRGB helpers (resolve-theme / theme-compiler와 동일 산식) ---
+// --- deriveDarkSeed (구 resolve-theme에서 이식) ---
+
+const DARK_BACKGROUND = '#111114';
+const DARK_TEXT = '#EDEDEF';
+
+function deriveDarkMix(first, second, amount) {
+  const a = parseHex(first);
+  const b = parseHex(second);
+  return toHex(a.map((value, index) => value + (b[index] - value) * amount));
+}
+
+function deriveDarkContrast(a, b) {
+  const L1 = luminanceFromRgb(parseHex(a));
+  const L2 = luminanceFromRgb(parseHex(b));
+  const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** accent-strong = mix(accent, #000, 0.17)이 dark bg에서 4.5:1을 넘도록 밝힌다. */
+function liftAccentForDark(accent, background) {
+  let current = accent.toUpperCase();
+  for (let i = 0; i < 40; i += 1) {
+    const strong = deriveDarkMix(current, '#000000', 0.17);
+    if (deriveDarkContrast(strong, background) >= 4.5) return current;
+    current = deriveDarkMix(current, '#FFFFFF', 0.05);
+  }
+  return current;
+}
+
+/** @param {{ accent: string }} seed */
+export function deriveDarkSeed(seed) {
+  return {
+    background: DARK_BACKGROUND,
+    text: DARK_TEXT,
+    accent: liftAccentForDark(seed.accent, DARK_BACKGROUND),
+    surface: 'tonal',
+  };
+}
+
+// --- sRGB helpers (theme-compiler와 동일 산식) ---
 
 function parseHex(hex) {
   const h = hex.replace(/^#/, '');

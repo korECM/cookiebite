@@ -1,8 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createRequire } from 'node:module';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   fromPreset,
   persimmon,
@@ -16,31 +13,29 @@ import {
   resend,
   raycast,
 } from '../src/themes.ts';
-import persimmonJson from '../vendor/presets/persimmon.json' with { type: 'json' };
-import neutralJson from '../vendor/presets/neutral.json' with { type: 'json' };
+import persimmonJson from '../src/presets/persimmon.json' with { type: 'json' };
+import neutralJson from '../src/presets/neutral.json' with { type: 'json' };
+import { compileTheme } from '../lib/theme-compile.mjs';
 
-const require = createRequire(import.meta.url);
-const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const { CookiebiteTheme } = require(path.join(pkgRoot, 'vendor/theme-compiler.cjs'));
-
-test('fromPreset produces a compilable ThemeDocument', () => {
+test('fromPreset produces a ThemeDocument with seed and font resources', () => {
   const doc = fromPreset(persimmonJson);
   assert.equal(doc.schemaVersion, 1);
   assert.equal(doc.seed.accent, '#FA4D02');
   assert.deepEqual(doc.resources.fontStylesheets, [persimmonJson.font.url]);
-  const compiled = CookiebiteTheme.compile(doc);
-  assert.match(compiled.css, /--cb-accent:/);
+  const { css } = compileTheme(doc);
+  assert.match(css, /--background:/);
+  assert.match(css, /--primary:/);
 });
 
 test('fromPreset carries the preset locale through', () => {
   const doc = fromPreset(neutralJson);
   assert.deepEqual(doc.locale, neutralJson.locale);
   assert.deepEqual(doc.resources.fontStylesheets, [neutralJson.font.url]);
-  const compiled = CookiebiteTheme.compile(doc);
-  assert.match(compiled.css, /--cb-accent:/);
+  const { css } = compileTheme(doc);
+  assert.match(css, /--background:/);
 });
 
-test('exported preset constants are compilable ThemeDocuments', () => {
+test('exported preset constants compile via compileTheme', () => {
   const presets = [
     persimmon,
     neutral,
@@ -56,7 +51,8 @@ test('exported preset constants are compilable ThemeDocuments', () => {
   assert.equal(presets.length, 10);
   for (const preset of presets) {
     assert.equal(preset.schemaVersion, 1);
-    const compiled = CookiebiteTheme.compile(preset);
-    assert.match(compiled.css, /--cb-accent:/);
+    const { css } = compileTheme(preset);
+    assert.match(css, /:root\{/);
+    assert.match(css, /\.dark\{/);
   }
 });

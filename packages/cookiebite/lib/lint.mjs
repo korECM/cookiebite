@@ -1,18 +1,6 @@
 // packages/cookiebite/lib/lint.mjs
 import { readFileSync } from 'node:fs';
 
-// Named colors are case-insensitive; a trailing '-' (white-space, red-500) is
-// not a color value so the named-color arm uses a negative lookahead.
-const COLOR_LITERAL =
-  /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|color)\(|\b(?:red|blue|green|white|black|gr[ae]y|orange|yellow|purple|pink|brown|cyan|magenta|teal|navy|maroon|olive|silver|gold)\b(?!-)/i;
-
-// Length × length products (e.g. calc(var(--x) * 4px)) collapse spacing to 0
-// in the browser — reject them in authored style / style-block values.
-// One nesting level covers var(...); [^)]* alone stops at the first ')'.
-const INVALID_LENGTH_PRODUCT = /calc\((?:[^()]|\([^()]*\))*\*\s*\d+px/;
-
-const SAFE_VALUE = /^(?:none|currentColor|inherit|transparent|url\(|var\()/i;
-
 // Source lint: hex + color functions (named colors handled per-rule).
 const COLOR_FN_OR_HEX =
   /#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?|oklch|oklab|color)\(/i;
@@ -22,30 +10,6 @@ const NAMED_COLOR =
 
 const BRACKET_SAFE = /^(?:none|currentColor|inherit|transparent|var\()/i;
 const SVG_SAFE = /^(?:none|currentColor|transparent|var\(|url\()/i;
-
-export function lintTokens(markup) {
-  const violations = [];
-  const scan = (source, value) => {
-    const hit = value.match(COLOR_LITERAL);
-    if (hit) violations.push({ source, literal: hit[0], context: value.trim().slice(0, 120) });
-    if ((source === 'style' || source === 'style-block') && INVALID_LENGTH_PRODUCT.test(value)) {
-      const calcHit = value.match(INVALID_LENGTH_PRODUCT);
-      violations.push({ source, literal: calcHit[0], context: value.trim().slice(0, 120) });
-    }
-  };
-  for (const [, dq, sq] of markup.matchAll(/\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) scan('style', dq ?? sq);
-  for (const [, attr, dq, sq] of markup.matchAll(/\b(fill|stroke|stop-color|flood-color|color)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
-    const value = dq ?? sq;
-    if (!SAFE_VALUE.test(value)) scan(attr.toLowerCase(), value);
-  }
-  // TW 임의값([...])만 스캔 — 대괄호 밖 클래스명(bg-card, red-500) 오탐 방지.
-  for (const [, dq, sq] of markup.matchAll(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) {
-    const value = dq ?? sq;
-    for (const [, inner] of value.matchAll(/\[([^\]]+)\]/g)) scan('class', inner);
-  }
-  for (const [, css] of markup.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)) scan('style-block', css);
-  return violations;
-}
 
 /**
  * Scan authored TSX/JS sources for raw color literals.

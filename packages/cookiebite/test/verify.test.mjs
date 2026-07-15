@@ -14,7 +14,7 @@ test("package.json files includes 'verifier'", () => {
   assert.ok(pkg.files.includes('verifier'));
 });
 
-test('npm pack --dry-run includes verifier, vendor theme-compiler, and starter template', () => {
+test('npm pack --dry-run includes verifier, presets, and starter template', () => {
   const packed = spawnSync('npm', ['pack', '--dry-run', '--json'], {
     cwd: pkgRoot,
     encoding: 'utf8',
@@ -26,12 +26,14 @@ test('npm pack --dry-run includes verifier, vendor theme-compiler, and starter t
     'verifier/dom.js',
     'verifier/runner.mjs',
     'verifier/classify.mjs',
-    'vendor/theme-compiler.cjs',
+    'src/presets/persimmon.json',
     'templates/starter.tsx',
-    'assets-tsx/controls.js',
+    'src/shell/report.tsx',
   ]) {
     assert.ok(files.includes(required), `pack files missing ${required}`);
   }
+  assert.ok(!files.some((f) => f.startsWith('vendor/')), 'vendor/ must not be packed');
+  assert.ok(!files.some((f) => f.startsWith('assets-tsx/')), 'assets-tsx/ must not be packed');
 });
 
 test('aggregateRuns: warning in 1 of 3 runs is flaky', () => {

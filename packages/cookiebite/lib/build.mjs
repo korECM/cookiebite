@@ -1,10 +1,25 @@
 // packages/cookiebite/lib/build.mjs
-import { renameSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { assembleDocument } from './assemble.mjs';
-import { lintTokens } from './lint.mjs';
+import { buildClientBundle } from './client-bundle.mjs';
+import { lintSources } from './lint.mjs';
 import { BuildError, renderReport } from './render.mjs';
+import { compileTheme } from './theme-compile.mjs';
 import { typecheckReport } from './typecheck.mjs';
-import { compileTw } from './tw-compile.mjs';
+import { compileTwSources } from './tw-compile.mjs';
+
+/** neutral 프리셋과 동일 — `__theme` 없거나 seed 일부만 있을 때 병합. */
+const DEFAULT_SEED = {
+  font: 'Inter, -apple-system, system-ui, sans-serif',
+  background: '#FCFCFD',
+  text: '#18181B',
+  accent: '#4F46E5',
+  spaceUnit: 4,
+  measure: '68ch',
+  radius: 12,
+  surface: 'border',
+};
 
 function parseArgs(args) {
   const positional = [];
@@ -24,6 +39,42 @@ function parseArgs(args) {
   return { report, out: out ?? report.replace(/\.tsx$/, '.html') };
 }
 
+function collectFilesRecursive(dir, out) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      collectFilesRecursive(full, out);
+      continue;
+    }
+    if (/\.(tsx|ts|jsx|js)$/.test(entry.name)) out.push(full);
+  }
+}
+
+/** 사용자 TSX + reportDir 아래 components/, lib/ shadowing 파일 */
+function authoredFiles(tsxPath) {
+  const abs = path.resolve(tsxPath);
+  const reportDir = path.dirname(abs);
+  const files = [abs];
+  collectFilesRecursive(path.join(reportDir, 'components'), files);
+  collectFilesRecursive(path.join(reportDir, 'lib'), files);
+  return files;
+}
+
+function resolveBuildTheme(theme) {
+  if (!theme?.seed) return { seed: { ...DEFAULT_SEED } };
+  return {
+    ...theme,
+    seed: { ...DEFAULT_SEED, ...theme.seed },
+  };
+}
+
+function titleFromMarkup(markup) {
+  const m = markup.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
+  if (!m) return 'Report';
+  return m[1].replace(/<[^>]+>/g, '').trim() || 'Report';
+}
+
 export async function buildCommand(args) {
   const { report, out } = parseArgs(args);
 
@@ -32,23 +83,39 @@ export async function buildCommand(args) {
     throw new BuildError(`typecheck 실패 (${diagnostics.length}건):\n${diagnostics.join('\n')}`);
   }
 
-  const { markup, theme, title, lang, collected } = await renderReport(report);
-
-  const violations = lintTokens(markup);
-  if (collected.css) {
-    violations.push(...lintTokens(`<style>${collected.css}</style>`));
-  }
+  const { violations } = lintSources({ files: authoredFiles(report) });
   if (violations.length > 0) {
-    const lines = violations.map((v) => `  [${v.source}] ${v.literal} — ${v.context}`);
+    const lines = violations.map(
+      (v) => `  ${v.file}:${v.line} [${v.rule}] ${v.snippet}`,
+    );
     throw new BuildError(
-      `색 리터럴 ${violations.length}건 — 테마 토큰(var(--cb-*))만 허용합니다:\n${lines.join('\n')}`,
+      `색 리터럴 ${violations.length}건 — 테마 토큰/시맨틱 클래스만 허용합니다:\n${lines.join('\n')}`,
     );
   }
 
-  // 빌드당 1회: 렌더 마크업을 스캔해 사용된 TW 유틸만 인라인한다.
-  const twCss = await compileTw(markup);
+  const { markup, theme: rawTheme } = await renderReport(report);
+  const theme = resolveBuildTheme(rawTheme);
 
-  const html = assembleDocument({ markup, theme, title, lang, collected, twCss });
+  let themeCss;
+  try {
+    ({ css: themeCss } = compileTheme(theme));
+  } catch (error) {
+    throw new BuildError(error?.message ?? String(error));
+  }
+
+  const twCss = await compileTwSources({ tsxPath: report });
+  const { js: clientJs } = await buildClientBundle(report);
+  const title = titleFromMarkup(markup);
+
+  const html = assembleDocument({
+    markup,
+    themeCss,
+    twCss,
+    clientJs,
+    title,
+    theme,
+    lang: 'ko',
+  });
   const tmp = `${out}.tmp`;
   writeFileSync(tmp, html);
   renameSync(tmp, out); // 원자적 교체: 부분 산출물이 배포되는 사고를 막는다

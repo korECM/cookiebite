@@ -35,16 +35,16 @@ export function fromPreset(preset: PresetJson): ThemeDocument {
   };
 }
 
-import persimmonJson from '../vendor/presets/persimmon.json' with { type: 'json' };
-import neutralJson from '../vendor/presets/neutral.json' with { type: 'json' };
-import stripeJson from '../vendor/presets/stripe.json' with { type: 'json' };
-import vercelJson from '../vendor/presets/vercel.json' with { type: 'json' };
-import linearJson from '../vendor/presets/linear.json' with { type: 'json' };
-import notionJson from '../vendor/presets/notion.json' with { type: 'json' };
-import supabaseJson from '../vendor/presets/supabase.json' with { type: 'json' };
-import sentryJson from '../vendor/presets/sentry.json' with { type: 'json' };
-import resendJson from '../vendor/presets/resend.json' with { type: 'json' };
-import raycastJson from '../vendor/presets/raycast.json' with { type: 'json' };
+import persimmonJson from './presets/persimmon.json' with { type: 'json' };
+import neutralJson from './presets/neutral.json' with { type: 'json' };
+import stripeJson from './presets/stripe.json' with { type: 'json' };
+import vercelJson from './presets/vercel.json' with { type: 'json' };
+import linearJson from './presets/linear.json' with { type: 'json' };
+import notionJson from './presets/notion.json' with { type: 'json' };
+import supabaseJson from './presets/supabase.json' with { type: 'json' };
+import sentryJson from './presets/sentry.json' with { type: 'json' };
+import resendJson from './presets/resend.json' with { type: 'json' };
+import raycastJson from './presets/raycast.json' with { type: 'json' };
 
 export const persimmon: ThemeDocument = fromPreset(persimmonJson as PresetJson);
 export const neutral: ThemeDocument = fromPreset(neutralJson as PresetJson);

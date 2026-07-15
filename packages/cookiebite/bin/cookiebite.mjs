@@ -38,9 +38,9 @@ async function main() {
 }
 
 main().catch((error) => {
-  // BuildError / ChartCompileError are authored failures — message only.
+  // BuildError are authored failures — message only.
   // Compare by name (not instanceof) so a bundled copy of the class still matches.
-  const expected = error?.name === 'BuildError' || error?.name === 'ChartCompileError';
+  const expected = error?.name === 'BuildError';
   process.stderr.write(`${expected ? error.message : (error.stack || error.message)}\n`);
   process.exitCode = 1;
 });

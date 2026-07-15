@@ -12,7 +12,6 @@ test('v3 renderReport: Card markup has data-slot and text; theme null without __
   assert.match(result.markup, /data-slot="card"/);
   assert.match(result.markup, /hydration-fixture-text/);
   assert.equal(result.theme, null);
-  assert.equal(result.title, undefined);
 });
 
 test('v3 renderReport: returns __theme when exported', async () => {
@@ -38,5 +37,12 @@ test('v3 renderReport: unknown @/ alias rejects with supported prefixes', async 
   await assert.rejects(
     () => renderReport(fixture('unknown-alias.tsx')),
     /@\/components\/ui\/\*|@\/lib\/\*|Supported prefixes/i,
+  );
+});
+
+test('v3 renderReport: non-component default export fails clearly', async () => {
+  await assert.rejects(
+    () => renderReport(fixture('not-report.tsx')),
+    /default export must be a React component/,
   );
 });

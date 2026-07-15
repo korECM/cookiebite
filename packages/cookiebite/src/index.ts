@@ -1,30 +1,27 @@
+// v3 public surface — shell + constants. Data components arrive in Task 9.
 export {
   Report,
-  Standfirst,
+  type ReportProps,
+} from './shell/report.tsx';
+export {
   Section,
+  type SectionProps,
+} from './shell/section.tsx';
+export {
+  Standfirst,
   Sources,
-  KpiRow,
-  Claims,
-  Findings,
-  Matrix,
-  RangeDot,
-} from './components.tsx';
-export type {
-  ReportProps,
-  StandfirstProps,
-  SectionProps,
-  SourcesProps,
-  KpiItem,
-  ClaimItem,
-  FindingItem,
-  MatrixProps,
-  RangeDotRow,
-  RangeDotProps,
-} from './components.tsx';
-export { Table, Glossary } from './capability-components.tsx';
-export type { TableColumn, TableProps, GlossaryProps } from './capability-components.tsx';
-export { Chart } from './chart.tsx';
-export type { ChartProps } from './chart.tsx';
+  Glossary,
+  Prose,
+  type StandfirstProps,
+  type SourcesProps,
+  type SourceItem,
+  type GlossaryProps,
+  type GlossaryTerm,
+} from './shell/prose.tsx';
+export {
+  Controls,
+  THEME_STORAGE_KEY,
+  DENSITY_STORAGE_KEY,
+  SHELL_CSS,
+} from './shell/controls.tsx';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';
-export { resetCollected, registerCall, registerCss, registerFlag, getCollected } from './collect.ts';
-export type { CapabilityCall, CapabilityName } from './collect.ts';
