@@ -26,15 +26,6 @@ export interface KpiRowProps {
   className?: string;
 }
 
-const XL_COLS: Record<number, string> = {
-  1: 'xl:grid-cols-1',
-  2: 'xl:grid-cols-2',
-  3: 'xl:grid-cols-3',
-  4: 'xl:grid-cols-4',
-  5: 'xl:grid-cols-5',
-  6: 'xl:grid-cols-6',
-};
-
 function deltaIsGood(delta: KpiDelta): boolean {
   return delta.good ?? delta.direction === 'up';
 }
@@ -97,13 +88,10 @@ function KpiSpark({ series, gradientId }: { series: number[]; gradientId: string
 }
 
 export function KpiRow({ items, className }: KpiRowProps) {
-  const colCount = Math.min(Math.max(items.length, 1), 6);
-
   return (
     <div
       className={cn(
-        'grid auto-rows-fr grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4',
-        XL_COLS[colCount],
+        'grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4',
         className,
       )}
     >
@@ -122,8 +110,8 @@ export function KpiRow({ items, className }: KpiRowProps) {
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {item.label}
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-semibold tracking-tight tabular-nums">
+              <div className="flex min-w-0 items-baseline gap-1">
+                <span className="text-3xl font-semibold leading-none tracking-tight tabular-nums">
                   {item.value}
                 </span>
                 {item.unit ? (
@@ -146,7 +134,9 @@ export function KpiRow({ items, className }: KpiRowProps) {
                 </span>
               ) : null}
               {item.compare ? (
-                <p className="text-xs text-muted-foreground">{item.compare}</p>
+                <p className="text-pretty text-xs text-muted-foreground">
+                  {item.compare}
+                </p>
               ) : null}
               {item.spark && item.spark.length > 0 ? (
                 <KpiSpark
@@ -155,7 +145,7 @@ export function KpiRow({ items, className }: KpiRowProps) {
                 />
               ) : null}
               {item.caption ? (
-                <p className="mt-auto text-xs text-muted-foreground">
+                <p className="mt-auto text-pretty text-xs text-muted-foreground">
                   {item.caption}
                 </p>
               ) : null}

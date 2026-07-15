@@ -29,6 +29,14 @@ test('KpiRow: equal-height grid, tinted delta pill, compare, spark svg, caption 
   const { markup } = await renderReport(fixture('report-components.tsx'));
 
   assert.match(markup, /auto-rows-fr/);
+  assert.match(
+    markup,
+    /grid-cols-\[repeat\(auto-fit,minmax\(170px,1fr\)\)\]/,
+  );
+  assert.doesNotMatch(markup, /md:grid-cols-3|lg:grid-cols-4|xl:grid-cols-/);
+  assert.match(markup, /min-w-0/);
+  assert.match(markup, /leading-none/);
+  assert.match(markup, /text-pretty/);
   assert.match(markup, /tabular-nums/);
   assert.match(
     markup,

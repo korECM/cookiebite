@@ -234,6 +234,79 @@ test('existing hard overflow rule still classifies (regression)', () => {
   assert.equal(exitCodeFor(result), 1);
 });
 
+test('crowded-text and excessive-wrap classify as warnings', () => {
+  const result = classify(measurements({
+    viewports: [{
+      width: 1280,
+      theme: 'light',
+      overflow: false,
+      charts: [],
+      contrast: [],
+      console: [],
+      resources: [],
+      hydrationTimeout: false,
+      hydrationError: null,
+      hydrationWarnings: [],
+      crowdedText: [{
+        ruleId: 'crowded-text',
+        selector: 'div[data-slot=card]>div>span',
+        measured: { gapPx: 1.5 },
+      }],
+      excessiveWrap: [{
+        ruleId: 'excessive-wrap',
+        selector: 'div[data-slot=card]>div>p',
+        measured: { lines: 3, chars: 12 },
+      }],
+    }],
+  }));
+  const crowded = result.findings.find((f) => f.ruleId === 'crowded-text');
+  const wrap = result.findings.find((f) => f.ruleId === 'excessive-wrap');
+  assert.ok(crowded, 'expected crowded-text');
+  assert.equal(crowded.severity, 'warning');
+  assert.equal(crowded.selector, 'div[data-slot=card]>div>span');
+  assert.deepEqual(crowded.measured, { gapPx: 1.5 });
+  assert.ok(wrap, 'expected excessive-wrap');
+  assert.equal(wrap.severity, 'warning');
+  assert.equal(wrap.selector, 'div[data-slot=card]>div>p');
+  assert.deepEqual(wrap.measured, { lines: 3, chars: 12 });
+  assert.equal(result.passed, true, 'warnings alone must not fail');
+  assert.equal(exitCodeFor(result), 0);
+});
+
+test('crowded-text / excessive-wrap dedup by ruleId+selector across viewports', () => {
+  const crowdedView = (width) => ({
+    width,
+    theme: 'light',
+    overflow: false,
+    charts: [],
+    contrast: [],
+    console: [],
+    resources: [],
+    hydrationTimeout: false,
+    hydrationError: null,
+    hydrationWarnings: [],
+    crowdedText: [{
+      selector: 'div[data-slot=card]>span',
+      measured: { gapPx: 0.5 },
+    }],
+    excessiveWrap: [{
+      selector: 'div[data-slot=card]>p',
+      measured: { lines: 3, chars: 10 },
+    }],
+  });
+  const result = classify(measurements({
+    viewports: [crowdedView(390), crowdedView(768), crowdedView(1280)],
+  }));
+  assert.equal(
+    result.findings.filter((f) => f.ruleId === 'crowded-text').length,
+    1,
+  );
+  assert.equal(
+    result.findings.filter((f) => f.ruleId === 'excessive-wrap').length,
+    1,
+  );
+});
+
 test('REQUIRED_MANUAL_REVIEW and exitCodeFor are unchanged', () => {
   assert.deepEqual(REQUIRED_MANUAL_REVIEW, [
     'caption-meaning', 'status-by-color', 'duplicated-claims',

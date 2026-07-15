@@ -100,6 +100,8 @@ export function classify(measurements) {
     }
 
     // Warnings — advisory, never block.
+    // ruleIds: repeated-literal, excess-surfaces, excess-shadows, excess-icons,
+    // excess-controls, long-document-no-nav, crowded-text, excessive-wrap.
     for (const dup of view.repeatedValues || []) {
       findings.push(finding('repeated-literal', WARN, view, { measured: `${dup.value} ×${dup.count}`, reason: 'a literal value repeats; consider a report-local custom property' }));
     }
@@ -111,6 +113,20 @@ export function classify(measurements) {
     }
     if (view.docLength > 6000 && view.hasNav === false) {
       findings.push(finding('long-document-no-nav', WARN, view, { measured: view.docLength, reason: 'long document offers no navigation aid' }));
+    }
+    for (const item of view.crowdedText || []) {
+      findings.push(finding('crowded-text', WARN, view, {
+        selector: item.selector,
+        measured: item.measured,
+        reason: 'text leaf reaches within 2px of the card content-box right edge',
+      }));
+    }
+    for (const item of view.excessiveWrap || []) {
+      findings.push(finding('excessive-wrap', WARN, view, {
+        selector: item.selector,
+        measured: item.measured,
+        reason: 'short text (≤16 chars) wraps to 3+ lines inside a card',
+      }));
     }
   }
 

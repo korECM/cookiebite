@@ -107,6 +107,33 @@ test('aggregateRuns: warning with different viewport attribution across runs is 
   assert.equal(flaky.length, 0);
 });
 
+test('aggregateRuns: crowded-text / excessive-wrap use ruleId|selector flaky key', () => {
+  const crowded = {
+    ruleId: 'crowded-text',
+    severity: 'warning',
+    selector: 'div[data-slot=card]>span',
+    viewport: 1280,
+    theme: 'light',
+  };
+  const wrap = {
+    ruleId: 'excessive-wrap',
+    severity: 'warning',
+    selector: 'div[data-slot=card]>p',
+    viewport: 390,
+    theme: 'light',
+  };
+  const { findings, flaky } = aggregateRuns([
+    [crowded, wrap],
+    [{ ...crowded, viewport: 768 }],
+    [wrap],
+  ]);
+  assert.equal(findings.length, 2);
+  // crowded in 2/3 → flaky; wrap in 2/3 → flaky; key is ruleId|selector only
+  assert.ok(flaky.includes('crowded-text|div[data-slot=card]>span'));
+  assert.ok(flaky.includes('excessive-wrap|div[data-slot=card]>p'));
+  assert.ok(!flaky.some((k) => k.includes('|1280|') || k.includes('|390|')));
+});
+
 test('aggregateRuns: hard findings stay viewport-keyed (same rule, different viewport = distinct)', () => {
   const at390 = {
     ruleId: 'horizontal-overflow',

@@ -109,5 +109,64 @@
   view.docLength = document.body.textContent.replace(/\s+/g, ' ').trim().length;
   view.hasNav = !!document.querySelector('nav, [role="navigation"], a[href^="#"]');
 
+  // Card crowding — text touching the content-box edge, or short phrases wrapping ≥3 lines.
+  function cardLeafSelector(el) {
+    const parts = [];
+    let node = el;
+    for (let depth = 0; node && depth < 6; depth += 1) {
+      let part = node.tagName.toLowerCase();
+      const slot = node.getAttribute && node.getAttribute('data-slot');
+      if (slot) part += `[data-slot=${slot}]`;
+      parts.unshift(part);
+      if (slot === 'card') break;
+      node = node.parentElement;
+    }
+    return parts.join('>');
+  }
+  function isVisibleTextLeaf(el) {
+    if (el.children && el.children.length > 0) return false;
+    const text = (el.textContent || '').trim();
+    if (!text) return false;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) return false;
+    return true;
+  }
+
+  view.crowdedText = [];
+  view.excessiveWrap = [];
+  [...document.querySelectorAll('[data-slot=card]')].forEach((card) => {
+    const cardRect = card.getBoundingClientRect();
+    if (cardRect.width <= 0 || cardRect.height <= 0) return;
+    const padRight = parseFloat(getComputedStyle(card).paddingRight) || 0;
+    const contentRight = cardRect.right - padRight;
+    [...card.querySelectorAll('*')].forEach((el) => {
+      if (!isVisibleTextLeaf(el)) return;
+      const text = el.textContent.trim();
+      const elRect = el.getBoundingClientRect();
+      const selector = cardLeafSelector(el);
+      if (elRect.right > contentRight - 2) {
+        view.crowdedText.push({
+          ruleId: 'crowded-text',
+          selector,
+          measured: { gapPx: contentRight - elRect.right },
+        });
+      }
+      if (text.length <= 16) {
+        const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
+        if (!Number.isFinite(lineHeight) || lineHeight <= 0) return;
+        const lines = Math.round(elRect.height / lineHeight);
+        if (lines >= 3) {
+          view.excessiveWrap.push({
+            ruleId: 'excessive-wrap',
+            selector,
+            measured: { lines, chars: text.length },
+          });
+        }
+      }
+    });
+  });
+
   return JSON.stringify(view);
 }());
