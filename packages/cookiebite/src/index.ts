@@ -1,4 +1,4 @@
-// v3 public surface — shell + constants. Data components arrive in Task 9.
+// v3 public surface — shell + report data components + theme types.
 export {
   Report,
   type ReportProps,
@@ -36,4 +36,36 @@ export {
   DENSITY_STORAGE_KEY,
   SHELL_CSS,
 } from './shell/controls.tsx';
+export {
+  KpiRow,
+  type KpiRowProps,
+  type KpiItem,
+  type KpiDelta,
+} from './report/kpi-row.tsx';
+export {
+  Claims,
+  type ClaimsProps,
+  type ClaimItem,
+} from './report/claims.tsx';
+export {
+  Findings,
+  type FindingsProps,
+  type FindingItem,
+  type FindingSeverity,
+} from './report/findings.tsx';
+export {
+  Matrix,
+  type MatrixProps,
+  type MatrixRow,
+} from './report/matrix.tsx';
+export {
+  RangeDot,
+  type RangeDotProps,
+  type RangeDotItem,
+} from './report/range-dot.tsx';
+export {
+  DataTable,
+  DataTableColumnHeader,
+  type DataTableProps,
+} from './report/data-table.tsx';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';

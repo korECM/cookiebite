@@ -51,9 +51,10 @@ const channelData: ChannelRow[] = [
 
 export default function App() {
   return (
-    <Report theme={persimmon} title="결제 성공률 주간 리포트" kicker="주간 리포트">
+    <Report title="결제 성공률 주간 리포트" kicker="주간 리포트" theme={persimmon}>
       <Standfirst>배포 롤백 이틀 만에 기준선을 되찾았다.</Standfirst>
-      <Section id="metrics" title="지표">
+
+      <Section id="kpis" title="지표">
         <KpiRow
           items={[
             {
@@ -74,10 +75,12 @@ export default function App() {
               value: '3.4',
               unit: '만원',
               delta: { value: '+12%', direction: 'up', good: false },
+              caption: 'Still elevated',
             },
           ]}
         />
       </Section>
+
       <Section id="claims" title="핵심 주장">
         <Claims
           items={[
@@ -88,10 +91,12 @@ export default function App() {
             },
             {
               text: 'Rollback restored baseline success rate',
+              evidence: 'hourly success_rate series',
             },
           ]}
         />
       </Section>
+
       <Section id="findings" title="발견">
         <Findings
           items={[
@@ -103,6 +108,7 @@ export default function App() {
             {
               severity: 'warning',
               title: 'Refund batch runs overnight only',
+              detail: 'Daytime refunds accumulate.',
             },
             {
               severity: 'info',
@@ -111,6 +117,7 @@ export default function App() {
           ]}
         />
       </Section>
+
       <Section id="matrix" title="채널 커버리지">
         <Matrix
           cols={['card', 'bank', 'wallet']}
@@ -122,6 +129,7 @@ export default function App() {
           caption="Coverage by payment channel"
         />
       </Section>
+
       <Section id="latency" title="응답 시간">
         <RangeDot
           domain={{ min: 0, max: 1000 }}
@@ -131,6 +139,7 @@ export default function App() {
           ]}
         />
       </Section>
+
       <Section id="table" title="채널별 실적">
         <DataTable columns={channelColumns} data={channelData} />
       </Section>
