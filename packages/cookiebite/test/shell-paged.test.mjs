@@ -31,6 +31,26 @@ test('paged SSR: all pages stacked with data-page, no hidden', async () => {
   }
 });
 
+test('paged SSR: Page headings use Section accent-tick treatment', async () => {
+  const { markup } = await renderReport(fixture('shell-paged.tsx'));
+
+  // accent tick + text-xl (Section과 동일); hairline border-b 제거
+  assert.match(
+    markup,
+    /h-4 w-1 shrink-0 rounded-full bg-primary/,
+  );
+  assert.match(
+    markup,
+    /flex items-center gap-2\.5 text-xl font-semibold tracking-tight/,
+  );
+  assert.doesNotMatch(markup, /border-b border-border pb-2 text-2xl/);
+  // 페이지당 1개 tick (개요/근거/다음)
+  assert.equal(
+    (markup.match(/h-4 w-1 shrink-0 rounded-full bg-primary/g) ?? []).length,
+    3,
+  );
+});
+
 test('paged SSR: nav has one item per Page with matching #hrefs', async () => {
   const { markup } = await renderReport(fixture('shell-paged.tsx'));
 

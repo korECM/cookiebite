@@ -30,7 +30,8 @@ export function Page({ id, title, icon, children, className }: PageProps) {
         className,
       )}
     >
-      <h2 className="flex items-center gap-2 border-b border-border pb-2 text-2xl font-semibold tracking-tight text-foreground">
+      <h2 className="flex items-center gap-2.5 text-xl font-semibold tracking-tight">
+        <span className="h-4 w-1 shrink-0 rounded-full bg-primary" />
         {icon ? <span className="shrink-0 [&_svg]:size-5">{icon}</span> : null}
         {title}
       </h2>
