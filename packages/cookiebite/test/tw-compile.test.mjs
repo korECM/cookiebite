@@ -47,9 +47,32 @@ test('compileTwSources: no utilities returns empty string', async () => {
   assert.equal(css, '');
 });
 
-test('BASE_CSS exposes shadcn border/body expectations without duplicating core reset', () => {
-  assert.match(BASE_CSS, /border-color:\s*var\(--border\)/);
-  assert.match(BASE_CSS, /background-color:\s*var\(--background\)/);
-  assert.match(BASE_CSS, /color:\s*var\(--foreground\)/);
-  assert.doesNotMatch(BASE_CSS, /box-sizing/);
+test('BASE_CSS is empty — shadcn border/body live in tw @layer base after preflight', () => {
+  assert.equal(BASE_CSS, '');
+});
+
+test('compileTwSources: preflight is present (::before + box-sizing)', async () => {
+  const css = await compileTwSources({
+    tsxPath: path.join(fixtures, 'tw-bg-card.tsx'),
+  });
+  assert.match(css, /::before/);
+  assert.match(css, /box-sizing:\s*border-box/);
+});
+
+test('compileTwSources: shadcn border-color override follows preflight', async () => {
+  const css = await compileTwSources({
+    tsxPath: path.join(fixtures, 'tw-bg-card.tsx'),
+  });
+  // preflight: *,::before,… { box-sizing; border: 0 solid } → border-color currentColor
+  // our @layer base after that: border-color: var(--border)
+  const preflightIdx = css.search(/box-sizing:\s*border-box/);
+  const overrideIdx = css.search(/border-color:\s*var\(--border\)/);
+  assert.ok(preflightIdx >= 0, 'preflight box-sizing present');
+  assert.ok(overrideIdx >= 0, 'var(--border) override present');
+  assert.ok(
+    overrideIdx > preflightIdx,
+    'var(--border) rule appears after preflight box-sizing',
+  );
+  assert.match(css, /background-color:\s*var\(--background\)/);
+  assert.match(css, /color:\s*var\(--foreground\)/);
 });

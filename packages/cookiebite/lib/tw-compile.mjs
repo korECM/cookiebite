@@ -48,8 +48,12 @@ function buildV3Input(sourcesRoot) {
     if (sourcesRoot === pkgRoot) return `@source "./src/${pattern}";`;
     return `@source "${path.join(sourcesRoot, 'src', pattern)}";`;
   };
+  // theme → preflight(base) → utilities. shadcn border/body override는
+  // preflight 뒤에 같은 @layer base로 두어 currentColor를 var(--border)로 덮는다.
+  // (assemble의 #cookiebite-base는 SHELL_CSS만 — preflight보다 앞에 오면 override가 진다.)
   return `
 @import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/preflight" layer(base);
 @import "tailwindcss/utilities" layer(utilities);
 @import "tw-animate-css";
 
@@ -59,14 +63,24 @@ ${src('shell/**/*.tsx')}
 ${src('report/**/*.tsx')}
 
 ${THEME_INLINE}
+
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+}
 `;
 }
 
 /**
- * shadcn이 기대하는 최소 base. assemble이 cookiebite-base 블록으로 소비.
+ * 레거시 슬롯. shadcn border/body는 tw compile 입력의 @layer base(preflight 뒤)로 옮김.
+ * assemble #cookiebite-base는 SHELL_CSS(density/print)만 담는다.
  */
-export const BASE_CSS =
-  '*,::before,::after{border-color:var(--border)}body{background-color:var(--background);color:var(--foreground)}';
+export const BASE_CSS = '';
 
 /**
  * 리포트 디렉토리의 로컬 shadowing 파일(components/, lib/)을 재귀 수집.

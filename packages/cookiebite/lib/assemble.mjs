@@ -49,6 +49,7 @@ export function assembleDocument({
   lang = 'ko',
 }) {
   const fontsCss = buildFontsCss(theme);
+  // BASE_CSS는 비어 있음(shadcn border/body는 cookiebite-tw @layer base). SHELL_CSS만.
   const baseCss = `${BASE_CSS}${SHELL_CSS}`;
   const twBlock = twCss
     ? `\n  <style id="cookiebite-tw">\n${twCss}\n  </style>`

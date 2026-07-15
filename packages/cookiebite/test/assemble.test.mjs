@@ -65,12 +65,24 @@ test('fonts block uses seed font-family without external urls', () => {
   assert.doesNotMatch(fonts, /https?:\/\//);
 });
 
-test('base block includes BASE_CSS and SHELL_CSS density rules', () => {
-  const html = assembleDocument(base);
+test('base block is SHELL_CSS only (shadcn border/body moved into cookiebite-tw)', () => {
+  const html = assembleDocument({
+    ...base,
+    twCss: [
+      '@layer base{',
+      '*,::before{box-sizing:border-box;border-color:var(--border)}',
+      'body{background-color:var(--background);color:var(--foreground)}',
+      '}',
+    ].join(''),
+  });
   const baseBlock = html.match(/id="cookiebite-base">\s*([\s\S]*?)\s*<\/style>/)[1];
-  assert.match(baseBlock, /border-color:\s*var\(--border\)/);
+  assert.doesNotMatch(baseBlock, /border-color:\s*var\(--border\)/);
   assert.match(baseBlock, /data-density="compact"/);
   assert.match(baseBlock, /data-density="spacious"/);
+  const twBlock = html.match(/id="cookiebite-tw">\s*([\s\S]*?)\s*<\/style>/)[1];
+  assert.match(twBlock, /border-color:\s*var\(--border\)/);
+  // assemble order: cookiebite-base before cookiebite-tw so preflight+override in tw win
+  assert.ok(html.indexOf('cookiebite-base') < html.indexOf('cookiebite-tw'));
 });
 
 test('root div wraps markup and precedes the app script', () => {
