@@ -130,11 +130,14 @@ children only**. Do not wrap them in `<>…</>` if you need TOC or paged nav.
 
 | Component | Props | Role |
 | --- | --- | --- |
-| `KpiRow` | `{ items, className? }` — item `{ label, value, unit?, delta?, caption? }`; delta `{ value, direction: 'up'\|'down', good? }` | Equal-height KPI cards. `good` defaults to `direction === 'up'`. Colored text deltas (`text-success` / `text-destructive`), never color alone. |
+| `KpiRow` | `{ items, className? }` — item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction: 'up'\|'down', good? }` | Equal-height KPI cards. `good` defaults to `direction === 'up'`. Colored text deltas (`text-success` / `text-destructive`), never color alone. `compare` is a baseline line under the value; `spark` is a mini sparkline (`number[]`). |
 | `Claims` | `{ items, className? }` — item `{ text, evidence?, badge? }` | Claim list with optional evidence line and outline badge. |
 | `Findings` | `{ items, className? }` — item `{ severity: 'critical'\|'warning'\|'info', title, detail? }` | Severity alerts (shadcn `Alert`). |
 | `Matrix` | `{ rows, cols, caption?, className? }` — row `{ label, cells: (boolean\|string)[] }` | Coverage / comparison table (check / dash / string). |
 | `RangeDot` | `{ items, domain?, className? }` — item `{ label, min, max, value, unit? }` | min–max range with value dot. |
+| `BarList` | `{ items, sort?, className? }` — item `{ name, value, unit? }`; sort `'desc'\|'none'` (default `desc`) | Horizontal ranked bar list; bar width scales to the max value. |
+| `Tracker` | `{ data, className? }` — block `{ status: 'success'\|'error'\|'warning'\|'neutral', label? }` | Status block strip; `label` becomes the block `title` tooltip. |
+| `CategoryBar` | `{ segments, className? }` — segment `{ label, value }` | Stacked composition bar with legend; segment width is proportional to value. |
 | `DataTable` | `{ columns: ColumnDef<T>[], data: T[], className? }` | TanStack Table. Use `DataTableColumnHeader` in `header` for sortable columns. |
 
 ### Charts (shadcn chart idiom)

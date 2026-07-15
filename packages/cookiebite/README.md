@@ -29,7 +29,8 @@ bunx cookiebite verify report.html --runs 3
 
 - **Shell:** `Report` (article | paged), `Section`, `Page`, `Standfirst`, `Sources`,
   `Glossary`, 다크/밀도 controls(기본 on)
-- **Data:** `KpiRow`, `Claims`, `Findings`, `Matrix`, `RangeDot`, `DataTable`
+- **Data:** `KpiRow`, `Claims`, `Findings`, `Matrix`, `RangeDot`, `BarList`, `Tracker`,
+  `CategoryBar`, `DataTable`
 - **UI:** vendored shadcn 18종 (card, chart, table, badge, alert, tabs, accordion, …)
 - **Theme:** seed 8키 + CSS 변수 overrides + 프리셋 10종 + 자동 다크 + 대비 게이트
   (`--success` 포함)
@@ -47,11 +48,14 @@ bunx cookiebite verify report.html --runs 3
 | `Page` | paged 한 장 | `id`, `title`, `icon?` — SSR은 전부 스택, hydrate 후 비활성 `hidden` |
 | `Sources` | 출처 목록 | `items: { label, href?, note? }[]` |
 | `Glossary` | 용어 정의 | `terms: { term, def }[]` |
-| `KpiRow` | KPI 카드 줄 | item `{ label, value, unit?, delta?, caption? }`; delta `{ value, direction, good? }` |
+| `KpiRow` | KPI 카드 줄 | item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction, good? }`. `compare`는 값 아래 비교 문구, `spark`는 미니 스파크라인(`number[]`) |
 | `Claims` | 주장 목록 | item `{ text, evidence?, badge? }` |
 | `Findings` | 심각도 알림 | item `{ severity: 'critical'\|'warning'\|'info', title, detail? }` |
 | `Matrix` | 커버리지 표 | `rows: { label, cells }[]`, `cols: string[]` |
 | `RangeDot` | min–max–value | item `{ label, min, max, value, unit? }` |
+| `BarList` | 수평 막대 순위 목록 | `items: { name, value, unit? }[]`, `sort?` (`desc` \| `none`, 기본 `desc`) |
+| `Tracker` | 상태 블록 스트립 | `data: { status: 'success'\|'error'\|'warning'\|'neutral', label? }[]` |
+| `CategoryBar` | 구성비 바 + 범례 | `segments: { label, value }[]` |
 | `DataTable` | 정렬 표 | TanStack `columns` + `data`; `DataTableColumnHeader`로 헤더 |
 
 차트는 `@/components/ui/chart`의 `ChartContainer` + Recharts를 직접 조립합니다.
