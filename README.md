@@ -29,29 +29,29 @@ It also renders the page and *looks at it* before handing it over, so the labels
 ## Quickstart
 
 Write a typed TSX report; `cookiebite build` renders a single self-contained HTML file.
-The build enforces the visual contract — token colors, chart aria labels, declared
-capabilities — so you focus on the story:
+The authoring surface is **shadcn UI** at `@/components/ui/*` (same import paths as the
+shadcn docs) plus cookiebite shell/data components. The build enforces the visual contract
+— no raw colors, theme contrast gates, hydrated charts — so you focus on the story:
 
 ```bash
 bunx cookiebite new report.tsx           # typed starter
-bunx cookiebite build report.tsx         # typecheck + lint → report.html
+bunx cookiebite build report.tsx         # typecheck + lint → SSG → report.html
 bunx cookiebite verify report.html --runs 3
 ```
 
-Import components from `cookiebite` and themes from `cookiebite/themes`. Colors must be
-`var(--cb-*)` tokens (literals fail the build); raw JSX may also use semantic Tailwind
-utilities (`bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`,
-`text-primary-foreground`) — palette steps and arbitrary colors do not compile.
-`<Report>` ships dark and density toggles by default (`controls={false}` to hide).
-Every theme gets dark tokens (auto-derived when omitted). Charts use a flint semantic spec
-(`type`, `semanticTypes`, `encodings`, `ariaLabel`); data keys must be English
-identifiers. Twelve components cover the document shell, KPIs, claims, findings, tables,
-glossary, and charts — see
-[packages/cookiebite/README.md](packages/cookiebite/README.md). The full contract lives in
-[DESIGN.md](DESIGN.md).
+Import shell/data from `cookiebite`, presets from `cookiebite/themes`, and UI from
+`@/components/ui/*`. Export `const __theme = …` for the build; default-export a React
+component that returns `<Report>`. Use semantic Tailwind (`bg-card`,
+`text-muted-foreground`, `border-border`, `bg-primary`, `text-success`) — palette steps and
+arbitrary colors fail. Charts are shadcn `ChartContainer` + Recharts with
+`var(--chart-N)` / `var(--color-KEY)` (literals fail). Tables use TanStack `ColumnDef` via
+`DataTable`. `<Report>` ships dark and density toggles by default (`controls={false}` to
+hide); `layout="paged"` adds hash-synced page nav. Data keys stay English; labels may be
+localized. See [packages/cookiebite/README.md](packages/cookiebite/README.md) and
+[SKILL.md](SKILL.md).
 
-Worked TSX examples: [weekly-revenue.tsx](docs/examples-tsx/weekly-revenue.tsx),
-[incident-postmortem.tsx](docs/examples-tsx/incident-postmortem.tsx).
+Worked TSX examples: [weekly-revenue.tsx](docs/examples-tsx/weekly-revenue.tsx) (article),
+[incident-postmortem.tsx](docs/examples-tsx/incident-postmortem.tsx) (paged).
 
 ## Legacy (rebuilding existing reports only)
 

@@ -29,7 +29,9 @@ cookiebite은 반대로 가요. Claude Code 스킬인데, 데이터를 던지면
 ## 퀵스타트
 
 타입드 TSX 리포트를 쓰면 `cookiebite build`가 단일 HTML 파일로 렌더해요.
-빌드가 시각 계약(토큰 색, 차트 aria-label, capability 선언)을 강제해서 서사에 집중할 수 있어요.
+저작 표면은 **shadcn UI**(`@/components/ui/*`, shadcn 문서와 동일한 import 경로) +
+cookiebite shell/data 컴포넌트예요. 빌드가 시각 계약(raw 색 금지, 테마 대비 게이트,
+hydration)을 강제해서 서사에 집중할 수 있어요.
 
 ```bash
 bunx cookiebite new report.tsx
@@ -37,20 +39,19 @@ bunx cookiebite build report.tsx
 bunx cookiebite verify report.html --runs 3
 ```
 
-`cookiebite`에서 컴포넌트를, `cookiebite/themes`에서 테마를 import해요.
-색은 `var(--cb-*)` 토큰만 허용하고 리터럴은 빌드가 막아요. raw JSX에는 시맨틱 Tailwind
-색 유틸만 쓸 수 있어요 (`bg-card`, `text-muted-foreground`, `border-border`, `bg-primary`,
-`text-primary-foreground`). 팔레트 단계나 임의 색은 CSS가 안 나와요.
-`<Report>`는 다크/밀도 토글을 기본으로 띄워요 (`controls={false}`로 끔).
-모든 테마는 다크 토큰을 갖고, 생략하면 빌드가 자동 파생해요.
-Chart는 flint semantic spec(`type`, `semanticTypes`, `encodings`, `ariaLabel`)을 써요.
-data key는 영어 식별자, 한글은 라벨과 본문에만.
-문서 쉘, KPI, 주장, 발견, 표, 용어집, 차트까지 12종 컴포넌트는
-[packages/cookiebite/README.md](packages/cookiebite/README.md)를 보세요.
-전체 계약은 [DESIGN.md](DESIGN.md)에 있어요.
+`cookiebite`에서 shell/data를, `cookiebite/themes`에서 프리셋을, `@/components/ui/*`에서
+UI를 import해요. 빌드용 테마는 `export const __theme = …`, default export는 `<Report>`를
+반환하는 React 컴포넌트 함수예요. raw JSX에는 시맨틱 Tailwind만 써요 (`bg-card`,
+`text-muted-foreground`, `border-border`, `bg-primary`, `text-success`). 팔레트 단계나
+임의 색은 빌드가 막아요. 차트는 shadcn `ChartContainer` + Recharts이고 색은
+`var(--chart-N)` / `var(--color-KEY)`만 허용해요. 표는 TanStack `ColumnDef` +
+`DataTable`이에요. `<Report>`는 다크/밀도 토글을 기본으로 띄워요 (`controls={false}`로
+끔). `layout="paged"`면 해시 연동 페이지 네비가 붙어요. data key는 영어, 한글은 라벨과
+서사에만. 자세한 API는 [packages/cookiebite/README.md](packages/cookiebite/README.md)와
+[SKILL.md](SKILL.md)를 보세요.
 
-TSX 예시: [weekly-revenue.tsx](docs/examples-tsx/weekly-revenue.tsx),
-[incident-postmortem.tsx](docs/examples-tsx/incident-postmortem.tsx).
+TSX 예시: [weekly-revenue.tsx](docs/examples-tsx/weekly-revenue.tsx) (article),
+[incident-postmortem.tsx](docs/examples-tsx/incident-postmortem.tsx) (paged).
 
 ## 레거시(기존 리포트 재빌드 전용)
 

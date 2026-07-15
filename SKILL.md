@@ -21,291 +21,271 @@ Turn whatever the user gives you — data, analysis, notes, research, metrics, a
 update — into a **single self-contained HTML file** someone enjoys reading and can grasp
 at a glance.
 
-**You write a typed TSX report; `cookiebite build` renders it to one HTML file.** You own
-the argument's order, the prose, and the choice of components. Cookiebite owns the visual
-contract — theme tokens, layout primitives, accessibility, chart compilation — and the
-build refuses anything that would break it (off-palette colors, a chart with no aria
-label, a capability you use but don't declare). That refusal is the point: the build
-carries the fussy invariants so you spend your attention on the story.
+**You write a typed TSX report; `cookiebite build` renders it to one offline HTML.** You
+own the argument's order, the prose, and the choice of components. Cookiebite owns the
+shell (layout, controls, theme tokens), vendored shadcn UI at `@/components/ui/*`, and
+build gates that refuse raw colors, contrast failures, and broken hydration. That refusal
+is the point: the build carries the fussy invariants so you spend your attention on the
+story.
 
-**The default is a quiet reading document.** Most reports read in sequence — answer,
-evidence, takeaway, sources — as authored `Section`s. A dashboard is an explicit choice you
-make **only when readers must scan and slice live dimensions** — not the default.
+**The default is a quiet reading document** (`layout="article"`). Use `layout="paged"`
+when the report is a short stack of named pages with left-rail navigation — not because
+"dashboard" sounds impressive.
 
 This skill is for **reading material** (reports, summaries, dashboards, recaps, research
-write-ups). It is **not** for building product/console application UI — if the user wants
-an app screen or component, this isn't the right skill.
+write-ups). It is **not** for building product/console application UI.
 
 ## Quickstart
 
 ```bash
 bunx cookiebite new report.tsx           # typed starter report
-bunx cookiebite build report.tsx         # typecheck + token lint → report.html
+bunx cookiebite build report.tsx         # typecheck + lint → SSG → HTML
 bunx cookiebite verify report.html --runs 3
 ```
 
-1. **Plan the claims and evidence first** (see below) — decide *reading vs dashboard*, and
-   which points want to be a chart, a stat, a table, or a diagram. This happens before you
-   touch the file.
-2. **`bunx cookiebite new report.tsx`** scaffolds a typed starter: a `<Report>` with a
-   theme import and a couple of sections. Fill it with the real narrative and data using
-   the components below. Import components from `cookiebite`, themes from `cookiebite/themes`.
-   `<Report>` ships **dark and density toggles by default** (`controls` defaults to
-   `true`); pass `controls={false}` when readers should not see them.
-   The file's **default export must be the `<Report …>` element itself**
-   (`export default (<Report theme={…} title="…">…</Report>)`) — the build reads it to
-   assemble the document; keep that shape if you write or regenerate the file by hand.
-3. **`bunx cookiebite build report.tsx`** typechecks the TSX, lints every color to the
-   `var(--cb-*)` token ABI, compiles each `Chart` for light and dark, and emits a single
-   `report.html`. A type error, an off-palette color, an empty chart aria label, or a
-   used-but-undeclared capability **fails the build** with a file/line message.
-4. **`bunx cookiebite verify report.html --runs 3`** renders the HTML at three breakpoints
-   plus a **dark pass on every report** (all themes get dark tokens, derived when omitted)
-   and reports layout/accessibility findings. `--runs 3` repeats the whole pass to catch
-   flaky findings. It needs `agent-browser` installed
+1. **Plan the claims and evidence first** — decide *article vs paged*, and which points
+   want a chart, a KPI, a table, or prose. This happens before you touch the file.
+2. **`bunx cookiebite new report.tsx`** scaffolds a starter: `Report` + `KpiRow` + shadcn
+   `Card`/`ChartContainer` + `DataTable`. Fill it with the real narrative.
+   - Import shell/data components from `cookiebite`, presets from `cookiebite/themes`.
+   - Import UI from `@/components/ui/*` — **paths match shadcn docs verbatim**; training
+     knowledge applies as-is (Card, Badge, Alert, Tabs, Accordion, Table, Chart, …).
+   - **Default export must be a React component function**
+     (`export default function App() { return <Report …>…</Report>; }`).
+   - **Theme for the build** is `export const __theme = …` (same object you may also pass
+     as `Report`'s `theme` prop for documentation; the pipeline reads `__theme`).
+3. **`bunx cookiebite build report.tsx`** runs typecheck → source lint → SSG render →
+   theme compile (contrast gates) → Tailwind source-scan → client hydration bundle → one
+   HTML. Failures print file/line messages.
+4. **`bunx cookiebite verify report.html --runs 3`** renders at 390 / 768 / 1280 (plus
+   dark) and reports findings. Needs `agent-browser`
    (`npm i -g agent-browser && agent-browser install`).
-5. **Look at the actual pixels** for the judgments the build can't make (see "Verify") and
-   hand back the HTML.
-
-The rest of this file is the reasoning behind each step — read it once, not per build.
+5. **Look at the actual pixels** for judgments the build can't make (see Verify) and hand
+   back the HTML.
 
 ## Plan claims + evidence first
 
 Start with **one to three claims, their evidence, and the reader's first question.** Order
-the sections as an **argument, not an inventory**: each section's takeaway feeds one
-claim, and a one-line bridge hands the reader to the next section. **Anti-padding:** the
-outline comes *from* the material. A section added to look complete (background nobody
-asked for, a chart restating another chart) dilutes trust — cut it.
+sections as an **argument, not an inventory**. Anti-padding: a section added only to look
+complete dilutes trust — cut it.
 
-**Reading vs dashboard.** Most investigations, proposals, and explainers read in
-sequence: a `Standfirst`, `Section`s, a `Chart` or `Table` where evidence is visual, a
-`Sources` footer. **A dashboard is right only when readers must scan and slice live
-dimensions** — a fixed three-number status is not a dashboard. When the report is long or
-the audience mixed, lead with the claims (use `Claims`, whose evidence anchors link to the
-`Section` that proves each one) so a reader who trusts them can stop, and a doubted one is
-one click from its proof.
+**Article vs paged.** Most investigations and explainers are `article`: `Standfirst`,
+`Section`s, charts/tables where evidence is visual, `Sources` at the end. Choose `paged`
+when readers jump between named pages (e.g. summary / timeline / cause / actions) and you
+want hash-synced sidebar nav. A fixed three-number status is still an article with
+`KpiRow`, not a dashboard.
 
-**Graphic over textual, still.** When a point can be a chart, a stat, a timeline, a
-diagram, or a comparison instead of a paragraph, make it the visual — `Chart`, `KpiRow`,
-`Matrix`, `RangeDot`, `Table`, or hand-authored SVG in a `Section`. The most-missed case is
-**structure described in words** — "A calls B, which verifies with C" is a diagram that
-hasn't been drawn yet. Draw system flows as hand SVG (never GIFs) so they stay on-theme,
-crisp, and re-themeable; color them with `var(--cb-*)` tokens so the build's lint passes.
+**Graphic over textual.** When a point can be a chart, a KPI, a matrix, or a comparison
+instead of a paragraph, make it visual. Prefer shadcn `ChartContainer` + Recharts for
+series; use `Matrix` / `RangeDot` / `DataTable` for structured comparisons.
 
-## Component catalog
+**English data keys.** Object keys in chart data, `ChartConfig`, `ColumnDef` `accessorKey`,
+and similar identifiers stay English. Korean (or any locale) belongs in labels, headers,
+captions, and narrative only.
 
-Import from `cookiebite`. Every component enhances the document — **none invents a card,
-section, or control you didn't ask for.** Any color you write in raw JSX must be a
-`var(--cb-*)` token (see "Theme"); the build's lint fails on a literal hex, rgb, or color
-name. You may also use **Tailwind utility classes** on raw JSX (`className`), but only
-**semantic color utilities** resolve at build time: `bg-card`, `text-muted-foreground`,
-`border-border`, `bg-primary`, `text-primary-foreground`, `border-accent-strong`,
-`text-accent-strong` (and variants like `text-card-foreground`, `hover:bg-muted/50`).
-Palette steps (`bg-red-500`) produce no CSS — the palette is wiped from `@theme`.
-Arbitrary colors (`bg-[#hex]`) are rejected by the build lint before Tailwind runs.
-The `@theme` layer exposes only `--cb-*` bridged tokens.
+## Authoring surface (shadcn + cookiebite)
 
-| Component | Signature | Role |
+### Vendored shadcn (`@/components/ui/*`)
+
+Eighteen components ship in the package (accordion, alert, badge, breadcrumb, button,
+card, chart, collapsible, hover-card, progress, scroll-area, separator, skeleton, table,
+tabs, toggle, toggle-group, tooltip). Import exactly as in the [shadcn docs](https://ui.shadcn.com):
+
+```tsx
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+```
+
+Use semantic Tailwind utilities (`bg-card`, `text-muted-foreground`, `border-border`,
+`bg-primary`, `text-success`, …). Palette steps (`bg-red-500`) and arbitrary colors
+(`bg-[#hex]`, inline hex/rgb) fail the build.
+
+**Escape hatch — local shadowing:** place `components/ui/<name>.tsx` (or `lib/<name>.ts`)
+next to the report file. The bundler resolves `@/components/ui/<name>` to the local file
+first, then the package. Use this to tweak a single UI primitive without forking the
+package.
+
+### Shell (`cookiebite`)
+
+| Component | Props | Role |
 | --- | --- | --- |
-| `Report` | `{ theme, title, lang?, controls?, children }` | Document shell. The build reads `theme` / `title` / `lang` to assemble `<head>`. `controls` defaults to `true` (fixed top-right dark and density toggles); `controls={false}` omits them. Wraps everything. |
-| `Standfirst` | `{ kicker?, headline, children? }` | Lead block: optional kicker line, the `h1`, an optional standfirst paragraph. |
-| `Section` | `{ title, children, id? }` | A `section` + `h2`. Give it an `id` to make it a `Claims` evidence anchor. |
-| `Sources` | `{ children }` | Source / method footer. |
-| `KpiRow` | `{ items }` — item `{ label, value, unit?, delta?, note? }` | KPI card row. `delta` is `{ dir: 'up'\|'down'\|'flat', text, tone: 'success'\|'critical'\|'neutral' }` — a direction glyph plus text, never color alone. |
-| `Claims` | `{ items, title? }` — item `{ claim, evidence?, value?, tone? }` | Claim → evidence anchor list. `evidence` is a `'#section-id'` matching a `Section` `id`. |
-| `Findings` | `{ items }` — item `{ tone, title, where?, note?, label? }` | Severity finding list. `tone` is `critical\|warning\|info\|neutral\|success`; the badge is text, never color alone. |
-| `Matrix` | `{ rows, cols, data, max?, format?, ariaLabel, caption? }` | Accent-overlay heat table. Pass `max` explicitly to avoid a constant-column trap. `data` is `number[][]`. |
-| `RangeDot` | `{ rows, domain?, format?, unit?, ariaLabel }` | min–max–value dot figure as hand SVG — no chart dependency. Row `{ label, min, max, value }`. |
-| `Table` | `{ columns, rows, sortable?, caption? }` | Table. With `sortable`, it declares the `table` capability itself; sorting is stable, locale-aware, keyboard-operable. Column `{ header, numeric? }`. |
-| `Glossary` | `{ term, definition }` | Inline term definition (declares the `glossary` capability). Opens from keyboard focus/activation, closes with Escape. |
-| `Chart` | `{ type, data, semanticTypes, encodings, ariaLabel, height? }` | flint semantic-spec chart, compiled at build time (see "Chart"). |
+| `Report` | `{ title, kicker?, theme?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — left rail scrollspy from direct `Section` children. |
+| `Standfirst` | `{ children, className? }` | Lead paragraph under the title. |
+| `Section` | `{ id, title, lede?, children?, className? }` | `section` + accent-tick `h2`. `id` is required (TOC / anchors). |
+| `Page` | `{ id, title, icon?, children?, className? }` | One page under `layout="paged"`. SSR stacks all pages; after hydration inactive pages are `hidden` (restored in print). Under `article`, still renders as a section (tolerant). |
+| `Sources` | `{ items: { label, href?, note? }[], className? }` | Source / method list. |
+| `Glossary` | `{ terms: { term, def }[], className? }` | Definition list. |
+| `Prose` | `{ children, className? }` | Measure-limited prose wrapper. |
 
-The exact prop types live in the signature-index comment atop
-`packages/cookiebite/src/components.tsx` and `capability-components.tsx` — and the build
-typechecks your usage, so a wrong prop is a compile error, not a silent bug.
+`PageNav` / `Controls` are used by the shell internally; you rarely import them.
 
-## Authoring rules
+**Fragment limit:** `Report` collects `Section` / `Page` / `Standfirst` from **direct
+children only**. Do not wrap them in `<>…</>` if you need TOC or paged nav.
 
-**English data keys.** Keys in `data` row objects, `semanticTypes`, `encodings`, and
-`Table` `columns` must be **English code identifiers** (`week`, `mrr`, `plan`) — the
-build and chart compiler treat them as field names. Put Korean (or any display copy) in
-labels, headers, `ariaLabel`, and authored prose only.
+### Data components (`cookiebite`)
+
+| Component | Props | Role |
+| --- | --- | --- |
+| `KpiRow` | `{ items, className? }` — item `{ label, value, unit?, delta?, caption? }`; delta `{ value, direction: 'up'\|'down', good? }` | Equal-height KPI cards. `good` defaults to `direction === 'up'`. Colored text deltas (`text-success` / `text-destructive`), never color alone. |
+| `Claims` | `{ items, className? }` — item `{ text, evidence?, badge? }` | Claim list with optional evidence line and outline badge. |
+| `Findings` | `{ items, className? }` — item `{ severity: 'critical'\|'warning'\|'info', title, detail? }` | Severity alerts (shadcn `Alert`). |
+| `Matrix` | `{ rows, cols, caption?, className? }` — row `{ label, cells: (boolean\|string)[] }` | Coverage / comparison table (check / dash / string). |
+| `RangeDot` | `{ items, domain?, className? }` — item `{ label, min, max, value, unit? }` | min–max range with value dot. |
+| `DataTable` | `{ columns: ColumnDef<T>[], data: T[], className? }` | TanStack Table. Use `DataTableColumnHeader` in `header` for sortable columns. |
+
+### Charts (shadcn chart idiom)
+
+There is **no** cookiebite `Chart` / flint / ECharts authoring path on the v3 surface.
+Compose Recharts inside `ChartContainer`:
+
+```tsx
+const chartConfig = {
+  count: { label: '건수', color: 'var(--chart-1)' },
+} satisfies ChartConfig;
+
+<ChartContainer id="bars" config={chartConfig} className="min-h-[220px] w-full">
+  <BarChart accessibilityLayer data={chartData}>
+    <Bar dataKey="count" fill="var(--color-count)" radius={4} />
+  </BarChart>
+</ChartContainer>
+```
+
+- Config `color` must be `var(--chart-1)` … `var(--chart-5)` (or theme tokens).
+- Series `fill` / `stroke` use `var(--color-KEY)` matching the config key.
+- **Color literals in chart config or marks fail the build lint.**
+- Give `ChartContainer` a stable `id` when multiple charts appear on one page.
 
 ## Theme
 
-Pass a `ThemeDocument` to `Report`'s `theme` prop. Use a preset from `cookiebite/themes`
-(`persimmon` default, `neutral`, plus `stripe`, `vercel`, `linear`, `notion`, `supabase`,
-`sentry`, `resend`, `raycast`), or build the same object yourself. If the user names a
-brand ("make it look like Stripe"), import that preset.
+Pass a `ThemeDocument` via `export const __theme`. Presets from `cookiebite/themes`:
+`persimmon` (default Korean), `neutral`, `stripe`, `vercel`, `linear`, `notion`,
+`supabase`, `sentry`, `resend`, `raycast`.
 
 ```tsx
 import { stripe } from 'cookiebite/themes';
-// …
-<Report theme={stripe} title="Weekly revenue" lang="en"> … </Report>
+export const __theme = stripe;
 ```
 
-A `ThemeDocument` is `{ schemaVersion: 1, seed, dark?, status?, resources?, locale?,
-overrides? }`. The eight `seed` values are the complete shared visual input:
+Seed (eight keys) is the complete shared visual input:
 
 | Key | Meaning | Valid values |
 | --- | --- | --- |
-| `font` | reading type family | a safe CSS family list |
-| `background` | page background | opaque six-digit hex |
-| `text` | authored body text | opaque six-digit hex |
-| `accent` | one emphasis color | opaque six-digit hex |
+| `font` | reading type family | CSS family list |
+| `background` | page / card strategy input | opaque six-digit hex |
+| `text` | body text | opaque six-digit hex |
+| `accent` | primary emphasis | opaque six-digit hex |
 | `spaceUnit` | base spacing unit | integer `2..12` |
-| `measure` | prose line length | integer `45..90ch` |
+| `measure` | prose line length | e.g. `'68ch'` |
 | `radius` | soft edge | integer `0..32` |
 | `surface` | surface strategy | `border`, `tonal`, or `shadow` |
 
-`schemaVersion: 1` is mandatory. **Every theme gets a dark palette.** When you omit
-`dark`, the build derives one automatically (dark background `#111114`, light text
-`#EDEDEF`, accent preserved with contrast tuning, `surface: 'tonal'`). The verifier
-**always runs a dark pass** — readers can also flip dark live via the default controls
-toggle. Optional explicit `dark` (a partial seed — omitted values inherit from `seed`)
-overrides that derivation.
+`schemaVersion: 1` is required when you hand-author a document. Optional `dark` is a
+partial seed (omitted keys inherit). **If `dark` is omitted, the build auto-derives it.**
 
-> **Warning — explicit `dark` authoring:** Declaring `dark` yourself **skips auto-derivation**.
-> You must then set `surface` deliberately — **`tonal` is recommended** for dark cards.
-> A partial `dark` with `surface: 'border'` or `'shadow'` leaves raised surfaces on white
-> tints; `bg-card` / KPI cards lose contrast against the dark page. Copy the derived
-> pattern from a preset or include `surface: 'tonal'` in your `dark` seed.
+**Overrides** patch compiled shadcn CSS variables after seed derivation:
 
-**Layout width:** the main column is **1080px** wide; only prose (`p`, `li`) keeps the
-theme's `--cb-measure` line length. Charts, tables, KPI rows, and other wide blocks span
-the full container.
+```tsx
+export const __theme = {
+  ...stripe,
+  overrides: {
+    '--card': '#FFFFFF',
+    '--chart-1': '#635BFF',
+    '.dark': {
+      '--card': '#1A1A1E',
+    },
+  },
+};
+```
 
-**Density:** three tiers (`compact`, `comfortable`, `spacious`) via `data-density` on
-`<html>`, cycled by the default density toggle and persisted in `localStorage`.
+Root keys apply to `:root` only; nest a `.dark` object for dark patches. After overrides,
+contrast gates re-run (including `--success` on `--card`). If you override `--card` but
+not `--success`, success is re-derived.
 
-`overrides` may name only semantic roles (`textMuted`, `divider`, `accentStrong`,
-`surfaceRaised`, `focus`) — component names are invalid. `resources` owns external font
-stylesheets; naming a font family is not an implicit network request. `locale`
-(`{ number, currency }`) drives separators, currency, and `만/억` vs `K/M/B`; a preset sets
-it for you.
+Gates (fail the build on violation): foreground/background, primary-foreground/primary,
+card-foreground/card ≥ 4.5:1; muted-foreground/muted and success/card ≥ 3:1.
 
-The build compiles the seed into the stable `--cb-*` token ABI (`--cb-background`,
-`--cb-surface`, `--cb-text`, `--cb-accent`, `--cb-on-accent`, `--cb-focus`, `--cb-measure`,
-`--cb-radius`, …) and emits literal resolved colors. **Your authored colors are never
-silently changed** — text/background and on-accent pairs must meet `4.5:1` and a focus
-outline `3:1`, and only *derived* tones are tuned to satisfy them; a seed that can't be
-made contrast-safe fails the build. Reference `var(--cb-*)` tokens in any raw JSX style or
-hand SVG — never a hard-coded color.
+Authored colors live only in `__theme` / `theme` object literals — source lint skips those
+spans. Everywhere else, use tokens / semantic classes.
 
-**The two first-class ways to get a custom theme** are (a) a preset from
-`cookiebite/themes`, and (b) writing a `ThemeDocument` object yourself from the seed table
-above. The **edit-cookiebite-theme** skill's live theme studio is a third, visual way to
-*explore* colors — but its export is a different shape (`{ name, font, colors, locale }`),
-**not** a `ThemeDocument`, and there is no converter. To use a studio export, copy its
-values into a seed by hand: `colors.bg` → `background`, `colors.primary` → `text`,
-`colors.accent` → `accent`, `font.family` joined with `font.fallback` → `font`,
-`font.url` → `resources.fontStylesheets`, and `locale` carries over as-is. The remaining
-seed keys (`spaceUnit`, `measure`, `radius`, `surface`) aren't in the export — start from
-a preset's values (persimmon: `4`, `'68ch'`, `12`, `'border'`).
+## Layouts + controls
 
-## Chart
+**Article** — title / kicker / standfirst / optional controls; left TOC (scrollspy) from
+`Section` ids; main column scrolls.
 
-`Chart` takes a **flint semantic spec**, not an ECharts option:
+**Paged** — same header; mobile page select + desktop left-rail nav; hash sync
+(`#page-id`); no-JS / pre-hydration shows all pages stacked. Active `Page` heading uses
+the same accent-tick treatment as `Section`.
 
-- `type` — a flint chart type string (`"Bar Chart"`, `"Line Chart"`, `"Area Chart"`,
-  `"Funnel Chart"`, `"Stacked Bar Chart"`, `"Pie Chart"`, …).
-- `data` — an array of homogeneous row objects (every row has the same keys).
-- `semanticTypes` — each field's role, e.g. `{ week: 'Category', mrr: 'Quantity' }`.
-- `encodings` — channel → field, e.g. `{ x: 'week', y: 'mrr', color: 'plan' }`.
-- `ariaLabel` — **required, and keep it short.** The build compiles a hidden data-table
-  whose `<caption>` is this label; a long sentence sets a wide minimum table width and can
-  overflow at 390px. Write "p99 latency over the incident", not a full paragraph.
-- `height?` — optional pixel height (default 320).
+Controls (dark mode + density) default on. Hide with `controls={false}`.
 
-The build compiles the spec to ECharts once for light and once for dark, reading colors
-from the active theme, and registers the `chart` capability for you. **Only declarative
-chart types are supported.** Types whose bars are drawn by a `custom` series + `renderItem`
-function (e.g. Waterfall) are rejected at build time — the sanitizer strips functions, so
-the canvas would render empty. Use a declarative type instead (a `Bar Chart` with negative
-values reproduces a waterfall's story). Do not hand-write ECharts options.
+Visual language: Stripe-editorial — accent-tick eyebrows, tinted page background with
+white cards, left-rail nav, colored text deltas.
 
-## Verify
+## Build pipeline + gates
 
-`bunx cookiebite verify report.html` renders the built HTML in a real browser at **390,
-768, and 1280px** plus a **dark pass on every report** (all themes ship dark tokens) and
-classifies findings by severity into `verification.json`. `--runs N` (1–10) repeats the
-whole pass to surface flaky findings; a hard finding counts as failure even if it's flaky.
+Order inside `cookiebite build`:
 
-**Exit codes:**
+1. **typecheck** — TS / prop errors fail first.
+2. **source lint** — bans hex, `rgb()` / `oklch()`, named colors in authored TSX (theme
+   seed/overrides exempt).
+3. **SSG render** — React static markup.
+4. **theme compile** — seed → `:root` + `.dark` variables; contrast gates (incl. `--success`).
+5. **Tailwind source-scan** — semantic tokens only; palette wiped; preflight on.
+6. **client bundle** — React hydration IIFE for interactivity (sort, nav, toggles, charts).
+7. **assemble** — single offline HTML.
 
-- `0` — passed.
-- `1` — a hard finding remains: horizontal overflow, clipped/overlapping labels, a
-  degenerate or blank chart, an uncaught error, a required-resource failure, insufficient
-  contrast, unreachable keyboard interaction, or a missing chart aria/data alternative.
-- `2` — a required `manualReview` entry is unrecorded (a release is *incomplete*, not
-  passed, until you record it). `--manual-ok` skips this gate.
-- `3` — verification could not run: agent-browser missing, the file does not exist,
-  the page is not a cookiebite report, or the dark pass failed to initialize.
+`cookiebite verify` then catches runtime issues the compiler cannot see: hydration
+timeout / failed / warning, `console-error`, `chart-empty` (no SVG shapes after hydrate),
+horizontal overflow, clipped text, contrast, keyboard reachability, resource failures.
+`--runs N` (1–10) repeats the pass for flaky findings. Exit `0` pass, `1` hard finding,
+`2` incomplete manual review (`--manual-ok` skips), `3` could not run.
 
-**Some judgments are deliberately human** and land in `manualReview`: whether a caption
-matches what its figure renders, whether status color is paired with a label in
-hand-authored graphics, whether two claims duplicate, whether a point should have been a
-visual, and whether the conclusion is visible in five seconds. **Look at the actual
-pixels** for these — you cannot tell whether a report reads right by reading its source.
-
-**Do not ship the output as a claude.ai Artifact** — the Artifact CSP blocks every external
-host, so the CDN ECharts library never loads. Deliver the file, or host it and share the
-link.
+**Do not ship as a claude.ai Artifact** — CSP blocks inlined behavior unpredictably.
+Deliver the file or host it.
 
 ## Quality checklist
 
-**The build already enforces these — you don't police them by hand:** every color is a
-`var(--cb-*)` token; authored text/background/on-accent are unchanged and contrast-safe;
-every `Chart` has a non-empty `ariaLabel` and a `data:{columns,rows}` alternative; the
-capabilities you use (`chart`, `table`, `glossary`) are declared to match; props are
-well-typed. The verifier then enforces the 390/768/1280 passes plus a dark pass on every
-report with no hard findings.
+**Already enforced:** typed props; no raw colors outside theme; contrast-safe theme;
+hydrated charts have SVG shapes (verify); English keys in data structures.
 
-**What still needs your judgment** (look at the rendered page):
+**Still your judgment** (look at the rendered page):
 
-- [ ] The conclusion is visible within ~5 seconds — the claim/headline first, not buried
-      in prose.
-- [ ] Sections read as an **argument**: each takeaway feeds a claim, bridges connect them,
-      no section exists just to look complete.
-- [ ] Reading vs dashboard chosen for the right reason — a dashboard only when readers must
-      scan/slice live dimensions.
-- [ ] The right points became visuals; nothing that should be a chart/stat/diagram is left
-      as a paragraph.
-- [ ] Every caption matches what its figure actually renders; numbers read consistently per
-      locale; nothing wraps mid-figure.
-- [ ] **Verified** — `verification.json` has no unaddressed hard finding, and every required
-      `manualReview` entry is recorded.
+- [ ] Conclusion visible in ~5 seconds.
+- [ ] Sections/pages read as an argument, not padding.
+- [ ] Article vs paged chosen for the right reason.
+- [ ] Right points became visuals; captions match figures.
+- [ ] `verification.json` has no unaddressed hard finding; required `manualReview`
+      entries recorded.
 
 ## Localization
 
-Match copy to the source language (Korean source → Korean copy). Set `Report`'s `lang` prop
-(`lang="ko"` / `lang="en"`), and the theme's `locale` (`{ number, currency }`) for
-separators, currency, and `만/억` vs `K/M/B` — a preset sets `locale` for you. The Persimmon
-default is Korean/Pretendard/₩; the neutral preset is Latin/Inter/en-US. Any UI words you
-type in the TSX you localize by hand.
+Match copy to the source language. Presets set `locale` (`number` / `currency`) for you
+(Persimmon → Korean/Pretendard/₩; neutral → Latin/Inter/en-US). UI words you type in TSX
+you localize by hand. Data keys stay English.
 
 ## Legacy (rebuild only)
 
-The older freeform hand-authored path (`scripts/scaffold.sh`, editing `COOKIEBITE:*` slots,
-`scripts/inline.sh`) and the full-runtime compatibility templates (`dashboard`, `review`,
-`postmortem`, `explainer`, `comparison` with `assets/cookiebite.css/.js`) still work
-**only for rebuilding reports that already use them** — never author a new report this way;
-new reports use the TSX pipeline above. When you do rebuild a legacy file, load its detail
-**conditionally**: `DESIGN.md` for the freeform token contract, and `references/*.md`
-(component markup, `CB.*` helper API, interaction patterns, anti-patterns) for the
-full-runtime path. Do not read those for a TSX report.
+The older freeform hand-authored path (`scripts/scaffold.sh`, editing `COOKIEBITE:*`
+slots, `scripts/inline.sh`) and the full-runtime compatibility templates (`dashboard`,
+`review`, `postmortem`, `explainer`, `comparison` with `assets/cookiebite.css/.js`) still
+work **only for rebuilding reports that already use them** — never author a new report
+this way; new reports use the TSX pipeline above. When you do rebuild a legacy file, load
+its detail **conditionally**: `DESIGN.md` for the freeform token contract, and
+`references/*.md` for the full-runtime path. Do not read those for a TSX report.
 
 ## References
 
-- `packages/cookiebite/README.md` — the component table and the verify contract.
-- `packages/cookiebite/src/components.tsx` / `capability-components.tsx` / `chart.tsx` —
-  the signature-index comments and exact prop types.
-- `packages/cookiebite/src/themes.ts` — the `ThemeDocument` type and the exported presets.
-- `docs/examples-tsx/weekly-revenue.tsx` / `incident-postmortem.tsx` — worked reports that
-  exercise most components (charts, matrix, sortable table, findings, glossary, claims).
-- `DESIGN.md` — the frozen visual contract the TSX layer consumes (theme seed, `--cb-*`
-  token ABI, capability rules, verification). Read it to understand the invariants; you
-  don't edit it per report.
+- `packages/cookiebite/README.md` — npm-oriented surface summary.
+- `packages/cookiebite/src/index.ts` — public exports.
+- `packages/cookiebite/src/themes.ts` — presets; `lib/theme-compile.mjs` — overrides + gates.
+- `packages/cookiebite/templates/starter.tsx` — minimal article starter.
+- `docs/examples-tsx/weekly-revenue.tsx` — article + charts + DataTable.
+- `docs/examples-tsx/incident-postmortem.tsx` — paged layout demo.
 
 **Legacy full-runtime references — load only when rebuilding a legacy report:**
 `references/helpers.md`, `components.md`, `snippets.md`, `design-system.md`,

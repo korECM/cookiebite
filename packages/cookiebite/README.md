@@ -1,49 +1,114 @@
 # cookiebite
 
-타입드 TSX로 쓰고 단일 HTML로 빌드하는 cookiebite 리포트 도구.
+타입드 TSX로 쓰고 단일 오프라인 HTML로 빌드하는 리포트 도구.
+
+저작 표면은 **shadcn UI**(`@/components/ui/*`, 문서와 동일한 import 경로) + cookiebite
+shell/data 컴포넌트입니다. 차트는 shadcn Chart + Recharts, 표는 TanStack `ColumnDef`입니다.
 
 ## 퀵스타트
 
 ```bash
 bunx cookiebite new report.tsx    # 타입드 스타터 생성
-bunx cookiebite build report.tsx  # typecheck, 토큰 lint 후 report.html 생성
+bunx cookiebite build report.tsx  # typecheck → lint → SSG → HTML
 bunx cookiebite verify report.html --runs 3
 ```
 
-- 색은 `var(--cb-*)` 토큰만 허용한다. hex, rgb, 색 이름 리터럴은 빌드가 실패한다.
-- raw JSX에서는 시맨틱 Tailwind 색 유틸만 허용한다 (`bg-card`, `text-muted-foreground`,
-  `border-border`, `bg-primary`, `text-primary-foreground`, `border-accent-strong`,
-  `text-accent-strong`). `bg-red-500` 같은 팔레트 색은 CSS를 만들지 않고(팔레트 제거됨), `bg-[#hex]` 같은 임의값 색은 빌드 lint가 Tailwind 전에 거부한다.
-- default export는 `<Report theme={...} title="...">` 엘리먼트여야 한다.
-- 테마는 `cookiebite/themes`의 프리셋(persimmon, neutral, stripe 등)을 쓰거나
-  같은 스키마의 객체를 직접 만든다. `dark`를 생략하면 빌드가 자동 파생한다.
-- `<Report>`는 다크/밀도 토글을 기본으로 띄운다 (`controls` 기본 true). 끄려면
-  `controls={false}`.
-- data, semanticTypes, encodings, columns의 key는 영어 식별자, 한글은 라벨과 본문에만.
-- 산출물은 기존 cookiebite 검증기(390, 768, 1280px + 항상 다크 패스)로 검증할 수 있다.
+- default export는 **React 컴포넌트 함수**여야 합니다
+  (`export default function App() { return <Report …/> }`).
+- 빌드가 읽는 테마는 `export const __theme = …`입니다 (`Report`의 `theme` prop과 같은 객체를
+  두는 것이 관례).
+- 색 리터럴(hex, rgb, named color)은 소스 lint가 거부합니다. 테마 seed/overrides 객체는
+  예외입니다.
+- raw JSX에서는 시맨틱 Tailwind만 씁니다 (`bg-card`, `text-muted-foreground`,
+  `border-border`, `bg-primary`, `text-success`, …). 팔레트 단계(`bg-red-500`)와
+  임의값(`bg-[#…]`)은 CSS가 나오지 않거나 lint에 걸립니다.
+- 차트 색은 `var(--chart-N)` / `var(--color-KEY)`만. 리터럴은 빌드 실패.
+- data / ChartConfig / `accessorKey`는 영어 식별자, 한글은 라벨과 서사에만.
+- 로컬 shadowing: 리포트 옆에 `components/ui/<name>.tsx`를 두면 패키지 UI를 덮어씁니다.
+
+## 기능
+
+- **Shell:** `Report` (article | paged), `Section`, `Page`, `Standfirst`, `Sources`,
+  `Glossary`, 다크/밀도 controls(기본 on)
+- **Data:** `KpiRow`, `Claims`, `Findings`, `Matrix`, `RangeDot`, `DataTable`
+- **UI:** vendored shadcn 18종 (card, chart, table, badge, alert, tabs, accordion, …)
+- **Theme:** seed 8키 + CSS 변수 overrides + 프리셋 10종 + 자동 다크 + 대비 게이트
+  (`--success` 포함)
+- **Pipeline:** typecheck → lint → SSG → theme → Tailwind source-scan → hydration bundle →
+  단일 HTML
+- **Verify:** hydration / console / chart-empty / overflow / contrast 등 (agent-browser)
 
 ## 컴포넌트
 
 | 컴포넌트 | 용도 | 비고 |
 | --- | --- | --- |
-| Report, Standfirst, Section, Sources | 문서 쉘 | Report가 theme, title, lang, controls를 받는다. controls 기본 true(다크/밀도 토글), false면 생략. Section은 옵셔널 `id`로 앵커를 고정한다 |
-| KpiRow | KPI 카드 줄 | delta는 방향 기호 + 텍스트 |
-| Claims | 주장, 증거 앵커 목록 | evidence는 `#section-id` (Section `id`와 짝) |
-| Findings | 심각도 발견 목록 | 색 단독 금지 — 텍스트 배지 |
-| Matrix | rows×cols 히트 테이블 | max 명시로 상수 열 함정 회피 |
-| RangeDot | min-max-value 도트 figure | 손 SVG, 차트 의존성 없음 |
-| Table | 정렬 표 | sortable이면 table capability 자동 선언 |
-| Glossary | 용어 정의 | 키보드 접근, Escape 닫기 (glossary capability) |
-| Chart | flint semantic spec 차트 | 빌드 시점 ECharts 컴파일, 라이트/다크 2회, ariaLabel 필수 |
+| `Report` | 문서 쉘 | `title`, `kicker?`, `layout?` (`article`\|`paged`), `controls?` (기본 true), `toc?` (article, 기본 true) |
+| `Standfirst` | 리드 문단 | `children` |
+| `Section` | 섹션 + accent tick | `id`, `title`, `lede?` 필수 `id` |
+| `Page` | paged 한 장 | `id`, `title`, `icon?` — SSR은 전부 스택, hydrate 후 비활성 `hidden` |
+| `Sources` | 출처 목록 | `items: { label, href?, note? }[]` |
+| `Glossary` | 용어 정의 | `terms: { term, def }[]` |
+| `KpiRow` | KPI 카드 줄 | item `{ label, value, unit?, delta?, caption? }`; delta `{ value, direction, good? }` |
+| `Claims` | 주장 목록 | item `{ text, evidence?, badge? }` |
+| `Findings` | 심각도 알림 | item `{ severity: 'critical'\|'warning'\|'info', title, detail? }` |
+| `Matrix` | 커버리지 표 | `rows: { label, cells }[]`, `cols: string[]` |
+| `RangeDot` | min–max–value | item `{ label, min, max, value, unit? }` |
+| `DataTable` | 정렬 표 | TanStack `columns` + `data`; `DataTableColumnHeader`로 헤더 |
+
+차트는 `@/components/ui/chart`의 `ChartContainer` + Recharts를 직접 조립합니다.
+
+## 테마
+
+```tsx
+import { stripe } from 'cookiebite/themes';
+
+export const __theme = {
+  ...stripe,
+  overrides: {
+    '--card': '#FFFFFF',
+    '.dark': { '--card': '#1A1A1E' },
+  },
+};
+```
+
+프리셋: `persimmon`, `neutral`, `stripe`, `vercel`, `linear`, `notion`, `supabase`,
+`sentry`, `resend`, `raycast`.
+
+seed 8키: `font`, `background`, `text`, `accent`, `spaceUnit`, `measure`, `radius`,
+`surface`. `dark`를 생략하면 빌드가 자동 파생합니다. overrides는 `:root` 패치 + 선택적
+`.dark` 중첩 객체입니다. 대비 게이트 실패 시 빌드가 중단됩니다.
+
+## 레이아웃 예시
+
+**Article** (기본, TOC scrollspy):
+
+```tsx
+<Report theme={persimmon} title="주간 매출" kicker="Growth, W20">
+  <Standfirst>확장과 유지가 성장을 이끈다.</Standfirst>
+  <Section id="kpis" title="핵심 지표">
+    <KpiRow items={[…]} />
+  </Section>
+</Report>
+```
+
+**Paged** (사이드바 해시 네비):
+
+```tsx
+<Report layout="paged" title="인시던트" kicker="SEV-2">
+  <Page id="summary" title="요약">…</Page>
+  <Page id="timeline" title="타임라인">…</Page>
+</Report>
+```
+
+controls를 끄려면 `controls={false}`.
 
 ## 검증
 
-빌드된 HTML은 `cookiebite verify`로 브라우저에서 자동 검사할 수 있다. 이 명령을 쓰려면 agent-browser가 먼저 설치되어 있어야 한다 (`npm i -g agent-browser && agent-browser install`).
+`cookiebite verify`는 agent-browser가 필요합니다
+(`npm i -g agent-browser && agent-browser install`).
 
-검증기는 390px, 768px, 1280px 세 브레이크포인트에서 각각 fresh render로 레이아웃과 접근성을 측정한다. 모든 리포트는 `resolveTheme`으로 다크 토큰을 갖으므로 라이트 패스 뒤 **항상 다크 패스**를 한 번 더 돈다.
+390 / 768 / 1280 + 다크 패스. hard finding 예: `hydration-failed`, `hydration-warning`,
+`console-error`, `chart-empty`, horizontal overflow, clipped text, contrast.
 
-종료 코드는 다음 규약을 따른다. 0은 통과이고 1은 hard finding이 남았을 때다. 2는 required manualReview 항목이 아직 기록되지 않았을 때이며 `--manual-ok`로 해당 게이트를 건너뛸 수 있다. 3은 검증을 실행하지 못했을 때다 — agent-browser 부재, 파일 없음, cookiebite 리포트가 아닌 페이지, 다크 패스 초기화 실패가 여기에 해당한다.
-
-`--runs N`(1부터 10까지)은 전체 검증 패스를 N번 반복해 flaky를 잡는다. 어떤 finding이 일부 런에서만 나타나면 verification.json의 flaky 목록에 표시되지만 hard finding은 flaky로 분류되어도 실패로 처리된다.
-
-차트가 포함된 리포트에서는 `.cb-chart` 블록마다 canvas가 실제로 그려졌는지를 개별적으로 확인한다.
+종료 코드: `0` 통과, `1` hard finding, `2` required manualReview 미기록
+(`--manual-ok`로 스킵), `3` 실행 불가. `--runs N`(1–10)으로 flaky를 잡습니다.
