@@ -9,6 +9,7 @@ import {
   Findings,
   Glossary,
   RangeDot,
+  Tracker,
   DataTable,
   DataTableColumnHeader,
 } from 'cookiebite';
@@ -150,6 +151,23 @@ const actionData: ActionRow[] = [
   },
 ];
 
+// 09:00–11:00 UTC, 10분 블록. 배포 전 success → 장애 error → 롤백 warning → 복구 success
+const timelineTracker = [
+  { status: 'success' as const, label: '09:00 정상' },
+  { status: 'success' as const, label: '09:10 정상' },
+  { status: 'error' as const, label: '09:12 배포 · 풀 고갈 시작' },
+  { status: 'error' as const, label: '09:20 p99 급등' },
+  { status: 'error' as const, label: '09:30 알람 직전' },
+  { status: 'error' as const, label: '09:40 온콜 대응' },
+  { status: 'error' as const, label: '09:50 근본 원인 확인' },
+  { status: 'warning' as const, label: '10:00 롤백 준비' },
+  { status: 'warning' as const, label: '10:10 롤백 진행' },
+  { status: 'warning' as const, label: '10:20 롤백 진행' },
+  { status: 'warning' as const, label: '10:30 롤백 진행' },
+  { status: 'success' as const, label: '10:40 지연 하강' },
+  { status: 'success' as const, label: '10:48 기준선 복구' },
+];
+
 export default function App() {
   return (
     <Report
@@ -199,6 +217,8 @@ export default function App() {
             },
           ]}
         />
+        <p className="text-sm font-medium">타임라인 상태</p>
+        <Tracker data={timelineTracker} />
         <Findings
           items={[
             {

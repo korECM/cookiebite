@@ -8,6 +8,9 @@ import {
   Findings,
   Matrix,
   RangeDot,
+  BarList,
+  Tracker,
+  CategoryBar,
   DataTable,
   DataTableColumnHeader,
 } from 'cookiebite';
@@ -62,6 +65,8 @@ export default function App() {
               value: '99.2',
               unit: '%',
               delta: { value: '+3.1pp', direction: 'up' },
+              compare: 'vs prior week 96.1%',
+              spark: [94, 95, 96, 97, 98, 99, 99.2],
               caption: 'Recovered after rollback',
             },
             {
@@ -69,6 +74,7 @@ export default function App() {
               value: 12,
               unit: '건',
               delta: { value: '-88%', direction: 'down', good: true },
+              compare: 'vs prior week 98건',
             },
             {
               label: 'Refund backlog',
@@ -77,6 +83,37 @@ export default function App() {
               delta: { value: '+12%', direction: 'up', good: false },
               caption: 'Still elevated',
             },
+          ]}
+        />
+      </Section>
+
+      <Section id="barlist" title="Top channels">
+        <BarList
+          items={[
+            { name: 'card', value: 120 },
+            { name: 'wallet', value: 90 },
+            { name: 'bank', value: 40 },
+          ]}
+        />
+      </Section>
+
+      <Section id="tracker" title="Status strip">
+        <Tracker
+          data={[
+            { status: 'success', label: 'ok' },
+            { status: 'error', label: 'fail' },
+            { status: 'warning', label: 'warn' },
+            { status: 'neutral', label: 'idle' },
+          ]}
+        />
+      </Section>
+
+      <Section id="categorybar" title="Mix">
+        <CategoryBar
+          segments={[
+            { label: 'new', value: 50 },
+            { label: 'expand', value: 30 },
+            { label: 'reactivate', value: 20 },
           ]}
         />
       </Section>

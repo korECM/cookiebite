@@ -68,4 +68,20 @@ export {
   DataTableColumnHeader,
   type DataTableProps,
 } from './report/data-table.tsx';
+export {
+  BarList,
+  type BarListProps,
+  type BarListItem,
+} from './report/bar-list.tsx';
+export {
+  Tracker,
+  type TrackerProps,
+  type TrackerBlock,
+  type TrackerStatus,
+} from './report/tracker.tsx';
+export {
+  CategoryBar,
+  type CategoryBarProps,
+  type CategoryBarSegment,
+} from './report/category-bar.tsx';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';

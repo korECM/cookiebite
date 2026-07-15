@@ -1,4 +1,3 @@
-import type { ColumnDef } from '@tanstack/react-table';
 import {
   Report,
   Standfirst,
@@ -8,8 +7,8 @@ import {
   Claims,
   Findings,
   Glossary,
-  DataTable,
-  DataTableColumnHeader,
+  BarList,
+  CategoryBar,
 } from 'cookiebite';
 import { stripe } from 'cookiebite/themes';
 import {
@@ -66,144 +65,18 @@ const trendData = [
   { week: 'W26', mrr: 1420 },
 ];
 
-type ChannelRow = {
-  channel: string;
-  plan: string;
-  segment: string;
-  mrr_k: number;
-  net_delta_k: number;
-  health: string;
-};
-
-const channelColumns: ColumnDef<ChannelRow>[] = [
-  {
-    accessorKey: 'channel',
-    header: ({ column }) => (
-      <DataTableColumnHeader title="계정" column={column} />
-    ),
-  },
-  {
-    accessorKey: 'plan',
-    header: ({ column }) => (
-      <DataTableColumnHeader title="플랜" column={column} />
-    ),
-  },
-  {
-    accessorKey: 'segment',
-    header: ({ column }) => (
-      <DataTableColumnHeader title="세그먼트" column={column} />
-    ),
-  },
-  {
-    accessorKey: 'mrr_k',
-    header: ({ column }) => (
-      <DataTableColumnHeader title="MRR ($K)" column={column} />
-    ),
-  },
-  {
-    accessorKey: 'net_delta_k',
-    header: ({ column }) => (
-      <DataTableColumnHeader title="순 증감 ($K)" column={column} />
-    ),
-  },
-  {
-    accessorKey: 'health',
-    header: ({ column }) => (
-      <DataTableColumnHeader title="건강도" column={column} />
-    ),
-  },
+// BarList 값은 순 증감($K). 음수는 절댓값으로 표시하지 않고 양수 상위만 노출
+const topAccountDeltas = [
+  { name: 'Northwind Trading', value: 12, unit: 'K' },
+  { name: 'Globex Corp', value: 9, unit: 'K' },
+  { name: 'Initech', value: 6, unit: 'K' },
+  { name: 'Soylent Inc', value: 5, unit: 'K' },
+  { name: 'Umbrella Co', value: 4, unit: 'K' },
+  { name: 'Wonka Labs', value: 3, unit: 'K' },
+  { name: 'Stark Industries', value: 1, unit: 'K' },
 ];
 
-const channelData: ChannelRow[] = [
-  {
-    channel: 'Globex Corp',
-    plan: '엔터프라이즈',
-    segment: '엔터프라이즈',
-    mrr_k: 121,
-    net_delta_k: 9,
-    health: '양호',
-  },
-  {
-    channel: 'Northwind Trading',
-    plan: '엔터프라이즈',
-    segment: '미드마켓',
-    mrr_k: 84,
-    net_delta_k: 12,
-    health: '양호',
-  },
-  {
-    channel: 'Umbrella Co',
-    plan: '엔터프라이즈',
-    segment: '엔터프라이즈',
-    mrr_k: 96,
-    net_delta_k: 4,
-    health: '양호',
-  },
-  {
-    channel: 'Stark Industries',
-    plan: '엔터프라이즈',
-    segment: '엔터프라이즈',
-    mrr_k: 142,
-    net_delta_k: 1,
-    health: '양호',
-  },
-  {
-    channel: 'Initech',
-    plan: '프로',
-    segment: 'SMB',
-    mrr_k: 22,
-    net_delta_k: 6,
-    health: '양호',
-  },
-  {
-    channel: 'Wonka Labs',
-    plan: '프로',
-    segment: '미드마켓',
-    mrr_k: 31,
-    net_delta_k: 3,
-    health: '양호',
-  },
-  {
-    channel: 'Soylent Inc',
-    plan: '팀',
-    segment: 'SMB',
-    mrr_k: 14,
-    net_delta_k: 5,
-    health: '주의',
-  },
-  {
-    channel: 'Hooli',
-    plan: '프로',
-    segment: '미드마켓',
-    mrr_k: 27,
-    net_delta_k: -2,
-    health: '주의',
-  },
-  {
-    channel: 'Pied Piper',
-    plan: '팀',
-    segment: 'SMB',
-    mrr_k: 9,
-    net_delta_k: -4,
-    health: '위험',
-  },
-  {
-    channel: 'Vandelay Ind.',
-    plan: '프로',
-    segment: 'SMB',
-    mrr_k: 18,
-    net_delta_k: -6,
-    health: '위험',
-  },
-  {
-    channel: 'Bluth Company',
-    plan: '스타터',
-    segment: 'SMB',
-    mrr_k: 4,
-    net_delta_k: -7,
-    health: '위험',
-  },
-];
+const mrrSpark = trendData.slice(-12).map((d) => d.mrr);
 
 export default function App() {
   return (
@@ -224,16 +97,20 @@ export default function App() {
               label: 'MRR',
               value: '$1.42M',
               delta: { value: '전주 대비 3.1%', direction: 'up', good: true },
+              compare: '전주 $1.377M 대비',
+              spark: mrrSpark,
             },
             {
               label: '신규 MRR',
               value: '$58K',
               delta: { value: '8.2%', direction: 'down', good: false },
+              compare: '전주 $63K 대비',
             },
             {
               label: '이탈 MRR',
               value: '$28K',
               delta: { value: '14.0%', direction: 'up', good: false },
+              compare: '전주 $24.5K 대비',
             },
             {
               label: '순신규 로고',
@@ -253,6 +130,17 @@ export default function App() {
               delta: { value: '1.8pp', direction: 'up', good: true },
               caption: '가입 7일 내 아하 순간 도달',
             },
+          ]}
+        />
+      </Section>
+
+      <Section id="mix" title="매출 구성">
+        <p>이번 주 유입 MRR의 구성. 확장이 신규를 앞질렀다.</p>
+        <CategoryBar
+          segments={[
+            { label: '신규', value: 58 },
+            { label: '확장', value: 71 },
+            { label: '재활성', value: 9 },
           ]}
         />
       </Section>
@@ -376,10 +264,9 @@ export default function App() {
 
       <Section id="accounts" title="순 MRR 증감 상위 계정">
         <p>
-          헤더를 눌러 정렬할 수 있다. 확장은 집중돼 있어 상위 4개 계정이 이번 주 $71K
-          확장의 절반 이상을 이끌었다.
+          확장은 집중돼 있어 상위 계정이 이번 주 순 증감의 대부분을 이끌었다.
         </p>
-        <DataTable columns={channelColumns} data={channelData} />
+        <BarList items={topAccountDeltas} />
       </Section>
 
       <Section id="glossary" title="용어">

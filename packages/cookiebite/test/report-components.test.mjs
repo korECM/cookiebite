@@ -25,19 +25,67 @@ test('report sources contain no hex color literals', () => {
   }
 });
 
-test('KpiRow: equal-height grid, tabular-nums, stripe delta text, caption mt-auto', async () => {
+test('KpiRow: equal-height grid, tinted delta pill, compare, spark svg, caption mt-auto', async () => {
   const { markup } = await renderReport(fixture('report-components.tsx'));
 
   assert.match(markup, /auto-rows-fr/);
   assert.match(markup, /tabular-nums/);
-  assert.match(markup, /inline-flex items-center gap-0\.5 whitespace-nowrap text-xs font-medium tabular-nums/);
-  assert.match(markup, /text-success/);
-  assert.match(markup, /text-destructive/);
+  assert.match(
+    markup,
+    /inline-flex items-center gap-0\.5 rounded-md px-1\.5 py-0\.5 text-xs font-medium tabular-nums whitespace-nowrap/,
+  );
+  assert.match(markup, /bg-success\/10 text-success/);
+  assert.match(markup, /bg-destructive\/10 text-destructive/);
   assert.match(markup, /uppercase tracking-wide/);
   assert.match(markup, /mt-auto/);
   assert.match(markup, /Success rate/);
   assert.match(markup, /\+3\.1pp/);
+  assert.match(markup, /vs prior week 96\.1%/);
   assert.match(markup, /Recovered after rollback/);
+  assert.match(markup, /<svg[\s\S]*?<path/);
+  assert.match(markup, /kpi-spark-0/);
+});
+
+test('BarList: bar width percent from max value', async () => {
+  const { markup } = await renderReport(fixture('report-components.tsx'));
+
+  assert.match(markup, /bg-primary\/15/);
+  // max=120 → card 100%, wallet 75%, bank ≈33.333%
+  assert.match(markup, /width:\s*100%/);
+  assert.match(markup, /width:\s*75%/);
+  assert.match(markup, /width:\s*33\.3/);
+  assert.match(markup, />card</);
+  assert.match(markup, />wallet</);
+  assert.match(markup, />bank</);
+});
+
+test('Tracker: block count and status classes', async () => {
+  const { markup } = await renderReport(fixture('report-components.tsx'));
+
+  assert.match(markup, /gap-\[3px\]/);
+  assert.match(markup, /bg-success\/70/);
+  assert.match(markup, /bg-destructive\/70/);
+  assert.match(markup, /bg-primary\/40/);
+  assert.match(markup, /bg-muted/);
+  assert.match(markup, /title="ok"/);
+  assert.match(markup, /title="fail"/);
+  const blocks = markup.match(/min-w-1\.5 flex-1 rounded-\[4px\]/g) ?? [];
+  assert.equal(blocks.length, 4);
+});
+
+test('CategoryBar: segment widths sum ~100% and legend rendered', async () => {
+  const { markup } = await renderReport(fixture('report-components.tsx'));
+
+  assert.match(markup, /bg-chart-1/);
+  assert.match(markup, /bg-chart-2/);
+  assert.match(markup, /bg-chart-3/);
+  assert.match(markup, /width:\s*50%/);
+  assert.match(markup, /width:\s*30%/);
+  assert.match(markup, /width:\s*20%/);
+  assert.match(markup, />new</);
+  assert.match(markup, />expand</);
+  assert.match(markup, />reactivate</);
+  assert.match(markup, /size-2 rounded-full/);
 });
 
 test('Claims: no underline, grid row, outline badge', async () => {

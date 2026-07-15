@@ -5,6 +5,7 @@ import {
   Standfirst,
   Sources,
   KpiRow,
+  BarList,
   DataTable,
   DataTableColumnHeader,
 } from 'cookiebite';
@@ -116,6 +117,16 @@ export default function App() {
       {/* 정렬 가능한 표 — ColumnDef + DataTableColumnHeader */}
       <Section id="channels" title="채널별 실적">
         <DataTable columns={columns} data={tableData} />
+      </Section>
+
+      <Section id="top-rules" title="상위 차단 규칙">
+        <BarList
+          items={[
+            { name: 'geo', value: 120 },
+            { name: 'rate', value: 75 },
+            { name: 'ja4', value: 30 },
+          ]}
+        />
       </Section>
 
       <Sources
