@@ -14,6 +14,7 @@
   },
   "exports": {
     ".": "./src/index.ts",
+    "./v3": "./src/v3.ts",
     "./themes": "./src/themes.ts"
   },
   "files": [
