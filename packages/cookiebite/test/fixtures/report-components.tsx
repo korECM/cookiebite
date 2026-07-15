@@ -51,7 +51,7 @@ const channelData: ChannelRow[] = [
 
 export default function App() {
   return (
-    <Report title="결제 성공률 주간 리포트" kicker="주간 리포트" theme={persimmon}>
+    <Report title="결제 성공률 주간 리포트" kicker="주간 리포트">
       <Standfirst>배포 롤백 이틀 만에 기준선을 되찾았다.</Standfirst>
 
       <Section id="kpis" title="지표">

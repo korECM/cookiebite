@@ -64,10 +64,10 @@ test('lintSources allows hex inside __theme export', () => {
   assert.equal(lintSources({ files: [file] }).violations.length, 0);
 });
 
-test('lintSources allows hex inside theme={{...}} prop', () => {
+test('lintSources allows hex inside __theme object literal', () => {
   const file = writeTemp(
-    'theme-prop.tsx',
-    `export default function App() {\n  return (\n  <Report theme={{ seed: { background: '#0a0a0a', text: '#fafafa', accent: '#22c55e' } }} title="t">\n    <div className="bg-background">ok</div>\n  </Report>\n  );\n}\n`,
+    'theme-export-prop.tsx',
+    `export const __theme = { seed: { background: '#0a0a0a', text: '#fafafa', accent: '#22c55e' } };\nexport default function App() {\n  return (\n  <Report title="t">\n    <div className="bg-background">ok</div>\n  </Report>\n  );\n}\n`,
   );
   assert.equal(lintSources({ files: [file] }).violations.length, 0);
 });

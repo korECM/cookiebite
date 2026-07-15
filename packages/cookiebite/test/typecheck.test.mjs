@@ -29,3 +29,8 @@ test('typecheckReport rejects a prop type error naming the prop', () => {
   assert.ok(diagnostics.length > 0);
   assert.match(diagnostics.join('\n'), /title/);
 });
+
+test('typecheckReport accepts ThemeDocument overrides with .dark patch', () => {
+  const diagnostics = typecheckReport(fixture('theme-overrides-ok.tsx'));
+  assert.deepEqual(diagnostics, []);
+});

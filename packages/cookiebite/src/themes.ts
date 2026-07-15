@@ -9,6 +9,12 @@ export interface ThemeSeed {
   surface: 'border' | 'tonal' | 'shadow';
 }
 
+/** shadcn CSS 변수 패치 (`:root` flat keys + 선택적 `.dark` 중첩). compileTheme과 동일. */
+export interface ThemeOverrides {
+  '.dark'?: Record<string, string>;
+  [cssVar: string]: string | Record<string, string> | undefined;
+}
+
 export interface ThemeDocument {
   schemaVersion: 1;
   seed: ThemeSeed;
@@ -16,7 +22,7 @@ export interface ThemeDocument {
   status?: Record<string, string>;
   resources?: { fontStylesheets: string[] };
   locale?: { number: string; currency: string; symbol?: string; bigUnits?: boolean };
-  overrides?: Partial<Record<'textMuted' | 'divider' | 'accentStrong' | 'surfaceRaised' | 'focus', string>>;
+  overrides?: ThemeOverrides;
 }
 
 interface PresetJson {

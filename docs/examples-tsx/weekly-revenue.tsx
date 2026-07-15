@@ -208,7 +208,6 @@ const channelData: ChannelRow[] = [
 export default function App() {
   return (
     <Report
-      theme={stripe}
       title="성장과 매출 주간 리뷰"
       kicker="주간 리뷰, 24주차, 2026-06-09 ~ 06-15, Acme Cloud"
     >

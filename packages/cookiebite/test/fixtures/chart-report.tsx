@@ -1,8 +1,10 @@
 import { Report, Section, Chart } from 'cookiebite';
 import { persimmon } from 'cookiebite/themes';
 
+export const __theme = persimmon;
+
 export default (
-  <Report theme={persimmon} title="차단 규칙 차트">
+  <Report title="차단 규칙 차트">
     <Section title="차단 규칙별 건수">
       <Chart
         type="Bar Chart"

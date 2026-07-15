@@ -20,8 +20,6 @@ import {
 export interface ReportProps {
   title: string;
   kicker?: string;
-  /** 빌드 파이프라인이 추출. 렌더에서는 무시. */
-  theme?: object;
   layout?: 'article' | 'paged';
   controls?: boolean;
   toc?: boolean;
@@ -246,8 +244,6 @@ export function Report({
   layout = 'article',
   ...props
 }: ReportProps) {
-  void props.theme;
-
   if (layout === 'paged') {
     return <PagedLayout {...props} layout="paged" />;
   }

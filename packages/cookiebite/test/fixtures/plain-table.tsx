@@ -1,8 +1,10 @@
 import { Report, Section, Table } from 'cookiebite';
 import { persimmon } from 'cookiebite/themes';
 
+export const __theme = persimmon;
+
 export default (
-  <Report theme={persimmon} title="채널별 건수">
+  <Report title="채널별 건수">
     <Section title="채널별 건수">
       <Table
         columns={[{ header: '채널' }, { header: '건수', numeric: true }]}

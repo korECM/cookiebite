@@ -1,12 +1,13 @@
 import { Report, Page, Standfirst, Sources } from '../../src/v3.ts';
 
+export const __theme = { seed: { accent: '#FA4D02' } };
+
 export default function App() {
   return (
     <Report
       layout="paged"
       title="Paged 리포트"
       kicker="Task 8"
-      theme={{ seed: { accent: '#FA4D02' } }}
       controls={false}
     >
       <Standfirst>페이지 레이아웃 스모크 픽스처.</Standfirst>

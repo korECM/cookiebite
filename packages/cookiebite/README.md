@@ -15,8 +15,7 @@ bunx cookiebite verify report.html --runs 3
 
 - default export는 **React 컴포넌트 함수**여야 합니다
   (`export default function App() { return <Report …/> }`).
-- 빌드가 읽는 테마는 `export const __theme = …`입니다 (`Report`의 `theme` prop과 같은 객체를
-  두는 것이 관례).
+- 빌드가 읽는 테마는 `export const __theme = …`입니다.
 - 색 리터럴(hex, rgb, named color)은 소스 lint가 거부합니다. 테마 seed/overrides 객체는
   예외입니다.
 - raw JSX에서는 시맨틱 Tailwind만 씁니다 (`bg-card`, `text-muted-foreground`,
@@ -83,7 +82,7 @@ seed 8키: `font`, `background`, `text`, `accent`, `spaceUnit`, `measure`, `radi
 **Article** (기본, TOC scrollspy):
 
 ```tsx
-<Report theme={persimmon} title="주간 매출" kicker="Growth, W20">
+<Report title="주간 매출" kicker="Growth, W20">
   <Standfirst>확장과 유지가 성장을 이끈다.</Standfirst>
   <Section id="kpis" title="핵심 지표">
     <KpiRow items={[…]} />

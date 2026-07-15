@@ -52,8 +52,7 @@ bunx cookiebite verify report.html --runs 3
      knowledge applies as-is (Card, Badge, Alert, Tabs, Accordion, Table, Chart, …).
    - **Default export must be a React component function**
      (`export default function App() { return <Report …>…</Report>; }`).
-   - **Theme for the build** is `export const __theme = …` (same object you may also pass
-     as `Report`'s `theme` prop for documentation; the pipeline reads `__theme`).
+   - **Theme for the build** is `export const __theme = …` (the pipeline reads `__theme`).
 3. **`bunx cookiebite build report.tsx`** runs typecheck → source lint → SSG render →
    theme compile (contrast gates) → Tailwind source-scan → client hydration bundle → one
    HTML. Failures print file/line messages.
@@ -114,7 +113,7 @@ package.
 
 | Component | Props | Role |
 | --- | --- | --- |
-| `Report` | `{ title, kicker?, theme?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — left rail scrollspy from direct `Section` children. |
+| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — left rail scrollspy from direct `Section` children. |
 | `Standfirst` | `{ children, className? }` | Lead paragraph under the title. |
 | `Section` | `{ id, title, lede?, children?, className? }` | `section` + accent-tick `h2`. `id` is required (TOC / anchors). |
 | `Page` | `{ id, title, icon?, children?, className? }` | One page under `layout="paged"`. SSR stacks all pages; after hydration inactive pages are `hidden` (restored in print). Under `article`, still renders as a section (tolerant). |
@@ -209,7 +208,7 @@ not `--success`, success is re-derived.
 Gates (fail the build on violation): foreground/background, primary-foreground/primary,
 card-foreground/card ≥ 4.5:1; muted-foreground/muted and success/card ≥ 3:1.
 
-Authored colors live only in `__theme` / `theme` object literals — source lint skips those
+Authored colors live only in `__theme` object literals — source lint skips those
 spans. Everywhere else, use tokens / semantic classes.
 
 ## Layouts + controls

@@ -7,7 +7,7 @@ export const __theme = persimmon;
 export default function App() {
   return (
     // title에 number를 넘긴다 — typecheck가 잡아야 한다
-    <Report theme={persimmon} title={42}>
+    <Report title={42}>
       <Section id="a" title="근거">
         <p>본문</p>
       </Section>

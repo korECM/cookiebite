@@ -1,6 +1,8 @@
 import { Report, Section, registerCall, registerCss } from 'cookiebite';
 import { persimmon } from 'cookiebite/themes';
 
+export const __theme = persimmon;
+
 function Probe() {
   registerCall({ capability: 'table', hostId: 'probe-table', options: { numericColumns: [1] } });
   registerCss('probe', '.cb-probe { color: var(--cb-text-muted); }');
@@ -9,7 +11,7 @@ function Probe() {
 }
 
 export default (
-  <Report theme={persimmon} title="수집기 프로브">
+  <Report title="수집기 프로브">
     <Section title="프로브">
       <Probe />
     </Section>

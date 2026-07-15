@@ -35,7 +35,7 @@ const data: Row[] = [
 
 export default function App() {
   return (
-    <Report title="KPI + DataTable e2e" theme={persimmon}>
+    <Report title="KPI + DataTable e2e">
       <Standfirst>Build fixture for report data components.</Standfirst>
       <Section id="metrics" title="Metrics">
         <KpiRow

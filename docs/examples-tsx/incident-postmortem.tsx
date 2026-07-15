@@ -154,7 +154,6 @@ export default function App() {
   return (
     <Report
       layout="paged"
-      theme={sentry}
       title="API 지연 인시던트 포스트모템 (SEV-2)"
       kicker="SEV-2 포스트모템, 2026-06-10, 09:12~10:48 UTC, 1시간 36분, 복구됨"
     >

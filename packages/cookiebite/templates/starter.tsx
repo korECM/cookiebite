@@ -18,7 +18,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Bar, BarChart, CartesianGrid, XAxis } from 'recharts';
 
-// 테마는 export const __theme 로 빌드가 읽는다 — Report theme prop 과 같은 객체를 쓴다
+// 테마는 export const __theme 로 빌드가 읽는다
 export const __theme = persimmon;
 
 // 차트 config 키는 영어, label 만 한글 — 색은 var(--chart-N) 만
@@ -59,7 +59,7 @@ const tableData: Row[] = [
 
 export default function App() {
   return (
-    <Report theme={persimmon} title="리포트 제목" kicker="리포트 종류, 기간">
+    <Report title="리포트 제목" kicker="리포트 종류, 기간">
       <Standfirst>
         결론을 뒷받침하는 한두 문장. 독자의 첫 질문에 먼저 답한다.
       </Standfirst>

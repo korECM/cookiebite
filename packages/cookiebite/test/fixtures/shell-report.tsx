@@ -6,12 +6,13 @@ import {
   Glossary,
 } from '../../src/v3.ts';
 
+export const __theme = { seed: { accent: '#FA4D02' } };
+
 export default function App() {
   return (
     <Report
       title="결제 성공률 회복"
       kicker="주간 리포트"
-      theme={{ seed: { accent: '#FA4D02' } }}
     >
       <Standfirst>
         배포 롤백 이후 이틀 만에 기준선 성공률을 회복했다.
