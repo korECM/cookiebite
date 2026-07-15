@@ -193,6 +193,9 @@ function scanTwArbitrary(source, file, skip, violations) {
     if (isSkipped(skip, valueStart)) continue;
     const inner = m[2];
     if (BRACKET_SAFE.test(inner.trim())) continue;
+    // content-[…] holds text, not paint — skip color literals there.
+    const utility = m[1].split(':').pop();
+    if (utility === 'content') continue;
     const hit = inner.match(COLOR_FN_OR_HEX) || inner.match(NAMED_COLOR);
     if (hit) {
       pushViolation(violations, { file, source, index: valueStart, rule: 'tw-arbitrary-color' });
@@ -246,7 +249,7 @@ function isInsideVarCall(span, index) {
 function scanSvgAttrs(source, file, skip, violations) {
   // fill="..." / stroke='...' / fill={"..."} / stroke={'...'}
   const re =
-    /\b(fill|stroke)\s*=\s*(?:(?:"([^"]*)")|(?:'([^']*)')|(?:\{\s*(?:"([^"]*)"|'([^']*)')\s*\}))/gi;
+    /(?:^|[\s{])(fill|stroke)\s*=\s*(?:(?:"([^"]*)")|(?:'([^']*)')|(?:\{\s*(?:"([^"]*)"|'([^']*)')\s*\}))/gi;
   let m;
   while ((m = re.exec(source))) {
     const value = m[2] ?? m[3] ?? m[4] ?? m[5];

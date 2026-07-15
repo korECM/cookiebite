@@ -151,3 +151,27 @@ test('lintSources allows currentColor, transparent, none everywhere', () => {
   );
   assert.equal(lintSources({ files: [file] }).violations.length, 0);
 });
+
+test('lintSources allows content arbitrary values with color-like text', () => {
+  const file = writeTemp(
+    'content-tw.tsx',
+    `export default function R() {\n  return (\n    <>\n      <div className="content-['red']" />\n      <div className="after:content-['green']" />\n    </>\n  );\n}\n`,
+  );
+  assert.equal(lintSources({ files: [file] }).violations.length, 0);
+});
+
+test('lintSources ignores data-fill and data-stroke but flags real svg paint attrs', () => {
+  const clean = writeTemp(
+    'data-attrs.tsx',
+    `export default function R() {\n  return (\n    <>\n      <div data-fill='red' />\n      <div data-stroke='blue' />\n    </>\n  );\n}\n`,
+  );
+  assert.equal(lintSources({ files: [clean] }).violations.length, 0);
+
+  const file = writeTemp(
+    'path-fill.tsx',
+    `export default function R() {\n  return <path fill='#fff' />;\n}\n`,
+  );
+  const { violations } = lintSources({ files: [file] });
+  assert.equal(violations.length, 1);
+  assert.equal(violations[0].rule, 'svg-attr-color');
+});
