@@ -505,7 +505,7 @@ export default function App() {
           결제 채널 8곳의 거래와 수익. Card와 Wallet이 MRR의 절반 이상을 맡고,
           Legacy POS는 중단 대기 중이다. 합계 MRR은 $1.42M과 맞는다.
         </p>
-        <Panel title="채널별 실적" description="거래 그룹과 수익 그룹, 합계 행">
+        <Panel title="8개 채널 상세" description="거래 그룹과 수익 그룹, 합계 행">
           <DataTable columns={channelColumns} data={channelData} />
         </Panel>
       </Section>

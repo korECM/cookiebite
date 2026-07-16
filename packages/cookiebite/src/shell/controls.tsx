@@ -38,7 +38,7 @@ function readDensity(): Density {
 }
 
 export function Controls({ className }: { className?: string }): ReactNode {
-  // SSR: 정적 아이콘·aria. 클릭 핸들러만 DOM/localStorage 접근. 하이드레이션 후 동기화.
+  // SSR: 정적 아이콘, aria. 클릭 핸들러만 DOM/localStorage 접근. 하이드레이션 후 동기화.
   const [dark, setDark] = useState(false);
   const [density, setDensity] = useState<Density>('comfortable');
   const [hydrated, setHydrated] = useState(false);

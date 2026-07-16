@@ -122,7 +122,7 @@ export function PageNavDesktop({
   );
 }
 
-/** 모바일+데스크톱 네비 한 번에 (테스트·단순 사용). */
+/** 모바일+데스크톱 네비 한 번에 (테스트, 단순 사용). */
 export function PageNav(props: PageNavProps) {
   return (
     <>
