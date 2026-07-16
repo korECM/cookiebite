@@ -84,4 +84,8 @@ export {
   type CategoryBarProps,
   type CategoryBarSegment,
 } from './report/category-bar.tsx';
+export {
+  Panel,
+  type PanelProps,
+} from './report/panel.tsx';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';

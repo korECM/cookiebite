@@ -9,6 +9,7 @@ import {
   Glossary,
   BarList,
   CategoryBar,
+  Panel,
 } from 'cookiebite';
 import { stripe } from 'cookiebite/themes';
 import {
@@ -136,13 +137,15 @@ export default function App() {
 
       <Section id="mix" title="매출 구성">
         <p>이번 주 유입 MRR의 구성. 확장이 신규를 앞질렀다.</p>
-        <CategoryBar
-          segments={[
-            { label: '신규', value: 58 },
-            { label: '확장', value: 71 },
-            { label: '재활성', value: 9 },
-          ]}
-        />
+        <Panel title="유입 MRR 구성" description="신규 · 확장 · 재활성">
+          <CategoryBar
+            segments={[
+              { label: '신규', value: 58 },
+              { label: '확장', value: 71 },
+              { label: '재활성', value: 9 },
+            ]}
+          />
+        </Panel>
       </Section>
 
       <Section id="bridge" title="MRR 브리지">
@@ -150,67 +153,71 @@ export default function App() {
           $1.377M에서 출발해 확장(+$71K)이 모든 음의 요인보다 큰 지렛대였고, 축소(-$18K)와
           이탈(-$28K)이 일부를 되돌려 순효과 +$43K로 $1.420M에 마감했다.
         </p>
-        <ChartContainer
-          id="mrr-bridge"
-          config={bridgeConfig}
-          className="min-h-[320px] w-full"
-        >
-          <BarChart accessibilityLayer data={bridgeData}>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="component"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-            />
-            <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Bar
-              dataKey="expansion"
-              fill="var(--color-expansion)"
-              radius={4}
-            />
-            <Bar dataKey="churn" fill="var(--color-churn)" radius={4} />
-          </BarChart>
-        </ChartContainer>
+        <Panel title="MRR 브리지" description="유입과 유출 구성 요소">
+          <ChartContainer
+            id="mrr-bridge"
+            config={bridgeConfig}
+            className="min-h-[320px] w-full"
+          >
+            <BarChart accessibilityLayer data={bridgeData}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="component"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Bar
+                dataKey="expansion"
+                fill="var(--color-expansion)"
+                radius={4}
+              />
+              <Bar dataKey="churn" fill="var(--color-churn)" radius={4} />
+            </BarChart>
+          </ChartContainer>
+        </Panel>
       </Section>
 
       <Section id="trend" title="MRR 추세">
         <p>26주 복리 성장. 현재 속도라면 $1.5M 목표는 약 3주 앞이다.</p>
-        <ChartContainer
-          id="mrr-trend"
-          config={trendConfig}
-          className="min-h-[300px] w-full"
-        >
-          <AreaChart accessibilityLayer data={trendData}>
-            <defs>
-              <linearGradient id="fillMrr" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="5%"
-                  stopColor="var(--color-mrr)"
-                  stopOpacity={0.28}
-                />
-                <stop offset="95%" stopOpacity={0.04} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid vertical={false} />
-            <XAxis
-              dataKey="week"
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-            />
-            <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            <Area
-              dataKey="mrr"
-              type="monotone"
-              fill="url(#fillMrr)"
-              stroke="var(--color-mrr)"
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ChartContainer>
+        <Panel title="MRR 추세" description="W14–W26">
+          <ChartContainer
+            id="mrr-trend"
+            config={trendConfig}
+            className="min-h-[300px] w-full"
+          >
+            <AreaChart accessibilityLayer data={trendData}>
+              <defs>
+                <linearGradient id="fillMrr" x1="0" y1="0" x2="0" y2="1">
+                  <stop
+                    offset="5%"
+                    stopColor="var(--color-mrr)"
+                    stopOpacity={0.28}
+                  />
+                  <stop offset="95%" stopOpacity={0.04} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="week"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Area
+                dataKey="mrr"
+                type="monotone"
+                fill="url(#fillMrr)"
+                stroke="var(--color-mrr)"
+                strokeWidth={2}
+              />
+            </AreaChart>
+          </ChartContainer>
+        </Panel>
       </Section>
 
       <Section id="claims" title="이번 주 주장">
@@ -266,7 +273,9 @@ export default function App() {
         <p>
           확장은 집중돼 있어 상위 계정이 이번 주 순 증감의 대부분을 이끌었다.
         </p>
-        <BarList items={topAccountDeltas} />
+        <Panel title="순 MRR 증감 상위 계정">
+          <BarList items={topAccountDeltas} />
+        </Panel>
       </Section>
 
       <Section id="glossary" title="용어">

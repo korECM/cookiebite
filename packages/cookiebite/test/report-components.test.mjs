@@ -25,28 +25,49 @@ test('report sources contain no hex color literals', () => {
   }
 });
 
-test('KpiRow: equal-height grid, tinted delta pill, compare, spark backdrop, caption flow', async () => {
+test('KpiRow: joined strip card, cell dividers, sentence-case label, spark backdrop', async () => {
   const { markup } = await renderReport(fixture('report-components.tsx'));
 
-  assert.match(markup, /auto-rows-fr/);
+  // Single card root (joined strip), not per-cell cards
+  const cardRoots = markup.match(/data-slot="card"/g) ?? [];
+  // Claims also uses Card — assert Kpi strip shape instead of absolute count
   assert.match(
     markup,
-    /grid-cols-\[repeat\(auto-fit,minmax\(170px,1fr\)\)\]/,
+    /gap-0 overflow-hidden rounded-xl border bg-card py-0 shadow-xs/,
   );
+  assert.match(
+    markup,
+    /grid grid-cols-\[repeat\(auto-fit,minmax\(200px,1fr\)\)\]/,
+  );
+  assert.doesNotMatch(markup, /auto-rows-fr/);
+  assert.doesNotMatch(markup, /minmax\(170px/);
   assert.doesNotMatch(markup, /md:grid-cols-3|lg:grid-cols-4|xl:grid-cols-/);
-  assert.match(markup, /min-w-0/);
-  assert.match(markup, /leading-none/);
-  assert.match(markup, /text-pretty/);
-  assert.match(markup, /tabular-nums/);
+
+  // Joined-grid divider technique
+  const cells =
+    markup.match(
+      /-ml-px -mt-px border-l border-t border-border p-5 sm:p-6/g,
+    ) ?? [];
+  assert.equal(cells.length, 3);
+
+  assert.match(markup, /text-sm text-muted-foreground/);
+  assert.doesNotMatch(
+    markup,
+    /text-xs font-medium uppercase tracking-wide text-muted-foreground/,
+  );
+  assert.match(
+    markup,
+    /text-2xl font-semibold tracking-tight tabular-nums text-foreground/,
+  );
+  assert.match(markup, /text-sm font-normal text-muted-foreground/);
+  assert.match(markup, /mt-2 flex flex-wrap items-center gap-2/);
   assert.match(
     markup,
     /inline-flex items-center gap-0\.5 rounded-md px-1\.5 py-0\.5 text-xs font-medium tabular-nums whitespace-nowrap/,
   );
   assert.match(markup, /bg-success\/10 text-success/);
   assert.match(markup, /bg-destructive\/10 text-destructive/);
-  assert.match(markup, /uppercase tracking-wide/);
-  assert.doesNotMatch(markup, /mt-auto/);
-  assert.match(markup, /mt-1\.5 text-xs text-muted-foreground text-pretty/);
+  assert.match(markup, /mt-1 text-xs text-muted-foreground text-pretty/);
   assert.match(markup, /Success rate/);
   assert.match(markup, /\+3\.1pp/);
   assert.match(markup, /vs prior week 96\.1%/);
@@ -56,8 +77,24 @@ test('KpiRow: equal-height grid, tinted delta pill, compare, spark backdrop, cap
     /pointer-events-none absolute inset-x-0 bottom-0 h-10[\s\S]*?<svg[\s\S]*?<path/,
   );
   assert.match(markup, /kpi-spark-0/);
-  assert.match(markup, /relative flex h-full flex-col overflow-hidden/);
-  assert.match(markup, /pb-10/);
+  assert.match(markup, /pb-8/);
+  assert.ok(cardRoots.length >= 1);
+});
+
+test('Panel: card shell, title, description, content padding', async () => {
+  const { markup } = await renderReport(fixture('report-panel.tsx'));
+
+  assert.match(
+    markup,
+    /gap-0 rounded-xl border bg-card py-0 shadow-xs/,
+  );
+  assert.match(markup, /flex items-start justify-between gap-4 px-6 pt-5/);
+  assert.match(markup, /text-base font-semibold text-foreground/);
+  assert.match(markup, /mt-0\.5 text-sm text-muted-foreground/);
+  assert.match(markup, /px-6 py-5/);
+  assert.match(markup, /Revenue mix/);
+  assert.match(markup, /Inbound share this week/);
+  assert.match(markup, /panel-body-marker/);
 });
 
 test('BarList: bar width percent from max value', async () => {

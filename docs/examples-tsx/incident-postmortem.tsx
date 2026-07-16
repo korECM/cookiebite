@@ -12,6 +12,7 @@ import {
   Tracker,
   DataTable,
   DataTableColumnHeader,
+  Panel,
 } from 'cookiebite';
 import { sentry } from 'cookiebite/themes';
 
@@ -217,8 +218,9 @@ export default function App() {
             },
           ]}
         />
-        <p className="text-sm font-medium">타임라인 상태</p>
-        <Tracker data={timelineTracker} />
+        <Panel title="타임라인 상태" description="09:00–10:48 UTC, 10분 블록">
+          <Tracker data={timelineTracker} />
+        </Panel>
         <Findings
           items={[
             {
@@ -256,7 +258,9 @@ export default function App() {
           모든 시각은 UTC다. 헤더를 눌러 정렬할 수 있다. 감지가 배포보다 22분
           늦었고 롤백이 해결책이었다.
         </p>
-        <DataTable columns={timelineColumns} data={timelineData} />
+        <Panel title="사건 타임라인">
+          <DataTable columns={timelineColumns} data={timelineData} />
+        </Panel>
       </Page>
 
       <Page id="cause" title="원인 분석">
@@ -307,7 +311,9 @@ export default function App() {
 
       <Page id="actions" title="후속 조치">
         <p>설정 복구는 배포됐고, 재발을 막을 가드레일을 아래에 추적한다.</p>
-        <DataTable columns={actionColumns} data={actionData} />
+        <Panel title="후속 조치">
+          <DataTable columns={actionColumns} data={actionData} />
+        </Panel>
         <Sources
           items={[
             {

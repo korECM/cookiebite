@@ -1,5 +1,5 @@
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export interface KpiDelta {
@@ -90,84 +90,84 @@ function KpiSpark({ series, gradientId }: { series: number[]; gradientId: string
 
 export function KpiRow({ items, className }: KpiRowProps) {
   return (
-    <div
+    <Card
       className={cn(
-        'grid auto-rows-fr grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-4',
+        'gap-0 overflow-hidden rounded-xl border bg-card py-0 shadow-xs',
         className,
       )}
     >
-      {items.map((item, index) => {
-        const good = item.delta ? deltaIsGood(item.delta) : false;
-        const Icon =
-          item.delta?.direction === 'up'
-            ? ArrowUpRight
-            : item.delta?.direction === 'down'
-              ? ArrowDownRight
-              : null;
-        const hasSpark = Boolean(item.spark && item.spark.length > 0);
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+        {items.map((item, index) => {
+          const good = item.delta ? deltaIsGood(item.delta) : false;
+          const Icon =
+            item.delta?.direction === 'up'
+              ? ArrowUpRight
+              : item.delta?.direction === 'down'
+                ? ArrowDownRight
+                : null;
+          const hasSpark = Boolean(item.spark && item.spark.length > 0);
 
-        return (
-          <Card
-            key={item.label}
-            className="relative flex h-full flex-col overflow-hidden"
-          >
-            <CardContent
+          return (
+            <div
+              key={item.label}
               className={cn(
-                'flex flex-1 flex-col gap-2',
-                hasSpark ? 'pb-10' : undefined,
+                'relative -ml-px -mt-px border-l border-t border-border p-5 sm:p-6',
+                hasSpark && 'pb-8',
               )}
             >
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {item.label}
-              </div>
-              <div className="flex min-w-0 items-baseline gap-1">
-                <span className="text-3xl font-semibold leading-none tracking-tight tabular-nums">
+              <div className="text-sm text-muted-foreground">{item.label}</div>
+              <div className="mt-1 flex min-w-0 items-baseline gap-1">
+                <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
                   {item.value}
                 </span>
                 {item.unit ? (
-                  <span className="text-base text-muted-foreground">
+                  <span className="text-sm font-normal text-muted-foreground">
                     {item.unit}
                   </span>
                 ) : null}
               </div>
-              {item.delta && Icon ? (
-                <span
-                  className={cn(
-                    'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-medium tabular-nums whitespace-nowrap',
-                    good
-                      ? 'bg-success/10 text-success'
-                      : 'bg-destructive/10 text-destructive',
-                  )}
-                >
-                  <Icon className="size-3.5" aria-hidden />
-                  {item.delta.value}
-                </span>
-              ) : null}
-              {item.compare ? (
-                <p className="text-pretty text-xs text-muted-foreground">
-                  {item.compare}
-                </p>
+              {(item.delta && Icon) || item.compare ? (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {item.delta && Icon ? (
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-xs font-medium tabular-nums whitespace-nowrap',
+                        good
+                          ? 'bg-success/10 text-success'
+                          : 'bg-destructive/10 text-destructive',
+                      )}
+                    >
+                      <Icon className="size-3.5" aria-hidden />
+                      {item.delta.value}
+                    </span>
+                  ) : null}
+                  {item.compare ? (
+                    <span className="text-xs text-muted-foreground">
+                      {item.compare}
+                    </span>
+                  ) : null}
+                </div>
               ) : null}
               {item.caption ? (
-                <p className="mt-1.5 text-xs text-muted-foreground text-pretty">
+                <p className="mt-1 text-xs text-muted-foreground text-pretty">
                   {item.caption}
                 </p>
               ) : null}
-            </CardContent>
-            {hasSpark ? (
-              <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 h-10"
-                aria-hidden="true"
-              >
-                <KpiSpark
-                  series={item.spark!}
-                  gradientId={`kpi-spark-${index}`}
-                />
-              </div>
-            ) : null}
-          </Card>
-        );
-      })}
-    </div>
+              {hasSpark ? (
+                <div
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-10"
+                  aria-hidden="true"
+                >
+                  <KpiSpark
+                    series={item.spark!}
+                    gradientId={`kpi-spark-${index}`}
+                  />
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }
