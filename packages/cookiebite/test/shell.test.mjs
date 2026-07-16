@@ -25,7 +25,7 @@ test('shell Report SSR: title, kicker, toc anchors, controls aria', async () => 
   assert.doesNotMatch(markup, /border-b border-border/);
 
   // Fluid width + right-rail TOC (On this page)
-  assert.match(markup, /max-w-\[1400px\]/);
+  assert.match(markup, /max-w-\[1600px\]/);
   assert.doesNotMatch(markup, /max-w-\[1080px\]/);
   assert.match(markup, /hidden min-\[1400px\]:block w-52 shrink-0/);
   assert.match(markup, />목차</);
@@ -48,6 +48,14 @@ test('shell Report SSR: title, kicker, toc anchors, controls aria', async () => 
   assert.match(markup, /<ol[\s\S]*pay-gateway logs/);
   assert.match(markup, /<dl[\s\S]*success_rate/);
   assert.match(markup, /retry_cap/);
+});
+
+test('shell Report width="full" drops shell max-width cap', async () => {
+  const { markup } = await renderReport(fixture('shell-full-width.tsx'));
+
+  assert.doesNotMatch(markup, /max-w-\[1600px\]/);
+  assert.doesNotMatch(markup, /max-w-\[1400px\]/);
+  assert.match(markup, /w-full px-6 lg:px-10/);
 });
 
 test('shell Report controls={false} and toc={false} omit chrome', async () => {

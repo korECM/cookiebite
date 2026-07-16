@@ -22,6 +22,8 @@ export interface ReportProps {
   title: string;
   kicker?: string;
   layout?: 'article' | 'paged';
+  /** `default` caps content at 1600px; `full` is edge-to-edge fluid (no max-width). */
+  width?: 'default' | 'full';
   controls?: boolean;
   toc?: boolean;
   /** Article only. Prefix Section headings + TOC with `01`, `02`, … */
@@ -157,24 +159,30 @@ function splitPagedChildren(children: ReactNode): {
   return { standfirst, pages, rest };
 }
 
-const SHELL_WIDTH =
-  'w-full max-w-[1400px] mx-auto px-6 lg:px-10';
+function shellWidthClass(width: 'default' | 'full' = 'default'): string {
+  if (width === 'full') {
+    return 'w-full px-6 lg:px-10';
+  }
+  return 'w-full max-w-[1600px] mx-auto px-6 lg:px-10';
+}
 
 function ReportHeader({
   title,
   kicker,
   standfirst,
   controls,
+  width = 'default',
 }: {
   title: string;
   kicker?: string;
   standfirst: ReactNode;
   controls: boolean;
+  width?: 'default' | 'full';
 }) {
   return (
     <header
       className={cn(
-        SHELL_WIDTH,
+        shellWidthClass(width),
         'flex items-start justify-between gap-6 pt-10 pb-8',
       )}
     >
@@ -200,6 +208,7 @@ function ReportHeader({
 function ArticleLayout({
   title,
   kicker,
+  width = 'default',
   controls = true,
   toc = true,
   numbered = false,
@@ -217,11 +226,12 @@ function ArticleLayout({
         kicker={kicker}
         standfirst={standfirst}
         controls={controls}
+        width={width}
       />
 
       <div
         className={cn(
-          SHELL_WIDTH,
+          shellWidthClass(width),
           'flex gap-10 pb-16',
           toc ? 'items-start' : '',
         )}
@@ -245,6 +255,7 @@ function ArticleLayout({
 function PagedLayout({
   title,
   kicker,
+  width = 'default',
   controls = true,
   children,
   className,
@@ -264,13 +275,14 @@ function PagedLayout({
         kicker={kicker}
         standfirst={standfirst}
         controls={controls}
+        width={width}
       />
 
       <PagedController pageIds={pageIds}>
         {({ activeId, navigate }) => {
           const current = activeId || pageIds[0] || '';
           return (
-            <div className={cn(SHELL_WIDTH, 'space-y-6 pb-16')}>
+            <div className={cn(shellWidthClass(width), 'space-y-6 pb-16')}>
               <PageNavMobile
                 items={navItems}
                 activeId={current}

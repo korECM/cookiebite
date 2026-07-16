@@ -113,7 +113,7 @@ package.
 
 | Component | Props | Role |
 | --- | --- | --- |
-| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, numbered?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — right-rail scrollspy ("목차") from direct `Section` children at `min-width: 1400px`. `numbered` (article only) default `false` — prefixes Section headings + TOC with `01`, `02`, … (number replaces the accent tick). Fluid container `max-w-[1400px]`. |
+| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', width?: 'default'\|'full', controls?: boolean, toc?: boolean, numbered?: boolean, children?, className? }` | Document shell. `layout` default `article`. `width` default `default` (fluid `max-w-[1600px]`); `width="full"` drops the max-width cap (edge-to-edge `w-full` + horizontal padding only). `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — right-rail scrollspy ("목차") from direct `Section` children at `min-width: 1400px`. `numbered` (article only) default `false` — prefixes Section headings + TOC with `01`, `02`, … (number replaces the accent tick). |
 | `Standfirst` | `{ children, className? }` | Lead paragraph under the title. |
 | `Section` | `{ id, title, lede?, children?, className? }` | `section` + accent-tick `h2`. `id` is required (TOC / anchors). When parent `Report` has `numbered`, the tick becomes a tabular `01`/`02`… index. |
 | `Columns` | `{ n?: 2\|3, children?, className? }` | Side-by-side Panel grid. Default `n={2}` → `md:grid-cols-2`; `n={3}` → `md:grid-cols-3`. Below `md` always 1 column. |
@@ -218,8 +218,9 @@ spans. Everywhere else, use tokens / semantic classes.
 
 ## Layouts + controls
 
-**Article** — title / kicker / standfirst / optional controls; fluid `max-w-[1400px]`
-shell; right TOC rail (scrollspy, `min-[1400px]`) from `Section` ids; prose keeps
+**Article** — title / kicker / standfirst / optional controls; fluid `max-w-[1600px]`
+shell (`width="full"` for uncapped edge-to-edge); right TOC rail (scrollspy,
+`min-[1400px]`) from `Section` ids; prose keeps
 `max-w-prose`, data blocks span the content column.
 
 **Paged** — same fluid header width; mobile page select + desktop left-rail nav; hash sync
