@@ -164,6 +164,16 @@ const chartConfig = {
 - **Color literals in chart config or marks fail the build lint.**
 - Give `ChartContainer` a stable `id` when multiple charts appear on one page.
 
+**지원 차트** (verify `chart-empty` gate 통과 확인됨 — `docs/examples-tsx/chart-gallery.tsx`):
+
+- Area — gradient, stacked
+- Bar — grouped, stacked, horizontal (`layout="vertical"`), negative (Cell 양/음)
+- Line — multi-series, step + dots
+- Pie — donut + `ChartLegend`, labels + `labelLine`
+- Radar — 2-series (`PolarGrid`, `PolarAngleAxis`)
+- Radial — `RadialBarChart` + `RadialBar` background
+- Composed — `ComposedChart` bar + line (shadcn 문서엔 없지만 Recharts 지원)
+
 ## Theme
 
 Pass a `ThemeDocument` via `export const __theme`. Presets from `cookiebite/themes`:
@@ -297,6 +307,7 @@ its detail **conditionally**: `DESIGN.md` for the freeform token contract, and
 - `docs/examples-tsx/incident-postmortem.tsx` — paged layout demo.
 - `docs/examples-tsx/quarterly-strategy.tsx` — prose-first article (strategy memo).
 - `docs/examples-tsx/abuse-analysis.tsx` — numbered analysis-report genre (`Columns` + donut/bar density).
+- `docs/examples-tsx/chart-gallery.tsx` — every supported chart shape (verify testbed).
 
 **Legacy full-runtime references — load only when rebuilding a legacy report:**
 `references/helpers.md`, `components.md`, `snippets.md`, `design-system.md`,
