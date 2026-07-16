@@ -113,7 +113,7 @@ package.
 
 | Component | Props | Role |
 | --- | --- | --- |
-| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — left rail scrollspy from direct `Section` children. |
+| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — right-rail scrollspy ("목차") from direct `Section` children at `min-width: 1400px`. Fluid container `max-w-[1400px]`. |
 | `Standfirst` | `{ children, className? }` | Lead paragraph under the title. |
 | `Section` | `{ id, title, lede?, children?, className? }` | `section` + accent-tick `h2`. `id` is required (TOC / anchors). |
 | `Page` | `{ id, title, icon?, children?, className? }` | One page under `layout="paged"`. SSR stacks all pages; after hydration inactive pages are `hidden` (restored in print). Under `article`, still renders as a section (tolerant). |
@@ -130,7 +130,8 @@ children only**. Do not wrap them in `<>…</>` if you need TOC or paged nav.
 
 | Component | Props | Role |
 | --- | --- | --- |
-| `KpiRow` | `{ items, className? }` — item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction: 'up'\|'down', good? }` | Equal-height KPI cards. `good` defaults to `direction === 'up'`. Colored text deltas (`text-success` / `text-destructive`), never color alone. `compare` is a baseline line under the value; `spark` is a mini sparkline (`number[]`). |
+| `KpiRow` | `{ items, className? }` — item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction: 'up'\|'down', good? }` | Joined KPI strip (one card, inner cell dividers). `good` defaults to `direction === 'up'`. Tinted delta pills (`text-success` / `text-destructive`), never color alone. `compare` sits beside the delta; `spark` is a mini sparkline backdrop (`number[]`). |
+| `Panel` | `{ title, description?, actions?, children?, className? }` | Data-unit card frame for charts/tables/lists. Section = narrative unit; Panel = data unit. |
 | `Claims` | `{ items, className? }` — item `{ text, evidence?, badge? }` | Claim list with optional evidence line and outline badge. |
 | `Findings` | `{ items, className? }` — item `{ severity: 'critical'\|'warning'\|'info', title, detail? }` | Severity alerts (shadcn `Alert`). |
 | `Matrix` | `{ rows, cols, caption?, className? }` — row `{ label, cells: (boolean\|string)[] }` | Coverage / comparison table (check / dash / string). |
@@ -216,17 +217,19 @@ spans. Everywhere else, use tokens / semantic classes.
 
 ## Layouts + controls
 
-**Article** — title / kicker / standfirst / optional controls; left TOC (scrollspy) from
-`Section` ids; main column scrolls.
+**Article** — title / kicker / standfirst / optional controls; fluid `max-w-[1400px]`
+shell; right TOC rail (scrollspy, `min-[1400px]`) from `Section` ids; prose keeps
+`max-w-prose`, data blocks span the content column.
 
-**Paged** — same header; mobile page select + desktop left-rail nav; hash sync
+**Paged** — same fluid header width; mobile page select + desktop left-rail nav; hash sync
 (`#page-id`); no-JS / pre-hydration shows all pages stacked. Active `Page` heading uses
 the same accent-tick treatment as `Section`.
 
 Controls (dark mode + density) default on. Hide with `controls={false}`.
 
-Visual language: Stripe-editorial — accent-tick eyebrows, tinted page background with
-white cards, left-rail nav, colored text deltas.
+Visual language: Stripe-editorial / Tremor panel grammar — accent-tick eyebrows, tinted
+page background with white cards, joined KPI strip, Panel frames for data units, colored
+text deltas.
 
 ## Build pipeline + gates
 

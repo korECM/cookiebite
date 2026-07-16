@@ -27,10 +27,10 @@ bunx cookiebite verify report.html --runs 3
 
 ## 기능
 
-- **Shell:** `Report` (article | paged), `Section`, `Page`, `Standfirst`, `Sources`,
-  `Glossary`, 다크/밀도 controls(기본 on)
-- **Data:** `KpiRow`, `Claims`, `Findings`, `Matrix`, `RangeDot`, `BarList`, `Tracker`,
-  `CategoryBar`, `DataTable`
+- **Shell:** `Report` (article | paged, fluid `max-w-[1400px]`, article TOC right rail at
+  `min-[1400px]`), `Section`, `Page`, `Standfirst`, `Sources`, `Glossary`, 다크/밀도 controls(기본 on)
+- **Data:** `KpiRow` (joined strip), `Panel`, `Claims`, `Findings`, `Matrix`, `RangeDot`,
+  `BarList`, `Tracker`, `CategoryBar`, `DataTable`
 - **UI:** vendored shadcn 18종 (card, chart, table, badge, alert, tabs, accordion, …)
 - **Theme:** seed 8키 + CSS 변수 overrides + 프리셋 10종 + 자동 다크 + 대비 게이트
   (`--success` 포함)
@@ -42,13 +42,14 @@ bunx cookiebite verify report.html --runs 3
 
 | 컴포넌트 | 용도 | 비고 |
 | --- | --- | --- |
-| `Report` | 문서 쉘 | `title`, `kicker?`, `layout?` (`article`\|`paged`), `controls?` (기본 true), `toc?` (article, 기본 true) |
+| `Report` | 문서 쉘 | `title`, `kicker?`, `layout?` (`article`\|`paged`), `controls?` (기본 true), `toc?` (article, 기본 true). 컨테이너 `max-w-[1400px]`; article TOC는 `min-[1400px]` 우측 레일 |
 | `Standfirst` | 리드 문단 | `children` |
 | `Section` | 섹션 + accent tick | `id`, `title`, `lede?` 필수 `id` |
 | `Page` | paged 한 장 | `id`, `title`, `icon?` — SSR은 전부 스택, hydrate 후 비활성 `hidden` |
 | `Sources` | 출처 목록 | `items: { label, href?, note? }[]` |
 | `Glossary` | 용어 정의 | `terms: { term, def }[]` |
-| `KpiRow` | KPI 카드 줄 | item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction, good? }`. `compare`는 값 아래 비교 문구, `spark`는 미니 스파크라인(`number[]`) |
+| `KpiRow` | KPI joined strip | item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction, good? }`. 한 카드 안 셀 divider; `compare`는 delta 옆, `spark`는 하단 backdrop |
+| `Panel` | 데이터 유닛 프레임 | `{ title, description?, actions?, children? }` — 차트/표/리스트 래퍼. Section=서사, Panel=데이터 |
 | `Claims` | 주장 목록 | item `{ text, evidence?, badge? }` |
 | `Findings` | 심각도 알림 | item `{ severity: 'critical'\|'warning'\|'info', title, detail? }` |
 | `Matrix` | 커버리지 표 | `rows: { label, cells }[]`, `cols: string[]` |
@@ -83,7 +84,7 @@ seed 8키: `font`, `background`, `text`, `accent`, `spaceUnit`, `measure`, `radi
 
 ## 레이아웃 예시
 
-**Article** (기본, TOC scrollspy):
+**Article** (기본, fluid width + 우측 TOC scrollspy at `min-[1400px]`):
 
 ```tsx
 <Report title="주간 매출" kicker="Growth, W20">
