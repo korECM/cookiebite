@@ -113,9 +113,10 @@ package.
 
 | Component | Props | Role |
 | --- | --- | --- |
-| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — right-rail scrollspy ("목차") from direct `Section` children at `min-width: 1400px`. Fluid container `max-w-[1400px]`. |
+| `Report` | `{ title, kicker?, layout?: 'article'\|'paged', controls?: boolean, toc?: boolean, numbered?: boolean, children?, className? }` | Document shell. `layout` default `article`. `controls` default `true` (dark + density toggles); `controls={false}` hides them. `toc` (article only) default `true` — right-rail scrollspy ("목차") from direct `Section` children at `min-width: 1400px`. `numbered` (article only) default `false` — prefixes Section headings + TOC with `01`, `02`, … (number replaces the accent tick). Fluid container `max-w-[1400px]`. |
 | `Standfirst` | `{ children, className? }` | Lead paragraph under the title. |
-| `Section` | `{ id, title, lede?, children?, className? }` | `section` + accent-tick `h2`. `id` is required (TOC / anchors). |
+| `Section` | `{ id, title, lede?, children?, className? }` | `section` + accent-tick `h2`. `id` is required (TOC / anchors). When parent `Report` has `numbered`, the tick becomes a tabular `01`/`02`… index. |
+| `Columns` | `{ n?: 2\|3, children?, className? }` | Side-by-side Panel grid. Default `n={2}` → `md:grid-cols-2`; `n={3}` → `md:grid-cols-3`. Below `md` always 1 column. |
 | `Page` | `{ id, title, icon?, children?, className? }` | One page under `layout="paged"`. SSR stacks all pages; after hydration inactive pages are `hidden` (restored in print). Under `article`, still renders as a section (tolerant). |
 | `Sources` | `{ items: { label, href?, note? }[], className? }` | Source / method list. |
 | `Glossary` | `{ terms: { term, def }[], className? }` | Definition list. |
@@ -292,6 +293,7 @@ its detail **conditionally**: `DESIGN.md` for the freeform token contract, and
 - `docs/examples-tsx/weekly-revenue.tsx` — article + charts + DataTable.
 - `docs/examples-tsx/incident-postmortem.tsx` — paged layout demo.
 - `docs/examples-tsx/quarterly-strategy.tsx` — prose-first article (strategy memo).
+- `docs/examples-tsx/abuse-analysis.tsx` — numbered analysis-report genre (`Columns` + donut/bar density).
 
 **Legacy full-runtime references — load only when rebuilding a legacy report:**
 `references/helpers.md`, `components.md`, `snippets.md`, `design-system.md`,

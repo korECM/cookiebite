@@ -7,13 +7,31 @@ export interface SectionProps {
   lede?: string;
   children?: ReactNode;
   className?: string;
+  /**
+   * Set by `Report` when `numbered` — replaces the accent tick with a zero-padded
+   * index (`01`, `02`, …). Not meant for hand-authoring.
+   */
+  number?: string;
 }
 
-export function Section({ id, title, lede, children, className }: SectionProps) {
+export function Section({
+  id,
+  title,
+  lede,
+  children,
+  className,
+  number,
+}: SectionProps) {
   return (
     <section id={id} className={cn('scroll-mt-8 space-y-4', className)}>
       <div className="flex items-center gap-2.5">
-        <span className="h-4 w-1 rounded-full bg-primary" />
+        {number ? (
+          <span className="text-primary tabular-nums text-sm font-semibold">
+            {number}
+          </span>
+        ) : (
+          <span className="h-4 w-1 rounded-full bg-primary" />
+        )}
         <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
       </div>
       {lede ? (

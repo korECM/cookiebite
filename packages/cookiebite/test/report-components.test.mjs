@@ -97,6 +97,16 @@ test('Panel: card shell, title, description, content padding', async () => {
   assert.match(markup, /panel-body-marker/);
 });
 
+test('Columns: grid class and children present', async () => {
+  const { markup } = await renderReport(fixture('report-columns.tsx'));
+
+  assert.match(markup, /grid gap-6 \*:min-w-0 md:grid-cols-2/);
+  assert.match(markup, /columns-left-marker/);
+  assert.match(markup, /columns-right-marker/);
+  assert.match(markup, />Left</);
+  assert.match(markup, />Right</);
+});
+
 test('BarList: bar width percent from max value', async () => {
   const { markup } = await renderReport(fixture('report-components.tsx'));
 

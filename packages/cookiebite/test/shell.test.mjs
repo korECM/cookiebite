@@ -61,6 +61,36 @@ test('shell Report controls={false} and toc={false} omit chrome', async () => {
   assert.match(markup, /Only Section/);
 });
 
+test('shell Report numbered: 01/02 in headings and TOC; default off unchanged', async () => {
+  const numbered = await renderReport(fixture('shell-numbered.tsx'));
+  assert.match(
+    numbered.markup,
+    /text-primary tabular-nums text-sm font-semibold/,
+  );
+  assert.match(numbered.markup, />01</);
+  assert.match(numbered.markup, />02</);
+  assert.match(numbered.markup, /href="#alpha"[\s\S]*?>01 알파</);
+  assert.match(numbered.markup, /href="#beta"[\s\S]*?>02 베타</);
+  // number replaces the accent tick on numbered sections
+  const headingBlocks =
+    numbered.markup.match(
+      /flex items-center gap-2\.5[\s\S]*?<\/h2>/g,
+    ) ?? [];
+  assert.equal(headingBlocks.length, 2);
+  for (const block of headingBlocks) {
+    assert.doesNotMatch(block, /h-4 w-1 rounded-full bg-primary/);
+  }
+
+  const plain = await renderReport(fixture('shell-report.tsx'));
+  assert.match(plain.markup, /href="#cause"[\s\S]*?>원인</);
+  assert.doesNotMatch(plain.markup, /href="#cause"[\s\S]*?>01 원인</);
+  assert.match(plain.markup, /h-4 w-1 rounded-full bg-primary/);
+  assert.doesNotMatch(
+    plain.markup,
+    /text-primary tabular-nums text-sm font-semibold[\s\S]*?>01</,
+  );
+});
+
 test('shell exports THEME_STORAGE_KEY and SHELL_CSS', () => {
   const controlsSrc = readFileSync(
     path.join(root, 'src/shell/controls.tsx'),

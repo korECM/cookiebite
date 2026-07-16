@@ -1,5 +1,6 @@
 import {
   Children,
+  cloneElement,
   isValidElement,
   type ReactElement,
   type ReactNode,
@@ -23,6 +24,8 @@ export interface ReportProps {
   layout?: 'article' | 'paged';
   controls?: boolean;
   toc?: boolean;
+  /** Article only. Prefix Section headings + TOC with `01`, `02`, … */
+  numbered?: boolean;
   children?: ReactNode;
   className?: string;
 }
@@ -36,24 +39,57 @@ function isElementOfType(
   return t.displayName === displayName;
 }
 
+function isSectionElement(child: ReactNode): child is ReactElement<SectionProps> {
+  return (
+    isValidElement(child) &&
+    (child.type === Section || isElementOfType(child, 'CookiebiteSection'))
+  );
+}
+
+function padSectionIndex(index: number): string {
+  return String(index).padStart(2, '0');
+}
+
 /**
  * React.Children 순회는 직접 자식과 배열만 펼친다.
  * Fragment(`<>...</>`) 안의 Section/Page는 수집되지 않는다(문서화된 제한).
  */
-function collectToc(children: ReactNode): { id: string; title: string }[] {
+function collectToc(
+  children: ReactNode,
+  numbered = false,
+): { id: string; title: string }[] {
   const items: { id: string; title: string }[] = [];
+  let index = 0;
   Children.forEach(children, (child) => {
-    if (
-      isValidElement(child) &&
-      (child.type === Section || isElementOfType(child, 'CookiebiteSection'))
-    ) {
-      const props = child.props as SectionProps;
+    if (isSectionElement(child)) {
+      const props = child.props;
       if (props.id && props.title) {
-        items.push({ id: props.id, title: props.title });
+        index += 1;
+        const label = padSectionIndex(index);
+        items.push({
+          id: props.id,
+          title: numbered ? `${label} ${props.title}` : props.title,
+        });
       }
     }
   });
   return items;
+}
+
+/** Inject zero-padded section numbers via cloneElement when `numbered`. */
+function numberSectionChildren(
+  nodes: ReactNode[],
+  numbered: boolean,
+): ReactNode[] {
+  if (!numbered) return nodes;
+  let index = 0;
+  return nodes.map((child) => {
+    if (!isSectionElement(child)) return child;
+    const props = child.props;
+    if (!props.id || !props.title) return child;
+    index += 1;
+    return cloneElement(child, { number: padSectionIndex(index) });
+  });
 }
 
 function splitChildren(children: ReactNode): {
@@ -166,11 +202,13 @@ function ArticleLayout({
   kicker,
   controls = true,
   toc = true,
+  numbered = false,
   children,
   className,
 }: ReportProps) {
-  const tocItems = collectToc(children);
+  const tocItems = collectToc(children, numbered);
   const { standfirst, body } = splitChildren(children);
+  const numberedBody = numberSectionChildren(body, numbered);
 
   return (
     <div className={cn('break-keep bg-background text-foreground', className)}>
@@ -188,7 +226,7 @@ function ArticleLayout({
           toc ? 'items-start' : '',
         )}
       >
-        <main className="min-w-0 flex-1 space-y-10">{body}</main>
+        <main className="min-w-0 flex-1 space-y-10">{numberedBody}</main>
         {toc ? (
           <aside className="hidden min-[1400px]:block w-52 shrink-0">
             <div className="sticky top-8">

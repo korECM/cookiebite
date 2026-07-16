@@ -8,6 +8,10 @@ export {
   type SectionProps,
 } from './shell/section.tsx';
 export {
+  Columns,
+  type ColumnsProps,
+} from './shell/columns.tsx';
+export {
   Page,
   type PageProps,
 } from './shell/page.tsx';

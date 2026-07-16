@@ -28,7 +28,8 @@ bunx cookiebite verify report.html --runs 3
 ## 기능
 
 - **Shell:** `Report` (article | paged, fluid `max-w-[1400px]`, article TOC right rail at
-  `min-[1400px]`), `Section`, `Page`, `Standfirst`, `Sources`, `Glossary`, 다크/밀도 controls(기본 on)
+  `min-[1400px]`, optional `numbered` section indices), `Section`, `Columns`, `Page`,
+  `Standfirst`, `Sources`, `Glossary`, 다크/밀도 controls(기본 on)
 - **Data:** `KpiRow` (joined strip), `Panel`, `Claims`, `Findings`, `Matrix`, `RangeDot`,
   `BarList`, `Tracker`, `CategoryBar`, `DataTable`
 - **UI:** vendored shadcn 18종 (card, chart, table, badge, alert, tabs, accordion, …)
@@ -42,9 +43,10 @@ bunx cookiebite verify report.html --runs 3
 
 | 컴포넌트 | 용도 | 비고 |
 | --- | --- | --- |
-| `Report` | 문서 쉘 | `title`, `kicker?`, `layout?` (`article`\|`paged`), `controls?` (기본 true), `toc?` (article, 기본 true). 컨테이너 `max-w-[1400px]`; article TOC는 `min-[1400px]` 우측 레일 |
+| `Report` | 문서 쉘 | `title`, `kicker?`, `layout?` (`article`\|`paged`), `controls?` (기본 true), `toc?` (article, 기본 true), `numbered?` (article, 기본 false — 섹션/TOC에 `01` `02`…). 컨테이너 `max-w-[1400px]`; article TOC는 `min-[1400px]` 우측 레일 |
 | `Standfirst` | 리드 문단 | `children` |
-| `Section` | 섹션 + accent tick | `id`, `title`, `lede?` 필수 `id` |
+| `Section` | 섹션 + accent tick | `id`, `title`, `lede?` 필수 `id`; `numbered` 시 tick 대신 번호 |
+| `Columns` | 나란히 Panel 그리드 | `n?` (`2`\|`3`, 기본 2) — `md` 이상 n열, 미만 1열 |
 | `Page` | paged 한 장 | `id`, `title`, `icon?` — SSR은 전부 스택, hydrate 후 비활성 `hidden` |
 | `Sources` | 출처 목록 | `items: { label, href?, note? }[]` |
 | `Glossary` | 용어 정의 | `terms: { term, def }[]` |
