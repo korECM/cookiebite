@@ -84,6 +84,32 @@ captions, and narrative only.
 
 ## Authoring surface (shadcn + cookiebite)
 
+### 컴포넌트 선택 루틴 (반드시 이 순서로)
+
+컴포넌트를 고를 때마다 이 순서를 거친다. 손으로 새 UI를 짜는 것은 마지막 수단이다.
+
+1. **cookiebite 내장에서 먼저 찾는다** — 아래 셸/데이터 컴포넌트와 `@/components/ui/*`
+   18종(accordion, alert, badge, breadcrumb, button, card, chart, collapsible,
+   hover-card, progress, scroll-area, separator, skeleton, table, tabs, toggle,
+   toggle-group, tooltip)에 있으면 그대로 쓴다.
+2. **없으면 즉시 레지스트리를 검색한다** — `cookiebite new`가 `components.json`을
+   스캐폴드해 두었으니 바로 받을 수 있다:
+
+   ```bash
+   npx shadcn@latest search pagination     # 레지스트리 검색
+   npx shadcn@latest view pagination       # import, 의존성 확인
+   npx shadcn@latest add pagination        # 받기 (@/ 경로로 자동 인식)
+   ```
+
+3. **받은 파일의 색 리터럴은 시맨틱 토큰으로 치환한다** — hex, `rgb()`, `hsl()`,
+   `oklch()`는 빌드 lint가 거부한다. `var(--chart-1)`, `bg-card`,
+   `text-muted-foreground` 등으로 바꾼다.
+4. **추가 npm 의존성**은 리포트 디렉토리에서 `pnpm add`한다(로컬 node_modules 해석).
+5. **마지막에 `cookiebite build` + `cookiebite verify`를 반드시 돌린다**(hard=0).
+
+**부스터(선택):** `.mcp.json`(공식 shadcn MCP)은 `cookiebite new`가 스캐폴드한다.
+`npx skills add shadcn/ui`를 더하면 `components.json`을 읽어 레지스트리 작업을 돕는다.
+
 ### Vendored shadcn (`@/components/ui/*`)
 
 Eighteen components ship in the package (accordion, alert, badge, breadcrumb, button,
@@ -112,35 +138,15 @@ custom blocks under `components/blocks/` and import them as `@/components/blocks
 
 ### 내장에 없는 컴포넌트가 필요할 때
 
-1. **Local shadowing** — `@/`는 리포트 디렉토리 우선. 필요한 TSX를 리포트 옆에 두고
-   `@/components/blocks/…`처럼 import하면 됩니다.
-2. **shadcn CLI** — `cookiebite new`가 `components.json`(및 최소 `tsconfig.json`)을
-   스캐폴드합니다. 리포트 디렉토리에서:
+기본 경로는 위 **컴포넌트 선택 루틴**이다. 내장에 없으면 손으로 짜기 전에 레지스트리를
+검색해 받는다(`npx shadcn@latest search → view → add`). 두 가지 보조 경로가 있다:
 
-   ```bash
-   npx shadcn@latest add badge
-   npx shadcn@latest add @registry/block-name
-   ```
+1. **Local shadowing** — `@/`는 리포트 디렉토리 우선. 받은 파일이나 직접 만든 블록을
+   리포트 옆에 두면(`components/ui/<name>.tsx`, `components/blocks/…`) 그대로 import된다.
+2. **상용 레지스트리** — `npx shadcn@latest add @registry/block-name`. shadcnblocks 등
+   상용 레지스트리 라이선스는 사용자 책임이다.
 
-3. **공식 shadcn MCP** — AI가 레지스트리를 탐색·설치하게 하려면 프로젝트 `.mcp.json`에:
-
-   ```json
-   {
-     "mcpServers": {
-       "shadcn": {
-         "command": "npx",
-         "args": ["shadcn@latest", "mcp"]
-       }
-     }
-   }
-   ```
-
-   또는 `pnpm dlx shadcn@latest mcp init --client claude`.
-
-4. **Caveats** — 추가 npm 의존성이 필요한 블록은 리포트 디렉토리에서 `pnpm add`한 뒤
-   빌드하세요(로컬 `node_modules` 해석 지원). 상용 레지스트리(shadcnblocks 등) 라이선스는
-   사용자 책임입니다. 색 리터럴이 든 블록은 lint가 거부하므로 시맨틱 토큰으로 손질해야
-   합니다.
+상용 레지스트리 블록도 색 리터럴은 lint가 거부하니 시맨틱 토큰으로 손질한다(루틴 3단계).
 
 ### Shell (`cookiebite`)
 

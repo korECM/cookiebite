@@ -57,3 +57,36 @@ test('new skips existing components.json', () => {
   assert.equal(created.code, 0, created.stderr);
   assert.deepEqual(JSON.parse(readFileSync(componentsJson, 'utf8')), { kept: true });
 });
+
+test('new scaffolds .mcp.json and CLAUDE.md next to the report', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-new-ai-'));
+  const report = path.join(dir, 'weekly.tsx');
+  const created = runCli(['new', report]);
+  assert.equal(created.code, 0, created.stderr);
+
+  const mcpJson = path.join(dir, '.mcp.json');
+  const claudeMd = path.join(dir, 'CLAUDE.md');
+  assert.ok(existsSync(mcpJson));
+  assert.ok(existsSync(claudeMd));
+
+  const mcp = JSON.parse(readFileSync(mcpJson, 'utf8'));
+  assert.equal(mcp.mcpServers.shadcn.command, 'npx');
+  assert.deepEqual(mcp.mcpServers.shadcn.args, ['shadcn@latest', 'mcp']);
+
+  const claude = readFileSync(claudeMd, 'utf8');
+  assert.match(claude, /shadcn@latest search/);
+  assert.match(claude, /cookiebite build/);
+});
+
+test('new skips existing .mcp.json and CLAUDE.md', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-new-ai-skip-'));
+  const mcpJson = path.join(dir, '.mcp.json');
+  const claudeMd = path.join(dir, 'CLAUDE.md');
+  writeFileSync(mcpJson, '{"kept":true}\n');
+  writeFileSync(claudeMd, '지켜짐\n');
+  const report = path.join(dir, 'weekly.tsx');
+  const created = runCli(['new', report]);
+  assert.equal(created.code, 0, created.stderr);
+  assert.deepEqual(JSON.parse(readFileSync(mcpJson, 'utf8')), { kept: true });
+  assert.equal(readFileSync(claudeMd, 'utf8'), '지켜짐\n');
+});
