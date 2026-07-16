@@ -347,6 +347,7 @@ its detail **conditionally**: `DESIGN.md` for the freeform token contract, and
 - `docs/examples-tsx/quarterly-strategy.tsx` — prose-first article (strategy memo).
 - `docs/examples-tsx/abuse-analysis.tsx` — numbered analysis-report genre (`Columns` + donut/bar density).
 - `docs/examples-tsx/chart-gallery.tsx` — every supported chart shape (verify testbed).
+- `docs/examples-tsx/registry-remix/` — 실제 레지스트리에서 받은 블록 데모(`npx shadcn add`).
 
 **Legacy full-runtime references — load only when rebuilding a legacy report:**
 `references/helpers.md`, `components.md`, `snippets.md`, `design-system.md`,

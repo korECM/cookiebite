@@ -1,0 +1,11 @@
+{
+  "name": "registry-remix",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "lucide-react": "^1.24.0",
+    "react": "*",
+    "react-dom": "*",
+    "recharts": "^3.8.0"
+  }
+}
