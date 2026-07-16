@@ -350,7 +350,7 @@ export default function App() {
       <Standfirst>
         2025-12부터 2026-06까지 집계한 가상 결제 로그에서 어뷰징 9,278건이 확인됐다.
         유니크 어뷰저 503명 중 상습 191명이 전체 건수의 71%를 차지하며, 실결제 상품은
-        최저가 tier에 85.1% 집중된 뒤 고가 tier로 바꿔치기되는 패턴이 반복된다.
+        최저가 tier에 75.2% 집중된 뒤 고가 tier로 바꿔치기되는 패턴이 반복된다.
       </Standfirst>
 
       <Section id="summary" title="요약">
@@ -387,8 +387,8 @@ export default function App() {
         <Claims
           items={[
             {
-              text: '실결제 상품의 85.1%가 최저가 tier 집중 — 고가 tier로 바꿔치기 패턴이 22.5%',
-              evidence: '9,278건 중 7,896건이 <$10 실결제 후 고가 수령',
+              text: '실결제 상품의 75.2%가 최저가 tier 집중 — 고가 tier로 바꿔치기 패턴이 22.5%',
+              evidence: '9,278건 중 6,980건이 <$10 실결제 후 고가 수령',
               badge: '핵심',
             },
             {
