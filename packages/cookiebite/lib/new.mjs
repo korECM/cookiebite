@@ -84,7 +84,11 @@ cookiebite verify report.html --runs 3
    (\`var(--chart-1)\`, \`bg-card\`, \`text-muted-foreground\` 등)으로 치환한다.
 4. **추가 npm 의존성**이 필요한 블록은 리포트 디렉토리에서 \`pnpm add\`로 설치한다
    (로컬 node_modules 해석 지원).
-5. **마지막에 build와 verify를 반드시 돌린다.**
+5. **JSX 산문은 하드랩하지 않는다.** 한 문단(또는 한 문장)을 한 줄로 쓰고 에디터 soft wrap을
+   쓴다. JSX는 줄바꿈을 공백 하나로 합치므로 한국어를 중간에서 하드랩하면 렌더 결과에
+   의도치 않은 공백이 끼어든다. \`{expr}\` 표현식과 텍스트를 같은 줄에 인접시키는 것도
+   하이드레이션 오류(#418)를 만드니 템플릿 리터럴 하나로 합친다.
+6. **마지막에 build와 verify를 반드시 돌린다.**
 `;
 
 function writeScaffoldIfMissing(filePath, data) {

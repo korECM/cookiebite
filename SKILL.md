@@ -148,6 +148,8 @@ custom blocks under `components/blocks/` and import them as `@/components/blocks
 
 상용 레지스트리 블록도 색 리터럴은 lint가 거부하니 시맨틱 토큰으로 손질한다(루틴 3단계).
 
+JSX 산문은 하드랩하지 않는다 — 한 문단을 한 줄로 쓰고 soft wrap에 맡긴다. JSX가 줄바꿈을 공백으로 합치므로 한국어 문장을 중간에서 꺾으면 렌더 결과에 의도치 않은 공백이 생긴다.
+
 ### Shell (`cookiebite`)
 
 | Component | Props | Role |
