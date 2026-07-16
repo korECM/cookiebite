@@ -16,7 +16,7 @@ export interface KpiItem {
   delta?: KpiDelta;
   /** Comparison line under the value row (e.g. prior-period baseline). */
   compare?: string;
-  /** Mini sparkline series rendered above the caption. */
+  /** Mini sparkline as a zero-height bottom backdrop (Stripe-dashboard pattern). */
   spark?: number[];
   caption?: string;
 }
@@ -69,7 +69,7 @@ function KpiSpark({ series, gradientId }: { series: number[]; gradientId: string
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.2} />
+            <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.15} />
             <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.02} />
           </linearGradient>
         </defs>
@@ -78,6 +78,7 @@ function KpiSpark({ series, gradientId }: { series: number[]; gradientId: string
           d={line}
           fill="none"
           stroke="var(--chart-1)"
+          strokeOpacity={0.8}
           strokeWidth={1.5}
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -103,10 +104,19 @@ export function KpiRow({ items, className }: KpiRowProps) {
             : item.delta?.direction === 'down'
               ? ArrowDownRight
               : null;
+        const hasSpark = Boolean(item.spark && item.spark.length > 0);
 
         return (
-          <Card key={item.label} className="flex h-full flex-col">
-            <CardContent className="flex flex-1 flex-col gap-2">
+          <Card
+            key={item.label}
+            className="relative flex h-full flex-col overflow-hidden"
+          >
+            <CardContent
+              className={cn(
+                'flex flex-1 flex-col gap-2',
+                hasSpark ? 'pb-10' : undefined,
+              )}
+            >
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 {item.label}
               </div>
@@ -138,18 +148,23 @@ export function KpiRow({ items, className }: KpiRowProps) {
                   {item.compare}
                 </p>
               ) : null}
-              {item.spark && item.spark.length > 0 ? (
-                <KpiSpark
-                  series={item.spark}
-                  gradientId={`kpi-spark-${index}`}
-                />
-              ) : null}
               {item.caption ? (
-                <p className="mt-auto text-pretty text-xs text-muted-foreground">
+                <p className="mt-1.5 text-xs text-muted-foreground text-pretty">
                   {item.caption}
                 </p>
               ) : null}
             </CardContent>
+            {hasSpark ? (
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-10"
+                aria-hidden="true"
+              >
+                <KpiSpark
+                  series={item.spark!}
+                  gradientId={`kpi-spark-${index}`}
+                />
+              </div>
+            ) : null}
           </Card>
         );
       })}

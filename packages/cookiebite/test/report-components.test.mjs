@@ -25,7 +25,7 @@ test('report sources contain no hex color literals', () => {
   }
 });
 
-test('KpiRow: equal-height grid, tinted delta pill, compare, spark svg, caption mt-auto', async () => {
+test('KpiRow: equal-height grid, tinted delta pill, compare, spark backdrop, caption flow', async () => {
   const { markup } = await renderReport(fixture('report-components.tsx'));
 
   assert.match(markup, /auto-rows-fr/);
@@ -45,13 +45,19 @@ test('KpiRow: equal-height grid, tinted delta pill, compare, spark svg, caption 
   assert.match(markup, /bg-success\/10 text-success/);
   assert.match(markup, /bg-destructive\/10 text-destructive/);
   assert.match(markup, /uppercase tracking-wide/);
-  assert.match(markup, /mt-auto/);
+  assert.doesNotMatch(markup, /mt-auto/);
+  assert.match(markup, /mt-1\.5 text-xs text-muted-foreground text-pretty/);
   assert.match(markup, /Success rate/);
   assert.match(markup, /\+3\.1pp/);
   assert.match(markup, /vs prior week 96\.1%/);
   assert.match(markup, /Recovered after rollback/);
-  assert.match(markup, /<svg[\s\S]*?<path/);
+  assert.match(
+    markup,
+    /pointer-events-none absolute inset-x-0 bottom-0 h-10[\s\S]*?<svg[\s\S]*?<path/,
+  );
   assert.match(markup, /kpi-spark-0/);
+  assert.match(markup, /relative flex h-full flex-col overflow-hidden/);
+  assert.match(markup, /pb-10/);
 });
 
 test('BarList: bar width percent from max value', async () => {
