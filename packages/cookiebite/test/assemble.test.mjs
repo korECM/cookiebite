@@ -65,6 +65,40 @@ test('fonts block uses seed font-family without external urls', () => {
   assert.doesNotMatch(fonts, /https?:\/\//);
 });
 
+test('default Pretendard preset embeds subset woff2 as data URI', () => {
+  const html = assembleDocument(base);
+  const fonts = html.match(/id="cookiebite-fonts">\s*([\s\S]*?)\s*<\/style>/)[1];
+  assert.match(fonts, /@font-face/);
+  assert.match(fonts, /data:font\/woff2;base64,/);
+  assert.match(fonts, /format\('woff2-variations'\)/);
+  assert.match(fonts, /font-family:'Pretendard Variable'/);
+  assert.match(fonts, /body\{font-family:'Pretendard Variable',Pretendard/);
+  assert.doesNotMatch(fonts, /https?:\/\//);
+  assert.doesNotMatch(html, /<link\s+rel=["']stylesheet["']/i);
+  for (const m of html.matchAll(/\b(?:src|href)\s*=\s*(["'])([^"']*)\1/gi)) {
+    const value = m[2];
+    if (value.startsWith('data:') || value.startsWith('#')) continue;
+    assert.doesNotMatch(value, /^https?:\/\//i, `external ref: ${value}`);
+  }
+});
+
+test('custom non-Pretendard seed skips font embedding', () => {
+  const html = assembleDocument({
+    ...base,
+    theme: {
+      ...persimmon,
+      seed: {
+        ...persimmon.seed,
+        font: 'Georgia, "Times New Roman", serif',
+      },
+    },
+  });
+  const fonts = html.match(/id="cookiebite-fonts">\s*([\s\S]*?)\s*<\/style>/)[1];
+  assert.doesNotMatch(fonts, /@font-face/);
+  assert.doesNotMatch(fonts, /data:font\/woff2/);
+  assert.match(fonts, /body\{font-family:Georgia, "Times New Roman", serif\}/);
+});
+
 test('base block is SHELL_CSS only (shadcn border/body moved into cookiebite-tw)', () => {
   const html = assembleDocument({
     ...base,

@@ -18,6 +18,7 @@
     "./themes": "./src/themes.ts"
   },
   "files": [
+    "assets",
     "bin",
     "src",
     "lib",

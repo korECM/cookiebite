@@ -29,6 +29,8 @@ test('npm pack --dry-run includes verifier, presets, and starter template', () =
     'src/presets/persimmon.json',
     'templates/starter.tsx',
     'src/shell/report.tsx',
+    'assets/PretendardVariable.subset.woff2',
+    'assets/OFL-Pretendard.txt',
   ]) {
     assert.ok(files.includes(required), `pack files missing ${required}`);
   }

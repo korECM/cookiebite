@@ -244,7 +244,9 @@ Order inside `cookiebite build`:
 4. **theme compile** — seed → `:root` + `.dark` variables; contrast gates (incl. `--success`).
 5. **Tailwind source-scan** — semantic tokens only; palette wiped; preflight on.
 6. **client bundle** — React hydration IIFE for interactivity (sort, nav, toggles, charts).
-7. **assemble** — single offline HTML.
+7. **assemble** — single offline HTML. Pretendard-ish first family embeds a subsetted
+   Pretendard Variable woff2 as a `data:font/woff2` URI (~1.7MB binary → multi-MB HTML);
+   a custom seed whose first family is not Pretendard skips embedding.
 
 `cookiebite verify` then catches runtime issues the compiler cannot see: hydration
 timeout / failed / warning, `console-error`, `chart-empty` (no SVG shapes after hydrate),
