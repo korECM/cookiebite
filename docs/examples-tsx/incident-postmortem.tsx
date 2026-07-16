@@ -156,7 +156,7 @@ const actionData: ActionRow[] = [
 const timelineTracker = [
   { status: 'success' as const, label: '09:00 정상' },
   { status: 'success' as const, label: '09:10 정상' },
-  { status: 'error' as const, label: '09:12 배포 · 풀 고갈 시작' },
+  { status: 'error' as const, label: '09:12 배포, 풀 고갈 시작' },
   { status: 'error' as const, label: '09:20 p99 급등' },
   { status: 'error' as const, label: '09:30 알람 직전' },
   { status: 'error' as const, label: '09:40 온콜 대응' },

@@ -37,10 +37,10 @@ test('KpiRow: joined strip card, cell dividers, sentence-case label, spark backd
   );
   assert.match(
     markup,
-    /grid grid-cols-\[repeat\(auto-fit,minmax\(200px,1fr\)\)\]/,
+    /grid grid-cols-\[repeat\(auto-fit,minmax\(170px,1fr\)\)\]/,
   );
   assert.doesNotMatch(markup, /auto-rows-fr/);
-  assert.doesNotMatch(markup, /minmax\(170px/);
+  assert.doesNotMatch(markup, /minmax\(200px/);
   assert.doesNotMatch(markup, /md:grid-cols-3|lg:grid-cols-4|xl:grid-cols-/);
 
   // Joined-grid divider technique

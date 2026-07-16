@@ -137,7 +137,7 @@ export default function App() {
 
       <Section id="mix" title="매출 구성">
         <p>이번 주 유입 MRR의 구성. 확장이 신규를 앞질렀다.</p>
-        <Panel title="유입 MRR 구성" description="신규 · 확장 · 재활성">
+        <Panel title="유입 MRR 구성" description="신규, 확장, 재활성">
           <CategoryBar
             segments={[
               { label: '신규', value: 58 },
@@ -153,7 +153,7 @@ export default function App() {
           $1.377M에서 출발해 확장(+$71K)이 모든 음의 요인보다 큰 지렛대였고, 축소(-$18K)와
           이탈(-$28K)이 일부를 되돌려 순효과 +$43K로 $1.420M에 마감했다.
         </p>
-        <Panel title="MRR 브리지" description="유입과 유출 구성 요소">
+        <Panel title="주간 증감 기여" description="유입 3요소와 유출 2요소, 단위 $K">
           <ChartContainer
             id="mrr-bridge"
             config={bridgeConfig}
@@ -182,7 +182,7 @@ export default function App() {
 
       <Section id="trend" title="MRR 추세">
         <p>26주 복리 성장. 현재 속도라면 $1.5M 목표는 약 3주 앞이다.</p>
-        <Panel title="MRR 추세" description="W14–W26">
+        <Panel title="W14–W26 주간 마감" description="주간 마감 MRR, 단위 $K">
           <ChartContainer
             id="mrr-trend"
             config={trendConfig}

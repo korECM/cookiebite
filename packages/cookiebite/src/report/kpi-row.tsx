@@ -96,7 +96,7 @@ export function KpiRow({ items, className }: KpiRowProps) {
         className,
       )}
     >
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))]">
         {items.map((item, index) => {
           const good = item.delta ? deltaIsGood(item.delta) : false;
           const Icon =
