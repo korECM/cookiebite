@@ -121,6 +121,9 @@ function splitPagedChildren(children: ReactNode): {
   return { standfirst, pages, rest };
 }
 
+const SHELL_WIDTH =
+  'w-full max-w-[1400px] mx-auto px-6 lg:px-10';
+
 function ReportHeader({
   title,
   kicker,
@@ -133,7 +136,12 @@ function ReportHeader({
   controls: boolean;
 }) {
   return (
-    <header className="mx-auto flex max-w-[1080px] items-start justify-between gap-6 px-6 pt-10 pb-8">
+    <header
+      className={cn(
+        SHELL_WIDTH,
+        'flex items-start justify-between gap-6 pt-10 pb-8',
+      )}
+    >
       <div className="min-w-0 flex-1 space-y-3">
         {kicker ? (
           <div className="flex items-center gap-2">
@@ -175,12 +183,22 @@ function ArticleLayout({
 
       <div
         className={cn(
-          'mx-auto grid max-w-[1080px] gap-10 px-6 pb-16',
-          toc ? 'lg:grid-cols-[14rem_minmax(0,1fr)]' : '',
+          SHELL_WIDTH,
+          'flex gap-10 pb-16',
+          toc ? 'items-start' : '',
         )}
       >
-        {toc ? <ArticleToc items={tocItems} /> : null}
-        <main className="min-w-0 space-y-10">{body}</main>
+        <main className="min-w-0 flex-1 space-y-10">{body}</main>
+        {toc ? (
+          <aside className="hidden min-[1400px]:block w-52 shrink-0">
+            <div className="sticky top-8">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                목차
+              </p>
+              <ArticleToc items={tocItems} />
+            </div>
+          </aside>
+        ) : null}
       </div>
     </div>
   );
@@ -214,7 +232,7 @@ function PagedLayout({
         {({ activeId, navigate }) => {
           const current = activeId || pageIds[0] || '';
           return (
-            <div className="mx-auto max-w-[1080px] space-y-6 px-6 pb-16">
+            <div className={cn(SHELL_WIDTH, 'space-y-6 pb-16')}>
               <PageNavMobile
                 items={navItems}
                 activeId={current}

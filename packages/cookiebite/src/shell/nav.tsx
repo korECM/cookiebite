@@ -164,8 +164,8 @@ export function ArticleToc({ items }: ArticleTocProps) {
   }, [items]);
 
   return (
-    <nav aria-label="Table of contents" className="hidden lg:block">
-      <ul className="sticky top-8">
+    <nav aria-label="Table of contents">
+      <ul>
         {items.map((item) => {
           const current = activeId === item.id;
           return (

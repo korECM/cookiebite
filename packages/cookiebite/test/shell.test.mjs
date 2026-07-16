@@ -24,7 +24,11 @@ test('shell Report SSR: title, kicker, toc anchors, controls aria', async () => 
   assert.match(markup, /text-xl font-semibold tracking-tight/);
   assert.doesNotMatch(markup, /border-b border-border/);
 
-  // TOC left-rail
+  // Fluid width + right-rail TOC (On this page)
+  assert.match(markup, /max-w-\[1400px\]/);
+  assert.doesNotMatch(markup, /max-w-\[1080px\]/);
+  assert.match(markup, /hidden min-\[1400px\]:block w-52 shrink-0/);
+  assert.match(markup, />목차</);
   assert.match(markup, /border-l-2 border-transparent/);
   assert.match(markup, /aria-label="Table of contents"/);
   assert.match(markup, /href="#cause"/);
