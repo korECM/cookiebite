@@ -65,14 +65,19 @@ function isPretendardish(family) {
  */
 function buildFontsCss(theme) {
   const family = theme?.seed?.font ?? 'system-ui, sans-serif';
-  if (!isPretendardish(firstFontFamily(family))) {
+  const first = firstFontFamily(family);
+  if (!isPretendardish(first)) {
     return `body{font-family:${family}}`;
   }
 
   const b64 = loadPretendardBase64();
+  // Seed already leading with Variable — use as-is; otherwise prepend.
+  const stack = /^pretendard\s+variable$/i.test(first)
+    ? family
+    : `'Pretendard Variable',${family}`;
   return [
     `@font-face{font-family:'Pretendard Variable';font-weight:45 920;font-style:normal;font-display:swap;src:url(data:font/woff2;base64,${b64}) format('woff2-variations')}`,
-    `body{font-family:'Pretendard Variable',${family}}`,
+    `body{font-family:${stack}}`,
   ].join('');
 }
 

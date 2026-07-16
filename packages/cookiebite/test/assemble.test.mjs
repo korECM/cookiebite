@@ -72,7 +72,7 @@ test('default Pretendard preset embeds subset woff2 as data URI', () => {
   assert.match(fonts, /data:font\/woff2;base64,/);
   assert.match(fonts, /format\('woff2-variations'\)/);
   assert.match(fonts, /font-family:'Pretendard Variable'/);
-  assert.match(fonts, /body\{font-family:'Pretendard Variable',Pretendard/);
+  assert.match(fonts, /body\{font-family:'Pretendard Variable',\s*Pretendard/);
   assert.doesNotMatch(fonts, /https?:\/\//);
   assert.doesNotMatch(html, /<link\s+rel=["']stylesheet["']/i);
   for (const m of html.matchAll(/\b(?:src|href)\s*=\s*(["'])([^"']*)\1/gi)) {

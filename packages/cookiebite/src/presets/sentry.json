@@ -26,7 +26,7 @@
     "informative": "#2563EB"
   },
   "seed": {
-    "font": "Rubik, -apple-system, system-ui, sans-serif",
+    "font": "'Pretendard Variable', Pretendard, Rubik, -apple-system, system-ui, sans-serif",
     "background": "#FCFCFD",
     "text": "#1F1633",
     "accent": "#6A5FC1",

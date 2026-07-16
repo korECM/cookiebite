@@ -56,3 +56,25 @@ test('exported preset constants compile via compileTheme', () => {
     assert.match(css, /\.dark\{/);
   }
 });
+
+test('every built-in preset seed font leads with Pretendard Variable', () => {
+  const presets = [
+    persimmon,
+    neutral,
+    stripe,
+    vercel,
+    linear,
+    notion,
+    supabase,
+    sentry,
+    resend,
+    raycast,
+  ];
+  for (const preset of presets) {
+    assert.match(
+      preset.seed.font,
+      /^'Pretendard Variable',\s*Pretendard/,
+      `${preset.seed.font} should lead with Pretendard Variable`,
+    );
+  }
+});

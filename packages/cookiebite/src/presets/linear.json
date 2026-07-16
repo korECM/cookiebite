@@ -26,7 +26,7 @@
     "informative": "#2563EB"
   },
   "seed": {
-    "font": "Inter, -apple-system, system-ui, sans-serif",
+    "font": "'Pretendard Variable', Pretendard, Inter, -apple-system, system-ui, sans-serif",
     "background": "#FCFCFD",
     "text": "#0F1011",
     "accent": "#5E6AD2",
