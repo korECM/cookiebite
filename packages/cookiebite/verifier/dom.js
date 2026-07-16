@@ -146,7 +146,9 @@
       const text = el.textContent.trim();
       const elRect = el.getBoundingClientRect();
       const selector = cardLeafSelector(el);
-      if (elRect.right > contentRight - 2) {
+      // 표는 셀 패딩이 간격을 소유 — 카드 경계 기준 crowding 측정 대상이 아님.
+      const inTable = el.closest('[data-slot=table-container]') !== null;
+      if (!inTable && elRect.right > contentRight - 2) {
         view.crowdedText.push({
           ruleId: 'crowded-text',
           selector,
