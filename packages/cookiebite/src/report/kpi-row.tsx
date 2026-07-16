@@ -110,12 +110,15 @@ export function KpiRow({ items, className }: KpiRowProps) {
           return (
             <div
               key={item.label}
+              data-cb-cell="kpi"
               className={cn(
                 'relative -ml-px -mt-px border-l border-t border-border p-5 sm:p-6',
                 hasSpark && 'pb-8',
               )}
             >
-              <div className="text-sm text-muted-foreground">{item.label}</div>
+              <div className="text-sm text-muted-foreground text-pretty">
+                {item.label}
+              </div>
               <div className="mt-1 flex min-w-0 items-baseline gap-1">
                 <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
                   {item.value}

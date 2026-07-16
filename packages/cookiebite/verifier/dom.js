@@ -109,16 +109,19 @@
   view.docLength = document.body.textContent.replace(/\s+/g, ' ').trim().length;
   view.hasNav = !!document.querySelector('nav, [role="navigation"], a[href^="#"]');
 
-  // Card crowding — text touching the content-box edge, or short phrases wrapping ≥3 lines.
-  function cardLeafSelector(el) {
+  // Container crowding — text touching the content-box edge of a card or
+  // strip cell ([data-cb-cell]), or short phrases wrapping ≥3 lines in a card.
+  function containerLeafSelector(el) {
     const parts = [];
     let node = el;
     for (let depth = 0; node && depth < 6; depth += 1) {
       let part = node.tagName.toLowerCase();
       const slot = node.getAttribute && node.getAttribute('data-slot');
+      const cell = node.getAttribute && node.getAttribute('data-cb-cell');
       if (slot) part += `[data-slot=${slot}]`;
+      if (cell) part += `[data-cb-cell=${cell}]`;
       parts.unshift(part);
-      if (slot === 'card') break;
+      if (slot === 'card' || cell) break;
       node = node.parentElement;
     }
     return parts.join('>');
@@ -136,17 +139,17 @@
 
   view.crowdedText = [];
   view.excessiveWrap = [];
-  [...document.querySelectorAll('[data-slot=card]')].forEach((card) => {
-    const cardRect = card.getBoundingClientRect();
-    if (cardRect.width <= 0 || cardRect.height <= 0) return;
-    const padRight = parseFloat(getComputedStyle(card).paddingRight) || 0;
-    const contentRight = cardRect.right - padRight;
-    [...card.querySelectorAll('*')].forEach((el) => {
+  function collectContainerCrowding(container, { wrap } = { wrap: false }) {
+    const rect = container.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const padRight = parseFloat(getComputedStyle(container).paddingRight) || 0;
+    const contentRight = rect.right - padRight;
+    [...container.querySelectorAll('*')].forEach((el) => {
       if (!isVisibleTextLeaf(el)) return;
       const text = el.textContent.trim();
       const elRect = el.getBoundingClientRect();
-      const selector = cardLeafSelector(el);
-      // 표는 셀 패딩이 간격을 소유 — 카드 경계 기준 crowding 측정 대상이 아님.
+      const selector = containerLeafSelector(el);
+      // 표는 셀 패딩이 간격을 소유 — container 경계 기준 crowding 측정 대상이 아님.
       const inTable = el.closest('[data-slot=table-container]') !== null;
       if (!inTable && elRect.right > contentRight - 2) {
         view.crowdedText.push({
@@ -155,7 +158,7 @@
           measured: { gapPx: contentRight - elRect.right },
         });
       }
-      if (text.length <= 16) {
+      if (wrap && text.length <= 16) {
         const lineHeight = parseFloat(getComputedStyle(el).lineHeight);
         if (!Number.isFinite(lineHeight) || lineHeight <= 0) return;
         const lines = Math.round(elRect.height / lineHeight);
@@ -168,6 +171,12 @@
         }
       }
     });
+  }
+  [...document.querySelectorAll('[data-slot=card]')].forEach((card) => {
+    collectContainerCrowding(card, { wrap: true });
+  });
+  [...document.querySelectorAll('[data-cb-cell]')].forEach((cell) => {
+    collectContainerCrowding(cell, { wrap: false });
   });
 
   return JSON.stringify(view);

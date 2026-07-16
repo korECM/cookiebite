@@ -49,8 +49,10 @@ test('KpiRow: joined strip card, cell dividers, sentence-case label, spark backd
       /-ml-px -mt-px border-l border-t border-border p-5 sm:p-6/g,
     ) ?? [];
   assert.equal(cells.length, 3);
+  const cellAttrs = markup.match(/data-cb-cell="kpi"/g) ?? [];
+  assert.equal(cellAttrs.length, 3);
 
-  assert.match(markup, /text-sm text-muted-foreground/);
+  assert.match(markup, /text-sm text-muted-foreground text-pretty/);
   assert.doesNotMatch(
     markup,
     /text-xs font-medium uppercase tracking-wide text-muted-foreground/,
