@@ -22,7 +22,7 @@ export interface ReportProps {
   title: string;
   kicker?: string;
   layout?: 'article' | 'paged';
-  /** `default` caps content at 1600px; `full` is edge-to-edge fluid (no max-width). */
+  /** `default` caps content at 1800px; `full` is edge-to-edge fluid (no max-width). */
   width?: 'default' | 'full';
   controls?: boolean;
   toc?: boolean;
@@ -163,7 +163,7 @@ function shellWidthClass(width: 'default' | 'full' = 'default'): string {
   if (width === 'full') {
     return 'w-full px-6 lg:px-10';
   }
-  return 'w-full max-w-[1600px] mx-auto px-6 lg:px-10';
+  return 'w-full max-w-[1800px] mx-auto px-6 lg:px-10';
 }
 
 function ReportHeader({
