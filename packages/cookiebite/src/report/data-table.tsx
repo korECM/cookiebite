@@ -6,6 +6,7 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
+  type Column,
   type ColumnDef,
   type SortingState,
 } from '@tanstack/react-table';
@@ -15,6 +16,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -55,6 +57,13 @@ export function DataTableColumnHeader({
   );
 }
 
+function metaClassName<TData, TValue>(
+  column: Column<TData, TValue>,
+): string | undefined {
+  const meta = column.columnDef.meta as { className?: string } | undefined;
+  return meta?.className;
+}
+
 export function DataTable<TData, TValue = unknown>({
   columns,
   data,
@@ -72,6 +81,15 @@ export function DataTable<TData, TValue = unknown>({
     state: { sorting },
   });
 
+  const leafCount = table.getAllLeafColumns().length;
+  const showFooter = table
+    .getAllLeafColumns()
+    .some((column) => column.columnDef.footer != null);
+  // Footer groups are deepest-first (inverse of header groups).
+  const leafFooterGroup = table
+    .getFooterGroups()
+    .find((group) => group.headers.every((h) => h.subHeaders.length === 0));
+
   return (
     <div className={cn('w-full min-w-0 overflow-x-auto rounded-md border border-border', className)}>
       <Table>
@@ -79,7 +97,12 @@ export function DataTable<TData, TValue = unknown>({
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
               {headerGroup.headers.map((header) => (
-                <TableHead key={header.id}>
+                <TableHead
+                  key={header.id}
+                  colSpan={header.colSpan}
+                  rowSpan={header.rowSpan > 0 ? header.rowSpan : undefined}
+                  className={metaClassName(header.column)}
+                >
                   {header.isPlaceholder
                     ? null
                     : flexRender(
@@ -96,7 +119,10 @@ export function DataTable<TData, TValue = unknown>({
             table.getRowModel().rows.map((row) => (
               <TableRow key={row.id}>
                 {row.getVisibleCells().map((cell) => (
-                  <TableCell key={cell.id}>
+                  <TableCell
+                    key={cell.id}
+                    className={metaClassName(cell.column)}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
                 ))}
@@ -105,7 +131,7 @@ export function DataTable<TData, TValue = unknown>({
           ) : (
             <TableRow>
               <TableCell
-                colSpan={columns.length}
+                colSpan={leafCount}
                 className="h-24 text-center text-muted-foreground"
               >
                 No results.
@@ -113,6 +139,26 @@ export function DataTable<TData, TValue = unknown>({
             </TableRow>
           )}
         </TableBody>
+        {showFooter && leafFooterGroup ? (
+          <TableFooter>
+            <TableRow key={leafFooterGroup.id}>
+              {leafFooterGroup.headers.map((header) => (
+                <TableCell
+                  key={header.id}
+                  colSpan={header.colSpan}
+                  className={metaClassName(header.column)}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.footer,
+                        header.getContext(),
+                      )}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableFooter>
+        ) : null}
       </Table>
     </div>
   );

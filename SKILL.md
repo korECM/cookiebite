@@ -139,7 +139,7 @@ children only**. Do not wrap them in `<>…</>` if you need TOC or paged nav.
 | `BarList` | `{ items, sort?, className? }` — item `{ name, value, unit? }`; sort `'desc'\|'none'` (default `desc`) | Horizontal ranked bar list; bar width scales to the max value. |
 | `Tracker` | `{ data, className? }` — block `{ status: 'success'\|'error'\|'warning'\|'neutral', label? }` | Status block strip; `label` becomes the block `title` tooltip. |
 | `CategoryBar` | `{ segments, className? }` — segment `{ label, value }` | Stacked composition bar with legend; segment width is proportional to value. |
-| `DataTable` | `{ columns: ColumnDef<T>[], data: T[], className? }` | TanStack Table. Use `DataTableColumnHeader` in `header` for sortable columns. |
+| `DataTable` | `{ columns: ColumnDef<T>[], data: T[], className? }` | TanStack Table. Use `DataTableColumnHeader` in `header` for sortable columns. Grouped headers (nested `columns` under a group `header`) and column `footer` totals are supported. |
 
 ### Charts (shadcn chart idiom)
 

@@ -1,3 +1,4 @@
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Report,
   Standfirst,
@@ -10,6 +11,8 @@ import {
   BarList,
   CategoryBar,
   Panel,
+  DataTable,
+  DataTableColumnHeader,
 } from 'cookiebite';
 import { stripe } from 'cookiebite/themes';
 import {
@@ -18,6 +21,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart';
+import { Badge } from '@/components/ui/badge';
 import {
   Area,
   AreaChart,
@@ -31,6 +35,224 @@ import {
 // legacy docs/examples/weekly-revenue.html 서사를 v3 표면으로 이식
 // 성장 엔진은 신규 로고가 아니라 확장과 유지
 export const __theme = stripe;
+
+type ChannelStatus = '활성' | '베타' | '중단';
+
+type ChannelRow = {
+  channel: string;
+  plan: string;
+  status: ChannelStatus;
+  transactions: number;
+  successRate: number;
+  fee: number;
+  mrr: number;
+  delta: number;
+};
+
+const channelData: ChannelRow[] = [
+  {
+    channel: 'Card',
+    plan: 'Enterprise',
+    status: '활성',
+    transactions: 48210,
+    successRate: 99.2,
+    fee: 2.4,
+    mrr: 520,
+    delta: 18,
+  },
+  {
+    channel: 'Wallet',
+    plan: 'Growth',
+    status: '활성',
+    transactions: 31480,
+    successRate: 98.7,
+    fee: 2.1,
+    mrr: 280,
+    delta: 12,
+  },
+  {
+    channel: 'Bank transfer',
+    plan: 'Enterprise',
+    status: '활성',
+    transactions: 12640,
+    successRate: 97.4,
+    fee: 1.6,
+    mrr: 210,
+    delta: 8,
+  },
+  {
+    channel: 'ACH',
+    plan: 'Starter',
+    status: '베타',
+    transactions: 8920,
+    successRate: 96.1,
+    fee: 1.2,
+    mrr: 95,
+    delta: 4,
+  },
+  {
+    channel: 'Wire',
+    plan: 'Enterprise',
+    status: '활성',
+    transactions: 2140,
+    successRate: 98.9,
+    fee: 0.8,
+    mrr: 140,
+    delta: -2,
+  },
+  {
+    channel: 'Crypto',
+    plan: 'Growth',
+    status: '베타',
+    transactions: 3680,
+    successRate: 94.8,
+    fee: 2.9,
+    mrr: 45,
+    delta: 6,
+  },
+  {
+    channel: 'Invoice',
+    plan: 'Enterprise',
+    status: '활성',
+    transactions: 5410,
+    successRate: 99.5,
+    fee: 1.0,
+    mrr: 110,
+    delta: 3,
+  },
+  {
+    channel: 'Legacy POS',
+    plan: 'Starter',
+    status: '중단',
+    transactions: 820,
+    successRate: 91.2,
+    fee: 3.1,
+    mrr: 20,
+    delta: -6,
+  },
+];
+
+const totalTransactions = channelData.reduce((s, r) => s + r.transactions, 0);
+const totalMrr = channelData.reduce((s, r) => s + r.mrr, 0);
+
+// Fixed locale — default toLocaleString() diverges between Node SSR and the browser.
+function formatInt(n: number) {
+  return n.toLocaleString('en-US');
+}
+
+const numericMeta = { className: 'text-right tabular-nums' } as const;
+
+function StatusBadge({ status }: { status: ChannelStatus }) {
+  return (
+    <Badge
+      variant="outline"
+      className={status === '중단' ? 'text-muted-foreground' : undefined}
+    >
+      {status}
+    </Badge>
+  );
+}
+
+function SuccessRateCell({ value }: { value: number }) {
+  return (
+    <div className="flex items-center justify-end gap-2 tabular-nums">
+      <span>{`${value.toFixed(1)}%`}</span>
+      <span
+        className="inline-block h-1.5 w-16 overflow-hidden rounded bg-muted"
+        aria-hidden
+      >
+        <span
+          className="block h-full rounded bg-primary"
+          style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        />
+      </span>
+    </div>
+  );
+}
+
+function DeltaCell({ value }: { value: number }) {
+  const up = value >= 0;
+  return (
+    <span
+      className={
+        up
+          ? 'text-right tabular-nums text-success'
+          : 'text-right tabular-nums text-destructive'
+      }
+    >
+      {`${up ? '↗' : '↘'} ${up ? '+' : ''}${value}K`}
+    </span>
+  );
+}
+
+const channelColumns: ColumnDef<ChannelRow>[] = [
+  {
+    accessorKey: 'channel',
+    header: '채널',
+    footer: () => <span className="font-medium">합계</span>,
+  },
+  {
+    accessorKey: 'plan',
+    header: '플랜',
+  },
+  {
+    accessorKey: 'status',
+    header: '상태',
+    cell: ({ row }) => <StatusBadge status={row.original.status} />,
+  },
+  {
+    id: '거래',
+    header: () => <div className="text-center">거래</div>,
+    columns: [
+      {
+        accessorKey: 'transactions',
+        header: ({ column }) => (
+            <div className="flex justify-end">
+              <DataTableColumnHeader title="거래수" column={column} />
+            </div>
+          ),
+          cell: ({ row }) => formatInt(row.original.transactions),
+          footer: () => formatInt(totalTransactions),
+          meta: numericMeta,
+        },
+        {
+          accessorKey: 'successRate',
+          header: () => <div className="text-right">성공률</div>,
+          cell: ({ row }) => <SuccessRateCell value={row.original.successRate} />,
+          meta: numericMeta,
+        },
+      ],
+    },
+    {
+      id: '수익',
+      header: () => <div className="text-center">수익</div>,
+      columns: [
+        {
+          accessorKey: 'fee',
+          header: () => <div className="text-right">수수료</div>,
+          cell: ({ row }) => `${row.original.fee.toFixed(1)}%`,
+          meta: numericMeta,
+        },
+        {
+          accessorKey: 'mrr',
+          header: ({ column }) => (
+            <div className="flex justify-end">
+              <DataTableColumnHeader title="MRR" column={column} />
+            </div>
+          ),
+        cell: ({ row }) => `$${row.original.mrr}K`,
+        footer: () => `$${formatInt(totalMrr)}K`,
+        meta: numericMeta,
+      },
+      {
+        accessorKey: 'delta',
+        header: () => <div className="text-right">증감</div>,
+        cell: ({ row }) => <DeltaCell value={row.original.delta} />,
+        meta: numericMeta,
+      },
+    ],
+  },
+];
 
 const bridgeConfig = {
   expansion: { label: '유입 (신규, 확장, 재활성)', color: 'var(--chart-1)' },
@@ -275,6 +497,16 @@ export default function App() {
         </p>
         <Panel title="순 MRR 증감 상위 계정">
           <BarList items={topAccountDeltas} />
+        </Panel>
+      </Section>
+
+      <Section id="channels" title="채널별 실적">
+        <p>
+          결제 채널 8곳의 거래와 수익. Card와 Wallet이 MRR의 절반 이상을 맡고,
+          Legacy POS는 중단 대기 중이다. 합계 MRR은 $1.42M과 맞는다.
+        </p>
+        <Panel title="채널별 실적" description="거래 그룹과 수익 그룹, 합계 행">
+          <DataTable columns={channelColumns} data={channelData} />
         </Panel>
       </Section>
 

@@ -190,6 +190,27 @@ test('DataTable: all rows in SSR markup, sortable header button', async () => {
   assert.match(markup, /9012/);
 });
 
+test('DataTable: grouped header rendered with colSpan', async () => {
+  const { markup } = await renderReport(fixture('data-table-complex.tsx'));
+
+  assert.match(markup, />거래</);
+  assert.match(markup, />수익</);
+  // React SSR keeps the camelCase prop name on the attribute.
+  assert.match(markup, /colSpan="2"/);
+  assert.match(markup, /거래수/);
+  assert.match(markup, /성공률/);
+});
+
+test('DataTable: footer totals row rendered', async () => {
+  const { markup } = await renderReport(fixture('data-table-complex.tsx'));
+
+  assert.match(markup, /data-slot="table-footer"/);
+  assert.match(
+    markup,
+    /data-slot="table-footer"[\s\S]*?합계[\s\S]*?>250<[\s\S]*?>90</,
+  );
+});
+
 test('e2e: KpiRow + DataTable inside Report builds', () => {
   const out = path.join(
     mkdtempSync(path.join(tmpdir(), 'cb-report-')),
