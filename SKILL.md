@@ -288,6 +288,7 @@ its detail **conditionally**: `DESIGN.md` for the freeform token contract, and
 - `packages/cookiebite/templates/starter.tsx` — minimal article starter.
 - `docs/examples-tsx/weekly-revenue.tsx` — article + charts + DataTable.
 - `docs/examples-tsx/incident-postmortem.tsx` — paged layout demo.
+- `docs/examples-tsx/quarterly-strategy.tsx` — prose-first article (strategy memo).
 
 **Legacy full-runtime references — load only when rebuilding a legacy report:**
 `references/helpers.md`, `components.md`, `snippets.md`, `design-system.md`,
