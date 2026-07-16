@@ -150,6 +150,8 @@ custom blocks under `components/blocks/` and import them as `@/components/blocks
 
 JSX 산문은 하드랩하지 않는다 — 한 문단을 한 줄로 쓰고 soft wrap에 맡긴다. JSX가 줄바꿈을 공백으로 합치므로 한국어 문장을 중간에서 꺾으면 렌더 결과에 의도치 않은 공백이 생긴다.
 
+한국어 조사가 라틴 문자나 닫는 괄호 뒤에서 줄 머리로 떨어지는 문제는 워드 조이너(U+2060)로 막는다. `Section`(title, lede), `Page`(title), `Sources`(label, note), `Glossary`(term, def), `Panel`(title, description), `KpiRow`(label, compare, caption), `Claims`(text, evidence), `Findings`(title, detail), `BarList`(name), `Matrix`(행 라벨, 문자열 셀), `CategoryBar`(세그먼트 라벨)의 문자열 prop은 자동으로 처리된다. 자유 산문에서 조사가 줄 머리로 떨어지면 `koGlue`로 감싼다(`import { koGlue } from 'cookiebite'`).
+
 ### Shell (`cookiebite`)
 
 | Component | Props | Role |

@@ -50,6 +50,17 @@ test('shell Report SSR: title, kicker, toc anchors, controls aria', async () => 
   assert.match(markup, /retry_cap/);
 });
 
+test('shell Sources: koGlue inserts a word joiner before a particle in SSR', async () => {
+  const { markup } = await renderReport(fixture('ko-glue.tsx'));
+
+  assert.ok(markup.includes('⁠'), 'SSR markup must carry a word joiner');
+  // particle 와 glued to the preceding ')' rather than orphaned at line start
+  assert.ok(
+    markup.includes(')⁠와'),
+    'Sources item label must glue 와 to the closing paren',
+  );
+});
+
 test('shell Report width="full" drops shell max-width cap', async () => {
   const { markup } = await renderReport(fixture('shell-full-width.tsx'));
 

@@ -5,6 +5,7 @@ import {
   AlertTitle,
 } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export type FindingSeverity = 'critical' | 'warning' | 'info';
 
@@ -49,9 +50,9 @@ export function Findings({ items, className }: FindingsProps) {
             className="box-border min-w-0 max-w-full"
           >
             <Icon className={iconClass} aria-hidden />
-            <AlertTitle>{item.title}</AlertTitle>
+            <AlertTitle>{koGlue(item.title)}</AlertTitle>
             {item.detail ? (
-              <AlertDescription>{item.detail}</AlertDescription>
+              <AlertDescription>{koGlue(item.detail)}</AlertDescription>
             ) : null}
           </Alert>
         );

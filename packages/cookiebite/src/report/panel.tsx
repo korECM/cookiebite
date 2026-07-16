@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface PanelProps {
   title: string;
@@ -27,9 +28,9 @@ export function Panel({
     >
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <div className="min-w-0">
-          <p className="text-base font-semibold text-foreground">{title}</p>
+          <p className="text-base font-semibold text-foreground">{koGlue(title)}</p>
           {description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">{koGlue(description)}</p>
           ) : null}
         </div>
         {actions ? <div className="shrink-0">{actions}</div> : null}

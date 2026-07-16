@@ -112,6 +112,29 @@ test('verify-ok fixture: build + verify --manual-ok exits 0 / hard 0', { timeout
   assert.equal(report.inventory.viewports.length, 4, '390+768+1280+dark');
 });
 
+test('ko-glue: word-joiner survives build + hydrates clean (hard 0)', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-ko-glue-'));
+  const htmlPath = path.join(dir, 'ko-glue.html');
+  const outJson = path.join(dir, 'verification.json');
+
+  const built = runCli(['build', fixture('ko-glue.tsx'), '-o', htmlPath]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+  const html = readFileSync(htmlPath, 'utf8');
+  assertV3Document(html);
+  assert.ok(html.includes(')⁠와'), 'built HTML must keep the glued particle');
+
+  const verified = runCli(['verify', htmlPath, '--manual-ok', '-o', outJson], {
+    timeout: FIVE_MIN,
+  });
+  assert.equal(verified.code, 0, `verify failed: ${verified.stderr}\n${verified.stdout}`);
+
+  const report = JSON.parse(readFileSync(outJson, 'utf8'));
+  const hard = report.findings.filter((f) => f.severity === 'error');
+  assert.equal(hard.length, 0, `unexpected hard: ${JSON.stringify(hard, null, 2)}`);
+});
+
 test('verify-hydration-break: hydration-warning is hard', { timeout: FIVE_MIN }, (t) => {
   if (!browserAvailable()) return t.skip('agent-browser not installed');
 

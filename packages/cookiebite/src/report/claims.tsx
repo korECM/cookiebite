@@ -1,6 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface ClaimItem {
   text: string;
@@ -23,9 +24,9 @@ export function Claims({ items, className }: ClaimsProps) {
             className="grid grid-cols-[1fr_auto] items-start gap-4 px-6 py-4"
           >
             <div className="min-w-0 space-y-1">
-              <p className="font-medium text-card-foreground">{item.text}</p>
+              <p className="font-medium text-card-foreground">{koGlue(item.text)}</p>
               {item.evidence ? (
-                <p className="text-sm text-muted-foreground">{item.evidence}</p>
+                <p className="text-sm text-muted-foreground">{koGlue(item.evidence)}</p>
               ) : null}
             </div>
             {item.badge ? (

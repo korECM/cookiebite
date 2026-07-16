@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface SectionProps {
   id: string;
@@ -32,10 +33,10 @@ export function Section({
         ) : (
           <span className="h-4 w-1 rounded-full bg-primary" />
         )}
-        <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
+        <h2 className="text-xl font-semibold tracking-tight">{koGlue(title)}</h2>
       </div>
       {lede ? (
-        <p className="max-w-prose text-muted-foreground text-pretty">{lede}</p>
+        <p className="max-w-prose text-muted-foreground text-pretty">{koGlue(lede)}</p>
       ) : null}
       <div className="space-y-4">{children}</div>
     </section>

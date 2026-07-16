@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface StandfirstProps {
   children: ReactNode;
@@ -37,13 +38,13 @@ export function Sources({ items, className }: SourcesProps) {
               href={item.href}
               className="underline-offset-4 hover:underline"
             >
-              {item.label}
+              {koGlue(item.label)}
             </a>
           ) : (
-            <span>{item.label}</span>
+            <span>{koGlue(item.label)}</span>
           )}
           {item.note ? (
-            <span className="text-muted-foreground">{` — ${item.note}`}</span>
+            <span className="text-muted-foreground">{` — ${koGlue(item.note)}`}</span>
           ) : null}
         </li>
       ))}
@@ -67,8 +68,8 @@ export function Glossary({ terms, className }: GlossaryProps) {
     <dl className={cn('grid gap-3 sm:grid-cols-[minmax(8rem,auto)_1fr]', className)}>
       {terms.map((t, i) => (
         <div key={`${t.term}-${i}`} className="contents">
-          <dt className="font-medium text-foreground">{t.term}</dt>
-          <dd className="text-muted-foreground">{t.def}</dd>
+          <dt className="font-medium text-foreground">{koGlue(t.term)}</dt>
+          <dd className="text-muted-foreground">{koGlue(t.def)}</dd>
         </div>
       ))}
     </dl>

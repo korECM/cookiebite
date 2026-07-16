@@ -1,5 +1,6 @@
 // ported from tremor (Apache-2.0) onto cookiebite tokens
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface CategoryBarSegment {
   label: string;
@@ -42,7 +43,7 @@ export function CategoryBar({ segments, className }: CategoryBarProps) {
             <span
               className={cn('size-2 rounded-full', SWATCH[i % SWATCH.length])}
             />
-            <span>{segment.label}</span>
+            <span>{koGlue(segment.label)}</span>
             <span className="tabular-nums">{segment.value}</span>
           </span>
         ))}

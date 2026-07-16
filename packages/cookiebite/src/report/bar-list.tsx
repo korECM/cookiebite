@@ -1,5 +1,6 @@
 // ported from tremor (Apache-2.0) onto cookiebite tokens
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface BarListItem {
   name: string;
@@ -39,7 +40,7 @@ export function BarList({ items, sort = 'desc', className }: BarListProps) {
                 style={{ width: `${pct}%` }}
               />
               <span className="z-10 truncate pl-2.5 text-sm text-foreground">
-                {item.name}
+                {koGlue(item.name)}
               </span>
             </div>
             <span className="text-sm tabular-nums text-muted-foreground">

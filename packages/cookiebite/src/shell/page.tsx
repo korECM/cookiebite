@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useContext } from 'react';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 import { PageVisibilityContext } from './nav.tsx';
 
 export interface PageProps {
@@ -33,7 +34,7 @@ export function Page({ id, title, icon, children, className }: PageProps) {
       <h2 className="flex items-center gap-2.5 text-xl font-semibold tracking-tight">
         <span className="h-4 w-1 shrink-0 rounded-full bg-primary" />
         {icon ? <span className="shrink-0 [&_svg]:size-5">{icon}</span> : null}
-        {title}
+        {koGlue(title)}
       </h2>
       <div className="space-y-4">{children}</div>
     </section>

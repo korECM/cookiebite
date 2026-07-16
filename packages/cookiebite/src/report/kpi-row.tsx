@@ -1,6 +1,7 @@
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface KpiDelta {
   value: string;
@@ -117,7 +118,7 @@ export function KpiRow({ items, className }: KpiRowProps) {
               )}
             >
               <div className="text-sm text-muted-foreground text-pretty">
-                {item.label}
+                {koGlue(item.label)}
               </div>
               <div className="mt-1 flex min-w-0 items-baseline gap-1">
                 <span className="text-2xl font-semibold tracking-tight tabular-nums text-foreground">
@@ -146,14 +147,14 @@ export function KpiRow({ items, className }: KpiRowProps) {
                   ) : null}
                   {item.compare ? (
                     <span className="text-xs text-muted-foreground">
-                      {item.compare}
+                      {koGlue(item.compare)}
                     </span>
                   ) : null}
                 </div>
               ) : null}
               {item.caption ? (
                 <p className="mt-1 text-xs text-muted-foreground text-pretty">
-                  {item.caption}
+                  {koGlue(item.caption)}
                 </p>
               ) : null}
               {hasSpark ? (

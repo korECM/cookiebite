@@ -9,6 +9,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { koGlue } from '@/lib/ko-text';
 
 export interface MatrixRow {
   label: string;
@@ -33,7 +34,7 @@ function CellValue({ value }: { value: boolean | string }) {
       />
     );
   }
-  return <span className="text-sm text-foreground">{value}</span>;
+  return <span className="text-sm text-foreground">{koGlue(value)}</span>;
 }
 
 export function Matrix({ rows, cols, caption, className }: MatrixProps) {
@@ -54,7 +55,7 @@ export function Matrix({ rows, cols, caption, className }: MatrixProps) {
         {rows.map((row) => (
           <TableRow key={row.label}>
             <TableCell className="font-medium text-foreground">
-              {row.label}
+              {koGlue(row.label)}
             </TableCell>
             {row.cells.map((cell, i) => (
               <TableCell key={`${row.label}-${cols[i] ?? i}`} className="text-center">
