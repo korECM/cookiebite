@@ -23,7 +23,38 @@ bunx cookiebite verify report.html --runs 3
   임의값(`bg-[#…]`)은 CSS가 나오지 않거나 lint에 걸립니다.
 - 차트 색은 `var(--chart-N)` / `var(--color-KEY)`만. 리터럴은 빌드 실패.
 - data / ChartConfig / `accessorKey`는 영어 식별자, 한글은 라벨과 서사에만.
-- 로컬 shadowing: 리포트 옆에 `components/ui/<name>.tsx`를 두면 패키지 UI를 덮어씁니다.
+- 로컬 shadowing: `@/`는 리포트 디렉토리 우선. `components/ui/<name>.tsx`로 패키지 UI를
+  덮어쓰거나, `components/blocks/` 등 임의 경로를 `@/…`로 import할 수 있습니다.
+
+## 내장에 없는 컴포넌트가 필요할 때
+
+1. **Local shadowing** — `@/`는 리포트 디렉토리 우선. 커스텀 블록을 옆에 두고
+   `@/components/blocks/…`로 import합니다.
+2. **shadcn CLI** — `cookiebite new`가 `components.json`을 스캐폴드합니다.
+
+   ```bash
+   npx shadcn@latest add <name>
+   npx shadcn@latest add @registry/<block>
+   ```
+
+3. **공식 shadcn MCP** — `.mcp.json` 예시:
+
+   ```json
+   {
+     "mcpServers": {
+       "shadcn": {
+         "command": "npx",
+         "args": ["shadcn@latest", "mcp"]
+       }
+     }
+   }
+   ```
+
+   또는 `pnpm dlx shadcn@latest mcp init --client claude`.
+
+4. **Caveats** — 추가 npm 의존성이 필요한 블록은 리포트 디렉토리에 `pnpm add` 후
+   빌드(로컬 `node_modules` 해석 지원). 상용 레지스트리 라이선스는 사용자 책임.
+   색 리터럴이 든 블록은 lint가 거부하므로 시맨틱 토큰으로 손질 필요.
 
 ## 기능
 

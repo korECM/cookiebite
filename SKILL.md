@@ -104,10 +104,43 @@ Use semantic Tailwind utilities (`bg-card`, `text-muted-foreground`, `border-bor
 `bg-primary`, `text-success`, …). Palette steps (`bg-red-500`) and arbitrary colors
 (`bg-[#hex]`, inline hex/rgb) fail the build.
 
-**Escape hatch — local shadowing:** place `components/ui/<name>.tsx` (or `lib/<name>.ts`)
-next to the report file. The bundler resolves `@/components/ui/<name>` to the local file
-first, then the package. Use this to tweak a single UI primitive without forking the
-package.
+**Escape hatch — local shadowing:** any `@/<path>` resolves to a file under the report
+directory first (`components/…`, `lib/…`, `data/…`, …), then falls back to built-in
+`@/components/ui/*` → package `src/ui/*` and `@/lib/*` → `src/lib/*`. Place
+`components/ui/<name>.tsx` next to the report to override a vendored primitive, or add
+custom blocks under `components/blocks/` and import them as `@/components/blocks/…`.
+
+### 내장에 없는 컴포넌트가 필요할 때
+
+1. **Local shadowing** — `@/`는 리포트 디렉토리 우선. 필요한 TSX를 리포트 옆에 두고
+   `@/components/blocks/…`처럼 import하면 됩니다.
+2. **shadcn CLI** — `cookiebite new`가 `components.json`(및 최소 `tsconfig.json`)을
+   스캐폴드합니다. 리포트 디렉토리에서:
+
+   ```bash
+   npx shadcn@latest add badge
+   npx shadcn@latest add @registry/block-name
+   ```
+
+3. **공식 shadcn MCP** — AI가 레지스트리를 탐색·설치하게 하려면 프로젝트 `.mcp.json`에:
+
+   ```json
+   {
+     "mcpServers": {
+       "shadcn": {
+         "command": "npx",
+         "args": ["shadcn@latest", "mcp"]
+       }
+     }
+   }
+   ```
+
+   또는 `pnpm dlx shadcn@latest mcp init --client claude`.
+
+4. **Caveats** — 추가 npm 의존성이 필요한 블록은 리포트 디렉토리에서 `pnpm add`한 뒤
+   빌드하세요(로컬 `node_modules` 해석 지원). 상용 레지스트리(shadcnblocks 등) 라이선스는
+   사용자 책임입니다. 색 리터럴이 든 블록은 lint가 거부하므로 시맨틱 토큰으로 손질해야
+   합니다.
 
 ### Shell (`cookiebite`)
 

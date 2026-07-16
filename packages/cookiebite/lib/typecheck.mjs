@@ -1,4 +1,5 @@
 // packages/cookiebite/lib/typecheck.mjs
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,8 +45,27 @@ function resolveAuthorDepPaths() {
   return out;
 }
 
+/**
+ * `@/` 해석은 esbuild와 동일: 리포트 로컬 우선, 내장 ui/lib는 특수 매핑.
+ * TS는 longest-prefix 패턴이 이기므로 ui/lib 배열에 로컬 후보를 앞에 둔다.
+ */
+function atAliasPaths(reportDir) {
+  const local = (sub) => path.join(reportDir, sub);
+  return {
+    '@/*': [local('*')],
+    '@/components/ui/*': [local('components/ui/*'), './src/ui/*'],
+    '@/lib/*': [local('lib/*'), './src/lib/*'],
+  };
+}
+
 export function typecheckReport(reportPath) {
+  const absolute = path.resolve(reportPath);
+  const reportDir = path.dirname(absolute);
   const reactPaths = resolveReactTypesPaths();
+  const typeRoots = [path.join(pkgRoot, 'node_modules/@types')];
+  const reportNmTypes = path.join(reportDir, 'node_modules/@types');
+  if (existsSync(reportNmTypes)) typeRoots.unshift(reportNmTypes);
+
   const options = {
     noEmit: true,
     strict: true,
@@ -57,17 +77,17 @@ export function typecheckReport(reportPath) {
     allowImportingTsExtensions: true,
     skipLibCheck: true,
     baseUrl: pkgRoot,
+    typeRoots,
     paths: {
       cookiebite: ['./src/index.ts'],
       'cookiebite/themes': ['./src/themes.ts'],
-      '@/components/ui/*': ['./src/ui/*'],
-      '@/lib/*': ['./src/lib/*'],
+      ...atAliasPaths(reportDir),
       react: reactPaths.react,
       'react/jsx-runtime': reactPaths['react/jsx-runtime'],
       ...resolveAuthorDepPaths(),
     },
   };
-  const program = ts.createProgram([path.resolve(reportPath)], options);
+  const program = ts.createProgram([absolute], options);
   const host = {
     getCanonicalFileName: (fileName) => fileName,
     getCurrentDirectory: () => process.cwd(),

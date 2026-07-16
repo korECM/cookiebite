@@ -17,9 +17,9 @@ test('buildClientBundle includes hydrateRoot and hydration flag; NODE_ENV define
   assert.doesNotMatch(js, /process\.env\.NODE_ENV/);
 });
 
-test('buildClientBundle rejects unknown @/ alias with supported prefixes', async () => {
+test('buildClientBundle rejects unknown @/ alias with report-local-first rule', async () => {
   await assert.rejects(
     () => buildClientBundle(fixture('unknown-alias.tsx')),
-    /@\/components\/ui\/\*|@\/lib\/\*|Supported prefixes/i,
+    /report-local first|built-in @\/components\/ui\/\*|@\/lib\/\*/i,
   );
 });

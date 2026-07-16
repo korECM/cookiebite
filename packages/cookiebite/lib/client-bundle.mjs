@@ -43,7 +43,7 @@ export async function buildClientBundle(tsxPath) {
     platform: 'browser',
     minify: true,
     jsx: 'automatic',
-    nodePaths: resolveNodeModulesPaths(),
+    nodePaths: resolveNodeModulesPaths(reportDir),
     plugins: [createAtAliasPlugin(reportDir)],
     alias: cookiebiteAliases(),
     define: {

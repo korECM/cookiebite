@@ -26,6 +26,13 @@ test('v3 renderReport: local components/ui/card.tsx shadows package', async () =
   assert.doesNotMatch(result.markup, /data-slot="card"/);
 });
 
+test('v3 renderReport: general @/ resolves report-local blocks and data', async () => {
+  const result = await renderReport(fixture('general-alias/report.tsx'));
+  assert.match(result.markup, /data-slot="local-callout"/);
+  assert.match(result.markup, /helper-ok/);
+  assert.match(result.markup, /data-slot="card"/);
+});
+
 test('v3 renderReport: Radix Tabs SSR has data-slot and trigger text', async () => {
   const result = await renderReport(fixture('hydration-tabs.tsx'));
   assert.match(result.markup, /data-slot="tabs"/);
@@ -33,10 +40,10 @@ test('v3 renderReport: Radix Tabs SSR has data-slot and trigger text', async () 
   assert.equal(result.theme, null);
 });
 
-test('v3 renderReport: unknown @/ alias rejects with supported prefixes', async () => {
+test('v3 renderReport: unknown @/ alias rejects with report-local-first rule', async () => {
   await assert.rejects(
     () => renderReport(fixture('unknown-alias.tsx')),
-    /@\/components\/ui\/\*|@\/lib\/\*|Supported prefixes/i,
+    /report-local first|built-in @\/components\/ui\/\*|@\/lib\/\*/i,
   );
 });
 

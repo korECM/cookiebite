@@ -34,3 +34,19 @@ test('typecheckReport accepts ThemeDocument overrides with .dark patch', () => {
   const diagnostics = typecheckReport(fixture('theme-overrides-ok.tsx'));
   assert.deepEqual(diagnostics, []);
 });
+
+test('typecheckReport follows @/ report-local-first then built-in ui/lib', () => {
+  const diagnostics = typecheckReport(fixture('general-alias/report.tsx'));
+  assert.deepEqual(diagnostics, []);
+});
+
+test('typecheckReport: local components/ui shadow wins over package', () => {
+  const diagnostics = typecheckReport(fixture('shadow-card/report.tsx'));
+  assert.deepEqual(diagnostics, []);
+});
+
+test('typecheckReport rejects unknown @/ path', () => {
+  const diagnostics = typecheckReport(fixture('unknown-alias.tsx'));
+  assert.ok(diagnostics.length > 0);
+  assert.match(diagnostics.join('\n'), /Cannot find module|@\/wat\/x/i);
+});

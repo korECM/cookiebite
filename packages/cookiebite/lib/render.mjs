@@ -17,11 +17,20 @@ export function resolveReactNodeModules() {
   }
 }
 
-/** SSR/클라이언트 번들 공통 — 패키지 밖 리포트도 recharts 등 저작 deps를 찾게 한다. */
-export function resolveNodeModulesPaths() {
-  const paths = [path.join(pkgRoot, 'node_modules')];
+/**
+ * SSR/클라이언트 번들 공통 — 리포트 로컬 node_modules(있으면) → 패키지 deps.
+ * @param {string} [reportDir]
+ */
+export function resolveNodeModulesPaths(reportDir) {
+  const paths = [];
+  if (reportDir) {
+    const localNm = path.join(reportDir, 'node_modules');
+    if (existsSync(localNm)) paths.push(localNm);
+  }
+  const pkgNm = path.join(pkgRoot, 'node_modules');
+  paths.push(pkgNm);
   const reactNm = resolveReactNodeModules();
-  if (reactNm !== paths[0]) paths.push(reactNm);
+  if (reactNm !== pkgNm) paths.push(reactNm);
   return paths;
 }
 
@@ -32,9 +41,24 @@ export class BuildError extends Error {
   }
 }
 
+const AT_EXTS = ['.tsx', '.ts', '.jsx', '.js'];
+
+/** `<base>` 또는 `<base>/index.*` 후보를 확장자 순으로 찾는다. */
+function resolveAtCandidate(base) {
+  for (const ext of AT_EXTS) {
+    const candidate = `${base}${ext}`;
+    if (existsSync(candidate)) return candidate;
+  }
+  for (const ext of AT_EXTS) {
+    const candidate = path.join(base, `index${ext}`);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
+
 /**
- * `@/components/ui/<name>` · `@/lib/<name>` → (1) 리포트 디렉토리 로컬 파일, (2) 패키지 src.
- * 그 외 `@/…`는 빌드 에러.
+ * `@/<path>` → (1) `<reportDir>/<path>`, (2) 내장 특수 매핑
+ * (`@/components/ui/*`→`src/ui/*`, `@/lib/*`→`src/lib/*`).
  */
 export function createAtAliasPlugin(reportDir) {
   return {
@@ -42,38 +66,29 @@ export function createAtAliasPlugin(reportDir) {
     setup(b) {
       b.onResolve({ filter: /^@\// }, (args) => {
         const rest = args.path.slice(2); // strip "@/"
-        const uiMatch = /^components\/ui\/([^/]+)$/.exec(rest);
-        const libMatch = /^lib\/([^/]+)$/.exec(rest);
+        const localHit = resolveAtCandidate(path.join(reportDir, rest));
+        if (localHit) return { path: localHit };
 
-        if (!uiMatch && !libMatch) {
-          return {
-            errors: [
-              {
-                text:
-                  `Unsupported path alias "${args.path}". ` +
-                  'Supported prefixes: @/components/ui/*, @/lib/*',
-              },
-            ],
-          };
+        const uiMatch = /^components\/ui\/(.+)$/.exec(rest);
+        if (uiMatch) {
+          const pkgHit = resolveAtCandidate(path.join(pkgRoot, 'src', 'ui', uiMatch[1]));
+          if (pkgHit) return { path: pkgHit };
         }
-
-        const name = uiMatch ? uiMatch[1] : libMatch[1];
-        const localBase = uiMatch
-          ? path.join(reportDir, 'components', 'ui', name)
-          : path.join(reportDir, 'lib', name);
-        const pkgBase = uiMatch
-          ? path.join(pkgRoot, 'src', 'ui', name)
-          : path.join(pkgRoot, 'src', 'lib', name);
-
-        for (const base of [localBase, pkgBase]) {
-          for (const ext of ['.tsx', '.ts']) {
-            const candidate = `${base}${ext}`;
-            if (existsSync(candidate)) return { path: candidate };
-          }
+        const libMatch = /^lib\/(.+)$/.exec(rest);
+        if (libMatch) {
+          const pkgHit = resolveAtCandidate(path.join(pkgRoot, 'src', 'lib', libMatch[1]));
+          if (pkgHit) return { path: pkgHit };
         }
 
         return {
-          errors: [{ text: `Cannot resolve "${args.path}" (no local or package file)` }],
+          errors: [
+            {
+              text:
+                `Cannot resolve "${args.path}". ` +
+                '@/ paths resolve report-local first (<reportDir>/<path>), ' +
+                'then built-in @/components/ui/* → src/ui/* and @/lib/* → src/lib/*.',
+            },
+          ],
         };
       });
     },
@@ -95,7 +110,7 @@ function sharedEsbuildOptions(absolute) {
   return {
     bundle: true,
     jsx: 'automatic',
-    nodePaths: resolveNodeModulesPaths(),
+    nodePaths: resolveNodeModulesPaths(reportDir),
     plugins: [createAtAliasPlugin(reportDir)],
     alias: cookiebiteAliases(),
     define: {
