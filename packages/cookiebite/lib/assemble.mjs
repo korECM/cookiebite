@@ -10,6 +10,9 @@ const SHELL_CSS =
   ':root[data-density="compact"]{--spacing:0.2rem}:root[data-density="spacious"]{--spacing:0.3rem}@media print{[data-page].hidden{display:block!important}}';
 
 const PACKAGE_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const PACKAGE_VERSION = JSON.parse(
+  readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8'),
+).version;
 const PRETENDARD_WOFF2 = join(
   PACKAGE_ROOT,
   'assets',
@@ -27,9 +30,10 @@ function escapeHtml(text) {
     .replaceAll('"', '&quot;');
 }
 
-/** localStorage → .dark / data-density 선적용 (paint 전). */
+/** localStorage → .dark / data-density 선적용 (paint 전) + version stamp (1회). */
 function buildBootScript() {
-  return `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==="dark")document.documentElement.classList.add("dark");var d=localStorage.getItem(${JSON.stringify(DENSITY_STORAGE_KEY)});if(d==="compact"||d==="comfortable"||d==="spacious")document.documentElement.setAttribute("data-density",d);}catch(e){}})();`;
+  const versionLine = `cookiebite ${PACKAGE_VERSION} — https://github.com/korECM/cookiebite`;
+  return `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});if(t==="dark")document.documentElement.classList.add("dark");var d=localStorage.getItem(${JSON.stringify(DENSITY_STORAGE_KEY)});if(d==="compact"||d==="comfortable"||d==="spacious")document.documentElement.setAttribute("data-density",d);}catch(e){}})();(function(){if(globalThis.__COOKIEBITE_VLOG__)return;globalThis.__COOKIEBITE_VLOG__=1;console.info(${JSON.stringify(versionLine)});})();`;
 }
 
 function loadPretendardBase64() {
@@ -113,6 +117,7 @@ export function assembleDocument({
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="generator" content="cookiebite ${escapeHtml(PACKAGE_VERSION)}">
   <title>${escapeHtml(title)}</title>
   <script id="cookiebite-boot">${buildBootScript()}</script>
   <style id="cookiebite-theme">

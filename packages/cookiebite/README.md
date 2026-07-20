@@ -72,6 +72,7 @@ bunx cookiebite verify report.html --runs 3
 - **Fonts:** Pretendard 계열 seed는 Variable subset(~1.7MB woff2)을 data URI로 내장(HTML
   수 MB 증가). 커스텀 first-family는 미내장.
 - **Verify:** hydration / console / chart-empty / overflow / contrast 등 (agent-browser)
+- **Version:** 산출물에 generator 메타가 박히고, CLI가 하루 한 번 새 버전을 안내한다(끄려면 COOKIEBITE_NO_UPDATE_CHECK=1).
 
 ## 컴포넌트
 

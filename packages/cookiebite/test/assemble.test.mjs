@@ -1,8 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { assembleDocument } from '../lib/assemble.mjs';
 import { compileTheme } from '../lib/theme-compile.mjs';
 import { persimmon } from '../src/themes.ts';
+
+const pkgVersion = JSON.parse(
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../package.json'), 'utf8'),
+).version;
 
 const { css: themeCss } = compileTheme(persimmon);
 
@@ -41,6 +48,30 @@ test('assembled document carries the canonical block ids in order', () => {
   assert.match(html, /cookiebite-theme/);
   assert.match(html, /cookiebite-density/);
   assert.doesNotMatch(html, /<link\s+rel=["']stylesheet["']/i);
+});
+
+test('generator meta stamps the package version; console URL is inert text', () => {
+  const html = assembleDocument(base);
+  assert.match(
+    html,
+    new RegExp(
+      `<meta name="generator" content="cookiebite ${pkgVersion.replaceAll('.', '\\.')}">`,
+    ),
+  );
+  const boot = html.match(/id="cookiebite-boot">([\s\S]*?)<\/script>/)[1];
+  assert.match(
+    boot,
+    new RegExp(
+      `console\\.info\\("cookiebite ${pkgVersion.replaceAll('.', '\\.')} — https://github\\.com/korECM/cookiebite"\\)`,
+    ),
+  );
+  assert.match(boot, /__COOKIEBITE_VLOG__/);
+  assert.doesNotMatch(html, /<link\s+rel=["']stylesheet["']/i);
+  for (const m of html.matchAll(/\b(?:src|href)\s*=\s*(["'])([^"']*)\1/gi)) {
+    const value = m[2];
+    if (value.startsWith('data:') || value.startsWith('#')) continue;
+    assert.doesNotMatch(value, /^https?:\/\//i, `external ref: ${value}`);
+  }
 });
 
 test('empty twCss omits the cookiebite-tw block', () => {

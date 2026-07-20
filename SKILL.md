@@ -62,6 +62,8 @@ bunx cookiebite verify report.html --runs 3
 5. **Look at the actual pixels** for judgments the build can't make (see Verify) and hand
    back the HTML.
 
+산출물에 generator 메타가 박히고, CLI가 하루 한 번 새 버전을 안내한다(끄려면 COOKIEBITE_NO_UPDATE_CHECK=1).
+
 ## Plan claims + evidence first
 
 Start with **one to three claims, their evidence, and the reader's first question.** Order

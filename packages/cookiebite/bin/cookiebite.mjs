@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { maybeNotifyUpdate } from '../lib/update-check.mjs';
 
 const pkgRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'));
@@ -12,7 +13,7 @@ const USAGE = `사용법:
   cookiebite verify <report.html> [--runs N] [--manual-ok] [-o out.json]
   cookiebite --version`;
 
-async function main() {
+async function run() {
   const [command, ...args] = process.argv.slice(2);
   if (command === '--version' || command === '-v') {
     process.stdout.write(`${pkg.version}\n`);
@@ -35,6 +36,17 @@ async function main() {
   }
   process.stderr.write(`${USAGE}\n`);
   process.exitCode = 1;
+}
+
+async function main() {
+  // Fire-and-forget: start early, await after command so the notice follows output.
+  // verify exit codes (process.exitCode) are left as-is.
+  const notice = maybeNotifyUpdate();
+  try {
+    await run();
+  } finally {
+    await notice;
+  }
 }
 
 main().catch((error) => {
