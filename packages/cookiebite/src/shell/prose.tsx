@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Children, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import { koGlue } from '@/lib/ko-text';
 
@@ -7,11 +7,11 @@ export interface StandfirstProps {
   className?: string;
 }
 
-/** 리드 문단 — 헤더 Standfirst 슬롯에 배치. */
+/** 리드 문단 — 헤더 Standfirst 슬롯에 배치. 문자열 자식은 koGlue로 접착. */
 export function Standfirst({ children, className }: StandfirstProps) {
   return (
     <p className={cn('max-w-prose text-lg text-muted-foreground text-pretty', className)}>
-      {children}
+      {Children.map(children, (child) => (typeof child === 'string' ? koGlue(child) : child))}
     </p>
   );
 }

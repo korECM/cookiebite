@@ -101,7 +101,8 @@ export function classify(measurements) {
 
     // Warnings — advisory, never block.
     // ruleIds: repeated-literal, excess-surfaces, excess-shadows, excess-icons,
-    // excess-controls, long-document-no-nav, crowded-text, excessive-wrap.
+    // excess-controls, long-document-no-nav, crowded-text, excessive-wrap,
+    // awkward-line-break.
     for (const dup of view.repeatedValues || []) {
       findings.push(finding('repeated-literal', WARN, view, { measured: `${dup.value} ×${dup.count}`, reason: 'a literal value repeats; consider a report-local custom property' }));
     }
@@ -126,6 +127,13 @@ export function classify(measurements) {
         selector: item.selector,
         measured: item.measured,
         reason: 'short text (≤16 chars) wraps to 3+ lines inside a card',
+      }));
+    }
+    for (const item of view.awkwardLineBreaks || []) {
+      findings.push(finding('awkward-line-break', WARN, view, {
+        selector: item.selector,
+        measured: item.measured,
+        reason: 'Korean connective/conjunction ends a non-final visual line',
       }));
     }
   }

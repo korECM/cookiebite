@@ -307,6 +307,42 @@ test('crowded-text / excessive-wrap dedup by ruleId+selector across viewports', 
   );
 });
 
+test('awkward-line-break classifies as warning and dedups by ruleId+selector', () => {
+  const awkwardView = (width) => ({
+    width,
+    theme: 'light',
+    overflow: false,
+    charts: [],
+    contrast: [],
+    console: [],
+    resources: [],
+    hydrationTimeout: false,
+    hydrationError: null,
+    hydrationWarnings: [],
+    awkwardLineBreaks: [{
+      ruleId: 'awkward-line-break',
+      selector: 'p',
+      measured: { lineEndWord: '축소와', lineIndex: 0 },
+    }],
+  });
+  const single = classify(measurements({ viewports: [awkwardView(1280)] }));
+  const awkward = single.findings.find((f) => f.ruleId === 'awkward-line-break');
+  assert.ok(awkward, 'expected awkward-line-break');
+  assert.equal(awkward.severity, 'warning');
+  assert.equal(awkward.selector, 'p');
+  assert.deepEqual(awkward.measured, { lineEndWord: '축소와', lineIndex: 0 });
+  assert.equal(single.passed, true, 'warnings alone must not fail');
+  assert.equal(exitCodeFor(single), 0);
+
+  const multi = classify(measurements({
+    viewports: [awkwardView(390), awkwardView(768), awkwardView(1280)],
+  }));
+  assert.equal(
+    multi.findings.filter((f) => f.ruleId === 'awkward-line-break').length,
+    1,
+  );
+});
+
 test('REQUIRED_MANUAL_REVIEW and exitCodeFor are unchanged', () => {
   assert.deepEqual(REQUIRED_MANUAL_REVIEW, [
     'caption-meaning', 'status-by-color', 'duplicated-claims',

@@ -179,5 +179,92 @@
     collectContainerCrowding(cell, { wrap: false });
   });
 
+  // Awkward Korean line breaks — connective / conjunction at end of a
+  // non-final visual line (advisory). Non-mutating Range measurement.
+  const AWKWARD_LINE_END = /([가-힣]+[와과의]|및|또는|혹은)$/;
+  const LINE_TOP_TOL = 2;
+  const MAX_AWKWARD = 10;
+  view.awkwardLineBreaks = [];
+
+  function proseSelector(el) {
+    if (el.closest('[data-slot=card]')) return containerLeafSelector(el);
+    if (el.id) return `#${el.id}`;
+    return el.tagName.toLowerCase();
+  }
+
+  function collectAwkwardLineBreaks(el) {
+    if (view.awkwardLineBreaks.length >= MAX_AWKWARD) return;
+    const full = el.textContent || '';
+    if (full.length > 2000) return;
+    if (!/[가-힣]/.test(full)) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return;
+    const box = el.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0) return;
+
+    const words = [];
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      const value = node.nodeValue || '';
+      const re = /\S+/g;
+      let m = re.exec(value);
+      while (m) {
+        const range = document.createRange();
+        range.setStart(node, m.index);
+        range.setEnd(node, m.index + m[0].length);
+        const rects = range.getClientRects();
+        if (rects.length > 0) {
+          words.push({ word: m[0], top: rects[0].top });
+        }
+        m = re.exec(value);
+      }
+      node = walker.nextNode();
+    }
+    if (words.length < 2) return;
+
+    const lines = [];
+    let current = [words[0]];
+    let lineTop = words[0].top;
+    for (let i = 1; i < words.length; i += 1) {
+      const w = words[i];
+      if (Math.abs(w.top - lineTop) <= LINE_TOP_TOL) {
+        current.push(w);
+      } else {
+        lines.push(current);
+        current = [w];
+        lineTop = w.top;
+      }
+    }
+    lines.push(current);
+
+    const selector = proseSelector(el);
+    for (let i = 0; i < lines.length - 1; i += 1) {
+      if (view.awkwardLineBreaks.length >= MAX_AWKWARD) return;
+      const line = lines[i];
+      const last = line[line.length - 1];
+      if (last && AWKWARD_LINE_END.test(last.word)) {
+        view.awkwardLineBreaks.push({
+          ruleId: 'awkward-line-break',
+          selector,
+          measured: { lineEndWord: last.word, lineIndex: i },
+        });
+      }
+    }
+  }
+
+  const awkwardSeen = new Set();
+  function visitAwkward(el) {
+    if (awkwardSeen.has(el)) return;
+    awkwardSeen.add(el);
+    collectAwkwardLineBreaks(el);
+  }
+  [...document.querySelectorAll('p, li, figcaption')].forEach(visitAwkward);
+  [...document.querySelectorAll('[data-slot=card]')].forEach((card) => {
+    [...card.querySelectorAll('*')].forEach((el) => {
+      if (isVisibleTextLeaf(el)) visitAwkward(el);
+    });
+  });
+
   return JSON.stringify(view);
 }());

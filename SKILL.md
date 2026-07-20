@@ -203,7 +203,7 @@ custom blocks under `components/blocks/` and import them as `@/components/blocks
 
 JSX 산문은 하드랩하지 않는다 — 한 문단을 한 줄로 쓰고 soft wrap에 맡긴다. JSX가 줄바꿈을 공백으로 합치므로 한국어 문장을 중간에서 꺾으면 렌더 결과에 의도치 않은 공백이 생긴다.
 
-한국어 조사가 라틴 문자나 닫는 괄호 뒤에서 줄 머리로 떨어지는 문제는 워드 조이너(U+2060)로 막는다. `Section`(title, lede), `Page`(title), `Sources`(label, note), `Glossary`(term, def), `Panel`(title, description), `KpiRow`(label, compare, caption), `Claims`(text, evidence), `Findings`(title, detail), `BarList`(name), `Matrix`(행 라벨, 문자열 셀), `CategoryBar`(세그먼트 라벨)의 문자열 prop은 자동으로 처리된다. 자유 산문에서 조사가 줄 머리로 떨어지면 `koGlue`로 감싼다(`import { koGlue } from 'cookiebite'`).
+한국어 조판은 자동 처리와 저작 책임이 나뉜다. **자동:** 라틴/괄호 뒤 조사는 워드 조이너(U+2060)로, 접속어(와/과/및) 뒤 공백은 NBSP(U+00A0)로 다음 한글 어절에 붙인다(`koGlue`). `Section`(title, lede), `Page`(title), `Standfirst`(문자열 자식), `Sources`(label, note), `Glossary`(term, def), `Panel`(title, description), `KpiRow`(label, compare, caption), `Claims`(text, evidence), `Findings`(title, detail), `BarList`(name), `Matrix`(행 라벨, 문자열 셀), `CategoryBar`(세그먼트 라벨)의 문자열은 자동이다. 자유 `<p>` 산문에서 같은 문제가 보이면 `koGlue`로 감싼다(`import { koGlue } from 'cookiebite'`). **저작:** '신규 로고'처럼 붙어 다닐 수식 짝은 형태소 분석 없이 기계가 못 잡으니 `\u00A0`로 직접 묶는다 — 기계가 못 잡는 유일한 부류. `cookiebite verify`는 줄 끝 접속어를 `awkward-line-break` warning으로 알려 준다(취향이 갈리므로 hard가 아니다).
 
 ### Shell (`cookiebite`)
 
