@@ -67,6 +67,14 @@ cookiebite verify report.html --runs 3
 \`\`\`
 
 작업을 마치면 build와 verify를 반드시 돌리고, hard finding이 없어야 한다.
+빌드는 시크릿을 거부하고, placeholder 잔재와 표 \`<tr>\` 300 초과를 경고한다.
+
+## 스파인 · 피하기 (요약)
+
+스파인 예: 주간 상태(KPI→추이→Claims), 인시던트(paged), 딥다이브(numbered+표),
+의사결정(Matrix+Findings), 갤러리. **내용 없으면 섹션을 버린다.**
+피하기: 라운드+그림자 남발, 전부 센터, 장식 액센트 라인, 채우기 아이콘, 같은 차트 3+,
+파랑-보라 그라데이션, KPI 6+ 한 줄, 표로 될 차트, placeholder 문구.
 
 ## 컴포넌트 선택 루틴 (반드시 이 순서로)
 

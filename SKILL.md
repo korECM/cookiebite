@@ -82,18 +82,44 @@ series; use `Matrix` / `RangeDot` / `DataTable` for structured comparisons.
 and similar identifiers stay English. Korean (or any locale) belongs in labels, headers,
 captions, and narrative only.
 
+## 리포트 스파인
+
+같은 데이터를 넣어도 **뼈대(spine)** 가 다르면 읽는 속도가 달라진다. 아래 다섯은
+자주 쓰는 골격이다. 예시는 `docs/examples-tsx/`에 있다.
+
+1. **주간 상태** — Standfirst에 결론을 먼저 두고, `KpiRow` 스트립 → 추이 `Panel`(차트) →
+   `Claims` → "다음 주" 한 절로 닫는다. 상태 공유용 article.
+   예: `weekly-revenue.tsx`
+2. **인시던트 / 포스트모템** — `layout="paged"`. 요약 / 타임라인 / 원인 / 후속 조치처럼
+   이름 있는 페이지로 점프하게 한다. 시간 축이 핵심일 때.
+   예: `incident-postmortem.tsx`
+3. **딥다이브 분석** — `numbered` article. 요약 → `Columns`로 차트 밀도 → 상세
+   `DataTable` → 권고. 조사·분석 리포트 장르.
+   예: `abuse-analysis.tsx`
+4. **의사결정 메모** — 배경 산문 → 선택지 `Matrix` → 리스크 `Findings` → 권고
+   `Claims`. 회의 전에 결정을 좁힐 때.
+   예: `quarterly-strategy.tsx`
+5. **컴포넌트 카탈로그 / 갤러리** — 스토리보다 표면 샘플이 목적. 차트 형태·레지스트리
+   블록을 늘어놓는다.
+   예: `chart-gallery.tsx`, `registry-remix/`
+
+**스파인 수는 내용이 정한다 — 섹션을 채우려 내용을 늘리지 말고, 내용이 없으면 섹션을
+버린다.**
+
 ## Authoring surface (shadcn + cookiebite)
 
-### 컴포넌트 선택 루틴 (반드시 이 순서로)
+### 컴포넌트 선택 루틴
 
-컴포넌트를 고를 때마다 이 순서를 거친다. 손으로 새 UI를 짜는 것은 마지막 수단이다.
+순서를 지키면 이미 테마·lint·verify와 맞춰 둔 경로를 타고, 손으로 짠 UI가 빌드를 깨는
+일을 줄인다. 컴포넌트를 고를 때마다 아래 순서로 본다. 손으로 새 UI를 짜는 것은 마지막
+수단이다.
 
-1. **cookiebite 내장에서 먼저 찾는다** — 아래 셸/데이터 컴포넌트와 `@/components/ui/*`
-   18종(accordion, alert, badge, breadcrumb, button, card, chart, collapsible,
-   hover-card, progress, scroll-area, separator, skeleton, table, tabs, toggle,
-   toggle-group, tooltip)에 있으면 그대로 쓴다.
-2. **없으면 즉시 레지스트리를 검색한다** — `cookiebite new`가 `components.json`을
-   스캐폴드해 두었으니 바로 받을 수 있다:
+1. **내장에서 먼저 찾는다** — 셸/데이터 컴포넌트와 `@/components/ui/*` 18종
+   (accordion, alert, badge, breadcrumb, button, card, chart, collapsible, hover-card,
+   progress, scroll-area, separator, skeleton, table, tabs, toggle, toggle-group,
+   tooltip)은 토큰과 게이트가 이미 통과돼 있다. 있으면 그대로 쓴다.
+2. **없으면 레지스트리를 검색한다** — `cookiebite new`가 `components.json`을 스캐폴드해
+   두었으니, 손으로 그리기 전에 받을 수 있다:
 
    ```bash
    npx shadcn@latest search pagination     # 레지스트리 검색
@@ -103,9 +129,12 @@ captions, and narrative only.
 
 3. **받은 파일의 색 리터럴은 시맨틱 토큰으로 치환한다** — hex, `rgb()`, `hsl()`,
    `oklch()`는 빌드 lint가 거부한다. `var(--chart-1)`, `bg-card`,
-   `text-muted-foreground` 등으로 바꾼다.
-4. **추가 npm 의존성**은 리포트 디렉토리에서 `pnpm add`한다(로컬 node_modules 해석).
-5. **마지막에 `cookiebite build` + `cookiebite verify`를 반드시 돌린다**(hard=0).
+   `text-muted-foreground` 등으로 바꾼다. 리터럴을 남기면 테마 스왑과 대비 게이트가
+   의미 없어진다.
+4. **추가 npm 의존성**은 리포트 디렉토리에서 `pnpm add`한다 — 빌드가 로컬
+   `node_modules`를 해석한다.
+5. **마지막에 `cookiebite build` + `cookiebite verify`를 돌린다** — hard finding이
+   없어야 한다(hard=0). 픽셀 판단은 verify와 육안에 맡긴다.
 
 **부스터(선택):** `.mcp.json`(공식 shadcn MCP)은 `cookiebite new`가 스캐폴드한다.
 `npx skills add shadcn/ui`를 더하면 `components.json`을 읽어 레지스트리 작업을 돕는다.
@@ -217,6 +246,45 @@ const chartConfig = {
 - Radial — `RadialBarChart` + `RadialBar` background
 - Composed — `ComposedChart` bar + line (shadcn 문서엔 없지만 Recharts 지원)
 
+## 피해야 할 것 (이름 붙은 안티패턴)
+
+이름이 있으면 리뷰에서 짚기 쉽다. **빌드가 이미 잡는 것**과 **저작자 판단**을 구분한다.
+
+| 안티패턴 | 왜 | 누가 잡나 |
+| --- | --- | --- |
+| 균일한 라운드+그림자 남발 | 모든 면이 같은 깊이면 계층이 사라진다 | 판단 (`surface`·토큰으로 절제) |
+| 모든 것 센터 정렬 | 표·KPI·산문이 한가운데면 스캔이 느려진다 | 판단 |
+| 제목 밑 장식 액센트 라인 | `Section` 액센트 틱 위에 또 그으면 장식이 된다 | 판단 |
+| 채우기용 컬러 바/아이콘 | 의미 없는 색·아이콘은 노이즈다 | 판단 (색 리터럴은 lint) |
+| 한 화면에 같은 차트 타입 3개 이상 | 비교가 아니라 반복으로 읽힌다 | 판단 |
+| 뻔한 파랑-보라 그라디언트 | 기본 AI 룩으로 보이고 브랜드가 지워진다 | 리터럴은 lint; 토큰 그라데이션은 판단 |
+| KPI 6개 초과 한 줄 욱여넣기 | 셀이 쪼그라들어 결론이 안 보인다 | 판단 (crowding은 verify 보조) |
+| 표로 충분한 것을 차트로 만들기 | 정확한 수치 비교는 표가 더 빠르다 | 판단 |
+| placeholder 문구 잔존 | `lorem`·`TODO`·`샘플 데이터` 등이 남으면 미완성으로 보인다 | **빌드 WARNING** (content-gate) |
+
+시크릿 문자열(AWS 키, GitHub PAT, `sk-…`, JWT, private key 헤더)은 **빌드 FAIL**.
+
+## 숫자 포맷
+
+통화·퍼센트·큰 수는 한 리포트 안에서 규칙을 통일한다. 관례 예:
+
+- 정수 천 단위: `1,234` (`n.toLocaleString('en-US')`)
+- 축약 통화: `$1.4M` / `₩12억` 등 문맥에 맞게 한 형식만
+- 퍼센트: `62.4%` (소수 자릿수 고정)
+- 포인트 차: `3.1pp`
+
+**로케일은 고정한다.** 기본 `toLocaleString()`은 Node SSR과 브라우저가 달라
+하이드레이션이 깨질 수 있다. 예제처럼 `toLocaleString('en-US')`(또는 테마
+`locale`에 맞춘 고정 태그)를 쓴다.
+
+표의 숫자 컬럼은 **우측 정렬 + `tabular-nums`**. `ColumnDef.meta.className`으로 이미
+지원한다:
+
+```tsx
+const numericMeta = { className: 'text-right tabular-nums' } as const;
+// columns: [{ accessorKey: 'mrr', meta: numericMeta, … }]
+```
+
 ## Theme
 
 Pass a `ThemeDocument` via `export const __theme`. Presets from `cookiebite/themes`:
@@ -300,6 +368,9 @@ Order inside `cookiebite build`:
 7. **assemble** — single offline HTML. Pretendard-ish first family embeds a subsetted
    Pretendard Variable woff2 as a `data:font/woff2` URI (~1.7MB binary → multi-MB HTML);
    a custom seed whose first family is not Pretendard skips embedding.
+8. **content gate** — assembled HTML 본문에서 placeholder 잔재는 stderr WARNING,
+   시크릿 유사 문자열은 빌드 FAIL. SSR 마크업의 `<tr`가 300을 넘으면 사전 집계
+   (pre-aggregation) 권고 WARNING(비치명).
 
 `cookiebite verify` then catches runtime issues the compiler cannot see: hydration
 timeout / failed / warning, `console-error`, `chart-empty` (no SVG shapes after hydrate),
@@ -307,20 +378,25 @@ horizontal overflow, clipped text, contrast, keyboard reachability, resource fai
 `--runs N` (1–10) repeats the pass for flaky findings. Exit `0` pass, `1` hard finding,
 `2` incomplete manual review (`--manual-ok` skips), `3` could not run.
 
+**빌드가 시크릿을 거부하고 placeholder 잔재와 300행 초과 표를 경고한다.** 색 리터럴·
+대비·타입은 그 앞 단계에서 이미 막는다.
+
 **Do not ship as a claude.ai Artifact** — CSP blocks inlined behavior unpredictably.
 Deliver the file or host it.
 
 ## Quality checklist
 
 **Already enforced:** typed props; no raw colors outside theme; contrast-safe theme;
-hydrated charts have SVG shapes (verify); English keys in data structures.
+hydrated charts have SVG shapes (verify); English keys in data structures; secrets
+rejected at build; placeholder residue and dense tables (`<tr>` > 300) warned.
 
 **Still your judgment** (look at the rendered page):
 
 - [ ] Conclusion visible in ~5 seconds.
 - [ ] Sections/pages read as an argument, not padding.
-- [ ] Article vs paged chosen for the right reason.
+- [ ] Article vs paged (and which spine) chosen for the right reason.
 - [ ] Right points became visuals; captions match figures.
+- [ ] Named anti-patterns above avoided where the build cannot see them.
 - [ ] `verification.json` has no unaddressed hard finding; required `manualReview`
       entries recorded.
 
