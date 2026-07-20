@@ -36,7 +36,7 @@ export function Section({
         <h2 className="text-xl font-semibold tracking-tight">{koGlue(title)}</h2>
       </div>
       {lede ? (
-        <p className="max-w-[88ch] text-muted-foreground text-pretty">{koGlue(lede)}</p>
+        <p className="text-muted-foreground text-pretty">{koGlue(lede)}</p>
       ) : null}
       <div className="space-y-4">{children}</div>
     </section>

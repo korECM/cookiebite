@@ -366,7 +366,7 @@ spans. Everywhere else, use tokens / semantic classes.
 **Article** — title / kicker / standfirst / optional controls; fluid `max-w-[1800px]`
 shell (`width="full"` for uncapped edge-to-edge); right TOC rail (scrollspy,
 `min-[1400px]`) from `Section` ids; prose keeps
-`max-w-[88ch]` — 한글 기준 약 44자로 조정된 읽기 폭 — while data blocks span the content column.
+the full content column — prose and data blocks share the same right edge.
 
 **Paged** — same fluid header width; mobile page select + desktop left-rail nav; hash sync
 (`#page-id`); no-JS / pre-hydration shows all pages stacked. Active `Page` heading uses

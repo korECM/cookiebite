@@ -10,7 +10,7 @@ export interface StandfirstProps {
 /** 리드 문단 — 헤더 Standfirst 슬롯에 배치. 문자열 자식은 koGlue로 접착. */
 export function Standfirst({ children, className }: StandfirstProps) {
   return (
-    <p className={cn('max-w-[88ch] text-lg text-muted-foreground text-pretty', className)}>
+    <p className={cn('text-lg text-muted-foreground text-pretty', className)}>
       {Children.map(children, (child) => (typeof child === 'string' ? koGlue(child) : child))}
     </p>
   );
@@ -32,7 +32,7 @@ export function Sources({ items, className }: SourcesProps) {
   return (
     <ol className={cn('list-decimal space-y-1 pl-5 text-sm text-foreground', className)}>
       {items.map((item, i) => (
-        <li key={`${item.label}-${i}`} className="max-w-[88ch]">
+        <li key={`${item.label}-${i}`} className="">
           {item.href ? (
             <a
               href={item.href}
@@ -85,5 +85,5 @@ export function Prose({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn('max-w-[88ch] space-y-4', className)}>{children}</div>;
+  return <div className={cn('space-y-4', className)}>{children}</div>;
 }
