@@ -171,18 +171,18 @@ function ReportHeader({
   kicker,
   standfirst,
   controls,
-  width = 'default',
+  className,
 }: {
   title: string;
   kicker?: string;
   standfirst: ReactNode;
   controls: boolean;
-  width?: 'default' | 'full';
+  className?: string;
 }) {
   return (
     <header
       className={cn(
-        shellWidthClass(width),
+        className,
         'flex items-start justify-between gap-6 pt-10 pb-8',
       )}
     >
@@ -221,14 +221,7 @@ function ArticleLayout({
 
   return (
     <div className={cn('break-keep bg-background text-foreground', className)}>
-      <ReportHeader
-        title={title}
-        kicker={kicker}
-        standfirst={standfirst}
-        controls={controls}
-        width={width}
-      />
-
+      {/* 헤더는 본문 컬럼 안 — 산문과 데이터 블록이 같은 우측 끝을 공유하고 TOC 레일을 침범하지 않는다 */}
       <div
         className={cn(
           shellWidthClass(width),
@@ -236,9 +229,17 @@ function ArticleLayout({
           toc ? 'items-start' : '',
         )}
       >
-        <main className="min-w-0 flex-1 space-y-10">{numberedBody}</main>
+        <div className="min-w-0 flex-1">
+          <ReportHeader
+            title={title}
+            kicker={kicker}
+            standfirst={standfirst}
+            controls={controls}
+          />
+          <main className="space-y-10">{numberedBody}</main>
+        </div>
         {toc ? (
-          <aside className="hidden min-[1400px]:block w-52 shrink-0">
+          <aside className="hidden min-[1400px]:block w-52 shrink-0 pt-10">
             <div className="sticky top-8">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 목차
@@ -275,7 +276,7 @@ function PagedLayout({
         kicker={kicker}
         standfirst={standfirst}
         controls={controls}
-        width={width}
+        className={shellWidthClass(width)}
       />
 
       <PagedController pageIds={pageIds}>
