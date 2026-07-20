@@ -313,7 +313,7 @@ export default function App() {
         유지했지만 신규 로고 속도는 둔화됐고 총이탈은 늘었다.
       </Standfirst>
 
-      <Section id="metrics" title="핵심 지표">
+      <Section id="metrics" title="확장이 순증을 만들었다">
         <KpiRow
           items={[
             {
@@ -339,27 +339,30 @@ export default function App() {
               label: '순신규 로고',
               value: 34,
               delta: { value: '전주 대비 5', direction: 'down', good: false },
+              compare: '전주 39 대비',
             },
             {
               label: 'NRR',
               value: '112',
               unit: '%',
               delta: { value: '2pp', direction: 'up', good: true },
+              compare: '전주 110% 대비',
             },
             {
               label: '활성화율',
               value: '62.4',
               unit: '%',
               delta: { value: '1.8pp', direction: 'up', good: true },
+              compare: '전주 60.6% 대비',
               caption: '가입 7일 내 아하 순간 도달',
             },
           ]}
         />
       </Section>
 
-      <Section id="mix" title="매출 구성">
-        <p>이번 주 유입 MRR의 구성. 확장이 신규를 앞질렀다.</p>
-        <Panel title="유입 MRR 구성" description="신규, 확장, 재활성">
+      <Section id="mix" title="확장이 신규를 대체했다">
+        <p>확장이 유입의 절반을 넘겼다. 신규 $58K보다 확장 $71K가 크다.</p>
+        <Panel title="확장이 유입의 절반을 넘겼다" description="신규를 $13K 앞선 확장 축">
           <CategoryBar
             segments={[
               { label: '신규', value: 58 },
@@ -370,12 +373,12 @@ export default function App() {
         </Panel>
       </Section>
 
-      <Section id="bridge" title="MRR 브리지">
+      <Section id="bridge" title="확장이 음의 요인을 덮었다">
         <p>
           $1.377M에서 출발해 확장(+$71K)이 모든 음의 요인보다 큰 지렛대였고, 축소(-$18K)와
           이탈(-$28K)이 일부를 되돌려 순효과 +$43K로 $1.420M에 마감했다.
         </p>
-        <Panel title="주간 증감 기여" description="유입 3요소와 유출 2요소, 단위 $K">
+        <Panel title="확장 +$71K가 순증의 지렛대다" description="축소와 이탈 합보다 큰 확장 한 축">
           <ChartContainer
             id="mrr-bridge"
             config={bridgeConfig}
@@ -402,9 +405,9 @@ export default function App() {
         </Panel>
       </Section>
 
-      <Section id="trend" title="MRR 추세">
-        <p>26주 복리 성장. 현재 속도라면 $1.5M 목표는 약 3주 앞이다.</p>
-        <Panel title="W14–W26 주간 마감" description="주간 마감 MRR, 단위 $K">
+      <Section id="trend" title="복리 성장이 $1.5M을 3주 앞으로 당긴다">
+        <p>현재 속도라면 $1.5M 목표는 약 3주 앞이다. 13주 연속 상승이 끊기지 않았다.</p>
+        <Panel title="13주 연속 상승이 $1.42M에 닿았다" description="현재 속도면 $1.5M까지 약 3주">
           <ChartContainer
             id="mrr-trend"
             config={trendConfig}
@@ -442,21 +445,21 @@ export default function App() {
         </Panel>
       </Section>
 
-      <Section id="claims" title="이번 주 주장">
+      <Section id="claims" title="다음 주 권고">
         <Claims
           items={[
             {
-              text: '확장이 성장 엔진이다 — $71K가 음의 요인 합계를 넘었다',
+              text: 'Growth팀이 다음 주까지 상위 확장 계정 7곳에 업셀 플레이북을 적용하고, 주간 확장 MRR $65K 이상을 기준으로 삼는다',
               evidence: 'MRR 브리지, NRR 112%',
-              badge: '확인',
+              badge: '실행',
             },
             {
-              text: '신규 로고 속도가 둔화된다 — 순신규 34, 전주 대비 5 감소',
+              text: '마케팅이 2주 안에 유료 전환 퍼널을 점검해 전환율 4.0% 복구를 성공 기준으로 둔다',
               evidence: '유료 전환 3.6% (−0.4pp)',
               badge: '주의',
             },
             {
-              text: '이탈이 기어오른다 — 11개 계정 $28K (전주 대비 14% 증가)',
+              text: 'CS가 이번 주 안에 엔터프라이즈 이탈 후보 2건 세이브 플레이를 시작하고, 주간 이탈 MRR $24K 이하를 기준으로 삼는다',
               evidence: '엔터프라이즈 2건은 세이브 플레이 검토',
               badge: '위험',
             },
@@ -464,7 +467,7 @@ export default function App() {
         />
       </Section>
 
-      <Section id="health" title="분기 목표와 건강도">
+      <Section id="health" title="Q2 목표의 82%에 있다">
         <p>
           2주 남은 시점에 Q2 순증 MRR 목표의 82%에 있다. 확장이 유지되면 궤도에 있다.
         </p>
@@ -489,23 +492,24 @@ export default function App() {
             },
           ]}
         />
+        <p>한계: 이번 해석은 24주차 한 주 스냅샷과 상위 계정 7곳 표본에 기대며, 시즌성과 프로모션 교란은 분리하지 않았다.</p>
       </Section>
 
-      <Section id="accounts" title="순 MRR 증감 상위 계정">
+      <Section id="accounts" title="상위 계정이 확장을 집중한다">
         <p>
           확장은 집중돼 있어 상위 계정이 이번 주 순 증감의 대부분을 이끌었다.
         </p>
-        <Panel title="순 MRR 증감 상위 계정">
+        <Panel title="상위 7계정이 순 증감의 대부분을 이끈다" description="확장 집중도가 높다">
           <BarList items={topAccountDeltas} />
         </Panel>
       </Section>
 
-      <Section id="channels" title="채널별 실적">
+      <Section id="channels" title="Card와 Wallet이 MRR 절반을 맡는다">
         <p>
-          결제 채널 8곳의 거래와 수익. Card와 Wallet이 MRR의 절반 이상을 맡고,
-          Legacy POS는 중단 대기 중이다. 합계 MRR은 $1.42M과 맞는다.
+          Card와 Wallet이 MRR의 절반 이상을 맡고, Legacy POS는 중단 대기 중이다. 합계
+          MRR은 $1.42M과 맞는다.
         </p>
-        <Panel title="8개 채널 상세" description="거래 그룹과 수익 그룹, 합계 행">
+        <Panel title="Card와 Wallet이 합계의 절반을 넘긴다" description="Legacy POS는 중단 대기">
           <DataTable columns={channelColumns} data={channelData} />
         </Panel>
       </Section>
