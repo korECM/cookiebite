@@ -3,11 +3,28 @@ import { existsSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { assembleDocument } from './assemble.mjs';
 import { buildClientBundle } from './client-bundle.mjs';
+import {
+  contentGate,
+  isSecretViolation,
+  redactMatch,
+} from './content-gate.mjs';
 import { lintSources } from './lint.mjs';
 import { BuildError, renderReport } from './render.mjs';
 import { compileTheme } from './theme-compile.mjs';
 import { typecheckReport } from './typecheck.mjs';
 import { compileTwSources } from './tw-compile.mjs';
+
+/** DataTable / table density — warn when SSR markup exceeds this many `<tr`. */
+export const TABLE_ROW_WARN_THRESHOLD = 300;
+
+/**
+ * Count `<tr` openings in SSR markup (header + body + footer rows).
+ * @param {string} markup
+ */
+export function countTableRows(markup) {
+  const matches = markup.match(/<tr\b/gi);
+  return matches ? matches.length : 0;
+}
 
 /** neutral 프리셋과 동일 — `__theme` 없거나 seed 일부만 있을 때 병합. */
 const DEFAULT_SEED = {
@@ -116,6 +133,35 @@ export async function buildCommand(args) {
     theme,
     lang: 'ko',
   });
+
+  const rowCount = countTableRows(markup);
+  if (rowCount > TABLE_ROW_WARN_THRESHOLD) {
+    process.stderr.write(
+      `content-gate: 표 행 ${rowCount}개 — ${TABLE_ROW_WARN_THRESHOLD}행을 넘습니다. ` +
+        `원본을 그대로 넣지 말고 사전 집계(pre-aggregation)한 뒤 DataTable에 넣으세요.\n`,
+    );
+  }
+
+  const { violations: contentViolations } = contentGate(html);
+  const placeholders = contentViolations.filter((v) => v.rule === 'placeholder-residue');
+  const secrets = contentViolations.filter(isSecretViolation);
+  if (placeholders.length > 0) {
+    const lines = placeholders.map(
+      (v) => `  [${v.rule}] ${redactMatch(v.match)} @${v.index}`,
+    );
+    process.stderr.write(
+      `content-gate: placeholder 잔재 ${placeholders.length}건 (비치명):\n${lines.join('\n')}\n`,
+    );
+  }
+  if (secrets.length > 0) {
+    const lines = secrets.map(
+      (v) => `  [${v.rule}] ${redactMatch(v.match)} @${v.index}`,
+    );
+    throw new BuildError(
+      `content-gate: 시크릿 유사 문자열 ${secrets.length}건 — 리포트에 넣을 수 없습니다:\n${lines.join('\n')}`,
+    );
+  }
+
   const tmp = `${out}.tmp`;
   writeFileSync(tmp, html);
   renameSync(tmp, out); // 원자적 교체: 부분 산출물이 배포되는 사고를 막는다
