@@ -94,12 +94,12 @@ captions, and narrative only.
    이름 있는 페이지로 점프하게 한다. 시간 축이 핵심일 때.
    예: `incident-postmortem.tsx`
 3. **딥다이브 분석** — `numbered` article. 요약 → `Columns`로 차트 밀도 → 상세
-   `DataTable` → 권고. 조사·분석 리포트 장르.
+   `DataTable` → 권고. 조사, 분석 리포트 장르.
    예: `abuse-analysis.tsx`
 4. **의사결정 메모** — 배경 산문 → 선택지 `Matrix` → 리스크 `Findings` → 권고
    `Claims`. 회의 전에 결정을 좁힐 때.
    예: `quarterly-strategy.tsx`
-5. **컴포넌트 카탈로그 / 갤러리** — 스토리보다 표면 샘플이 목적. 차트 형태·레지스트리
+5. **컴포넌트 카탈로그 / 갤러리** — 스토리보다 표면 샘플이 목적. 차트 형태, 레지스트리
    블록을 늘어놓는다.
    예: `chart-gallery.tsx`, `registry-remix/`
 
@@ -110,7 +110,7 @@ captions, and narrative only.
 
 ### 컴포넌트 선택 루틴
 
-순서를 지키면 이미 테마·lint·verify와 맞춰 둔 경로를 타고, 손으로 짠 UI가 빌드를 깨는
+순서를 지키면 이미 테마, lint, verify와 맞춰 둔 경로를 타고, 손으로 짠 UI가 빌드를 깨는
 일을 줄인다. 컴포넌트를 고를 때마다 아래 순서로 본다. 손으로 새 UI를 짜는 것은 마지막
 수단이다.
 
@@ -253,9 +253,9 @@ const chartConfig = {
 | 안티패턴 | 왜 | 누가 잡나 |
 | --- | --- | --- |
 | 균일한 라운드+그림자 남발 | 모든 면이 같은 깊이면 계층이 사라진다 | 판단 (`surface`·토큰으로 절제) |
-| 모든 것 센터 정렬 | 표·KPI·산문이 한가운데면 스캔이 느려진다 | 판단 |
+| 모든 것 센터 정렬 | 표, KPI, 산문이 한가운데면 스캔이 느려진다 | 판단 |
 | 제목 밑 장식 액센트 라인 | `Section` 액센트 틱 위에 또 그으면 장식이 된다 | 판단 |
-| 채우기용 컬러 바/아이콘 | 의미 없는 색·아이콘은 노이즈다 | 판단 (색 리터럴은 lint) |
+| 채우기용 컬러 바/아이콘 | 의미 없는 색, 아이콘은 노이즈다 | 판단 (색 리터럴은 lint) |
 | 한 화면에 같은 차트 타입 3개 이상 | 비교가 아니라 반복으로 읽힌다 | 판단 |
 | 뻔한 파랑-보라 그라디언트 | 기본 AI 룩으로 보이고 브랜드가 지워진다 | 리터럴은 lint; 토큰 그라데이션은 판단 |
 | KPI 6개 초과 한 줄 욱여넣기 | 셀이 쪼그라들어 결론이 안 보인다 | 판단 (crowding은 verify 보조) |
@@ -266,7 +266,7 @@ const chartConfig = {
 
 ## 숫자 포맷
 
-통화·퍼센트·큰 수는 한 리포트 안에서 규칙을 통일한다. 관례 예:
+통화, 퍼센트, 큰 수는 한 리포트 안에서 규칙을 통일한다. 관례 예:
 
 - 정수 천 단위: `1,234` (`n.toLocaleString('en-US')`)
 - 축약 통화: `$1.4M` / `₩12억` 등 문맥에 맞게 한 형식만
@@ -379,7 +379,7 @@ horizontal overflow, clipped text, contrast, keyboard reachability, resource fai
 `2` incomplete manual review (`--manual-ok` skips), `3` could not run.
 
 **빌드가 시크릿을 거부하고 placeholder 잔재와 300행 초과 표를 경고한다.** 색 리터럴·
-대비·타입은 그 앞 단계에서 이미 막는다.
+대비, 타입은 그 앞 단계에서 이미 막는다.
 
 **Do not ship as a claude.ai Artifact** — CSP blocks inlined behavior unpredictably.
 Deliver the file or host it.
