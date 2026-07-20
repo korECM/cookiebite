@@ -252,7 +252,7 @@ const chartConfig = {
 
 | 안티패턴 | 왜 | 누가 잡나 |
 | --- | --- | --- |
-| 균일한 라운드+그림자 남발 | 모든 면이 같은 깊이면 계층이 사라진다 | 판단 (`surface`·토큰으로 절제) |
+| 균일한 라운드+그림자 남발 | 모든 면이 같은 깊이면 계층이 사라진다 | 판단 (`surface`, 토큰으로 절제) |
 | 모든 것 센터 정렬 | 표, KPI, 산문이 한가운데면 스캔이 느려진다 | 판단 |
 | 제목 밑 장식 액센트 라인 | `Section` 액센트 틱 위에 또 그으면 장식이 된다 | 판단 |
 | 채우기용 컬러 바/아이콘 | 의미 없는 색, 아이콘은 노이즈다 | 판단 (색 리터럴은 lint) |
@@ -260,7 +260,7 @@ const chartConfig = {
 | 뻔한 파랑-보라 그라디언트 | 기본 AI 룩으로 보이고 브랜드가 지워진다 | 리터럴은 lint; 토큰 그라데이션은 판단 |
 | KPI 6개 초과 한 줄 욱여넣기 | 셀이 쪼그라들어 결론이 안 보인다 | 판단 (crowding은 verify 보조) |
 | 표로 충분한 것을 차트로 만들기 | 정확한 수치 비교는 표가 더 빠르다 | 판단 |
-| placeholder 문구 잔존 | `lorem`·`TODO`·`샘플 데이터` 등이 남으면 미완성으로 보인다 | **빌드 WARNING** (content-gate) |
+| placeholder 문구 잔존 | `lorem`, `TODO`, `샘플 데이터` 등이 남으면 미완성으로 보인다 | **빌드 WARNING** (content-gate) |
 
 시크릿 문자열(AWS 키, GitHub PAT, `sk-…`, JWT, private key 헤더)은 **빌드 FAIL**.
 
@@ -378,7 +378,7 @@ horizontal overflow, clipped text, contrast, keyboard reachability, resource fai
 `--runs N` (1–10) repeats the pass for flaky findings. Exit `0` pass, `1` hard finding,
 `2` incomplete manual review (`--manual-ok` skips), `3` could not run.
 
-**빌드가 시크릿을 거부하고 placeholder 잔재와 300행 초과 표를 경고한다.** 색 리터럴·
+**빌드가 시크릿을 거부하고 placeholder 잔재와 300행 초과 표를 경고한다.** 색 리터럴, 
 대비, 타입은 그 앞 단계에서 이미 막는다.
 
 **Do not ship as a claude.ai Artifact** — CSP blocks inlined behavior unpredictably.
