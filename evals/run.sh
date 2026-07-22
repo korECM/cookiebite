@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # evals/run.sh [out-dir] — cookiebite's deterministic eval suite.
 #
-# Three tiers, cheapest first, all asserted (any failure -> exit 1):
+# Five tiers, cheapest first, all asserted (any failure -> exit 1):
 #   1. STATIC     syntax + the palette validator's self-test
 #   2. SCAFFOLDS  every TYPE skeleton builds and carries its load-bearing calls
 #   3. FIXTURE    the kitchen-sink report (evals/build-fixture.py) rendered through
@@ -11,9 +11,14 @@
 #                 every filter chip wires (the v0.12.1 regression), storyline steps,
 #                 the altitude toggle hides detail sections, the data-table toggle
 #                 opens, the matrix fills its container, dark mode flips.
+#   4. FREEFORM   root unit tests, installed layout, core runtime, evidence verifier
+#   5. TSX PKG    packages/cookiebite's own suite — typecheck, source lint, SSR
+#                 contracts, and the verify e2e passes. Tiers 1-4 never touch the
+#                 React surface, so this is the only gate on v3 components.
 #
 # Interactions need agent-browser; without it that tier is SKIPPED (noted, not failed)
-# so the static tiers still run in minimal environments.
+# so the static tiers still run in minimal environments. Tier 5 is NOT skippable —
+# missing deps FAIL, because a quiet skip is how the v3 surface went ungated before.
 #
 # Usage: bash evals/run.sh            # temp out-dir
 #        bash evals/run.sh /tmp/out   # keep artifacts for inspection
@@ -173,6 +178,22 @@ if command -v agent-browser >/dev/null 2>&1; then
   if bash "$ROOT/evals/test-verifier.sh" >"$OUT/verifier.log" 2>&1; then pass "evidence verifier (clean pass / fail blocked)"; else fail "evidence verifier (see $OUT/verifier.log)"; fi
 else
   echo "SKIP  agent-browser not found — freeform browser evals skipped"
+fi
+
+# The v3 TSX surface (packages/cookiebite) has its own suite: typecheck, source
+# lint, SSR contracts, and the verify e2e passes that catch hydration breakage.
+# Tier 4 above only covers the freeform path, so without this the whole React
+# component surface sits outside the release gate.
+echo "== tier 5: tsx package (v3 components + build/verify) =="
+TSX_PKG="$ROOT/packages/cookiebite"
+if [ ! -d "$TSX_PKG/node_modules" ]; then
+  fail "tsx package deps missing — run 'pnpm install' in $TSX_PKG (v3 surface UNTESTED)"
+else
+  if (cd "$TSX_PKG" && node --test) >"$OUT/tsx-units.log" 2>&1; then
+    pass "tsx package tests (components, build, verify e2e)"
+  else
+    fail "tsx package tests (see $OUT/tsx-units.log)"
+  fi
 fi
 
 echo

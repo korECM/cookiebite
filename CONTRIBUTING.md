@@ -41,6 +41,13 @@ errors, overflow, palette verdicts, label clipping/overlap, and that the deliber
 truncated-baseline bait still warns) plus real-browser interactions (filter chips,
 storyline, altitude, dark mode). See `evals/README.md`.
 
+Tier 5 runs the TSX package's own suite, which is the only gate on the v3 React
+components — install its deps first or the tier fails:
+
+```bash
+pnpm install
+```
+
 Then run the visual check on anything you touched that renders and look at the
 screenshots yourself:
 
