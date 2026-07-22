@@ -23,6 +23,7 @@ export interface ResultProvenanceProps {
   source?: string;
   meta?: ResultMeta;
   totalRows: number;
+  locale: string;
   queryOpen: boolean;
   onToggleQuery: () => void;
   onDownloadCsv: () => void;
@@ -77,6 +78,7 @@ export function ResultProvenance({
   source,
   meta,
   totalRows,
+  locale,
   queryOpen,
   onToggleQuery,
   onDownloadCsv,
@@ -110,10 +112,13 @@ export function ResultProvenance({
         {caption ? <span>{caption}</span> : null}
 
         <div className="ml-auto flex flex-wrap items-center gap-1 print:hidden">
-          <span className="tabular-nums">{totalRows.toLocaleString()}행</span>
+          {/* One expression per text node. SSR is renderToStaticMarkup, which
+              merges `{expr}literal` into a single text node the client then
+              splits in two — a hydration mismatch. */}
+          <span className="tabular-nums">{`${totalRows.toLocaleString(locale)}행`}</span>
           <Button variant="ghost" size="xs" onClick={onDownloadCsv}>
             <Download aria-hidden />
-            CSV (전체 {totalRows.toLocaleString()}행)
+            {`CSV (전체 ${totalRows.toLocaleString(locale)}행)`}
           </Button>
           <CopyButton label="표 복사" onCopy={onCopyMarkdown} />
           {onDownloadPng ? (

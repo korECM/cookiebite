@@ -135,6 +135,29 @@ test('ko-glue: word-joiner survives build + hydrates clean (hard 0)', { timeout:
   assert.equal(hard.length, 0, `unexpected hard: ${JSON.stringify(hard, null, 2)}`);
 });
 
+test('ResultBlock: builds + hydrates clean (hard 0)', { timeout: FIVE_MIN }, (t) => {
+  if (!browserAvailable()) return t.skip('agent-browser not installed');
+
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-e2e-result-block-'));
+  const htmlPath = path.join(dir, 'result-block.html');
+  const outJson = path.join(dir, 'verification.json');
+
+  const built = runCli(['build', fixture('result-block.tsx'), '-o', htmlPath]);
+  assert.equal(built.code, 0, `build failed: ${built.stderr}`);
+  assertV3Document(readFileSync(htmlPath, 'utf8'));
+
+  const verified = runCli(['verify', htmlPath, '--manual-ok', '-o', outJson], {
+    timeout: FIVE_MIN,
+  });
+  assert.equal(verified.code, 0, `verify failed: ${verified.stderr}\n${verified.stdout}`);
+
+  const report = JSON.parse(readFileSync(outJson, 'utf8'));
+  const hard = report.findings.filter((f) => f.severity === 'error');
+  // Guards the `{expr}literal` trap: SSR is renderToStaticMarkup, which merges
+  // adjacent text into one node while the client splits it — hydration-warning.
+  assert.equal(hard.length, 0, `unexpected hard: ${JSON.stringify(hard, null, 2)}`);
+});
+
 test('verify-hydration-break: hydration-warning is hard', { timeout: FIVE_MIN }, (t) => {
   if (!browserAvailable()) return t.skip('agent-browser not installed');
 

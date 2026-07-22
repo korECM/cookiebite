@@ -205,6 +205,15 @@ custom blocks under `components/blocks/` and import them as `@/components/blocks
 
 JSX 산문은 하드랩하지 않는다 — 한 문단을 한 줄로 쓰고 soft wrap에 맡긴다. JSX가 줄바꿈을 공백으로 합치므로 한국어 문장을 중간에서 꺾으면 렌더 결과에 의도치 않은 공백이 생긴다.
 
+**한 엘리먼트 안에서 `{표현식}`과 글자를 붙여 쓰지 않는다.** SSR이 `renderToStaticMarkup`이라 `{n}행`은 서버에서 텍스트 노드 하나로 합쳐지는데 클라이언트는 둘로 나눠 기대한다 — `verify`가 `hydration-warning`(hard)으로 잡는다. 템플릿 리터럴로 표현식 하나를 만들어 넣는다.
+
+```tsx
+<span>{n}행</span>              {/* ✗ hydration-warning */}
+<span>{`${n}행`}</span>          {/* ✓ 텍스트 노드 하나 */}
+```
+
+**숫자 포맷에 환경 로케일을 쓰지 않는다.** `toLocaleString()`을 인자 없이 부르면 서버는 Node의 로케일로, 브라우저는 독자의 로케일로 찍는다. de-DE 독자에게 `5.821.157`과 `5,821,157`이 어긋나 같은 hard가 난다. 로케일을 명시하거나 손으로 포맷한다.
+
 한국어 조판은 자동 처리와 저작 책임이 나뉜다. **자동:** 라틴/괄호 뒤 조사는 워드 조이너(U+2060)로, 접속어(와/과/및) 뒤 공백은 NBSP(U+00A0)로 다음 한글 어절에 붙인다(`koGlue`). `Section`(title, lede), `Page`(title), `Standfirst`(문자열 자식), `Sources`(label, note), `Glossary`(term, def), `Panel`(title, description), `KpiRow`(label, compare, caption), `Claims`(text, evidence), `Findings`(title, detail), `BarList`(name), `Matrix`(행 라벨, 문자열 셀), `CategoryBar`(세그먼트 라벨)의 문자열은 자동이다. 자유 `<p>` 산문에서 같은 문제가 보이면 `koGlue`로 감싼다(`import { koGlue } from 'cookiebite'`). **저작:** '신규 로고'처럼 붙어 다닐 수식 짝은 형태소 분석 없이 기계가 못 잡으니 `\u00A0`로 직접 묶는다 — 기계가 못 잡는 유일한 부류. `cookiebite verify`는 줄 끝 접속어를 `awkward-line-break` warning으로 알려 준다(취향이 갈리므로 hard가 아니다).
 
 ### Shell (`cookiebite`)
@@ -291,6 +300,8 @@ children only**. Do not wrap them in `<>…</>` if you need TOC or paged nav.
 - **SSR은 전부 펼친 상태로 나간다.** 접힘은 하이드레이션이 만든다. JS가 죽으면 차트·표·
   쿼리가 다 보인다. 인쇄에서는 표와 쿼리가 되살아나고 컨트롤이 빠진다 — 토글 모드에서
   안 보이던 차트는 DOM에 없으므로 지면에도 안 나온다(차트를 지면에 싣고 싶으면 `'both'`).
+- **숫자 로케일은 `locale`(기본 `'en-US'`)로 고정된다** — 독자 환경에 따라 흔들리면
+  하이드레이션이 깨진다. 한국어 큰 단위 표기가 필요하면 `locale="ko-KR"`.
 - **행이 1,000을 넘으면 빌드가 경고한다.** 데이터는 CSV를 위해 통째로 박제되므로
   파일이 무거워진다. 리포트는 원본 덤프가 아니라 주장의 근거다 — 집계해서 넣는다.
 

@@ -62,6 +62,12 @@ export interface ResultBlockProps {
   searchable?: boolean;
   /** Names the CSV/PNG downloads and labels the table for screen readers. */
   title?: string;
+  /**
+   * Number formatting locale. Fixed rather than ambient on purpose: the server
+   * and the reader's browser must agree, and a de-DE reader would otherwise
+   * hydrate `5.821.157` over a server-rendered `5,821,157`.
+   */
+  locale?: string;
   className?: string;
 }
 
@@ -84,6 +90,7 @@ export function ResultBlock({
   maxRows = 50,
   searchable,
   title,
+  locale = 'en-US',
   className,
 }: ResultBlockProps) {
   const reactId = useId();
@@ -128,8 +135,8 @@ export function ResultBlock({
   const axisIsDefault = xKey === chart?.x && seriesKeys[0] === authoredSeries[0];
 
   const visibleRows = useMemo(
-    () => filterRows(rows, columns, search),
-    [rows, columns, search],
+    () => filterRows(rows, columns, search, locale),
+    [rows, columns, search, locale],
   );
   const folded = !expanded && visibleRows.length > maxRows;
   const shownRows = folded ? visibleRows.slice(0, maxRows) : visibleRows;
@@ -154,10 +161,10 @@ export function ResultBlock({
         header: ({ column: instance }) => (
           <DataTableColumnHeader title={column.label} column={instance} />
         ),
-        cell: ({ getValue }) => formatCell(getValue(), column),
+        cell: ({ getValue }) => formatCell(getValue(), column, locale),
         footer: totalsRow
           ? totalsRow[column.key] != null
-            ? formatCell(totalsRow[column.key], column)
+            ? formatCell(totalsRow[column.key], column, locale)
             : ''
           : undefined,
         meta: {
@@ -166,7 +173,7 @@ export function ResultBlock({
       };
     });
     return [ordinal, ...rest];
-  }, [columns, totals, totalsRow]);
+  }, [columns, totals, totalsRow, locale]);
 
   const showChart =
     mode !== 'none' && (mode === 'both' || !hydrated || view === 'chart');
@@ -241,6 +248,7 @@ export function ResultBlock({
             y={seriesKeys}
             type={chart.type}
             height={chart.height ?? 260}
+            locale={locale}
           />
         </div>
       ) : null}
@@ -250,7 +258,7 @@ export function ResultBlock({
         {folded ? (
           <div className="mt-2 print:hidden">
             <Button variant="outline" size="xs" onClick={() => setExpanded(true)}>
-              전체 {visibleRows.length.toLocaleString()}행 보기
+              {`전체 ${visibleRows.length.toLocaleString(locale)}행 보기`}
             </Button>
           </div>
         ) : null}
@@ -261,6 +269,7 @@ export function ResultBlock({
         source={source}
         meta={meta}
         totalRows={rows.length}
+        locale={locale}
         queryOpen={queryOpen}
         onToggleQuery={() => setQueryOpen((open) => !open)}
         onDownloadCsv={downloadCsv}
