@@ -7,8 +7,11 @@ export const THEME_STORAGE_KEY = 'cookiebite-theme';
 export const DENSITY_STORAGE_KEY = 'cookiebite-density';
 
 /** Task 7 assemble이 head에 주입. comfortable = TW 기본(--spacing 0.25rem)이라 규칙 없음. */
-/** 밀도 + 인쇄 시 paged hidden 복원(TW print:block 폴백). */
-export const SHELL_CSS = `:root[data-density="compact"]{--spacing:0.2rem}:root[data-density="spacious"]{--spacing:0.3rem}@media print{[data-page].hidden{display:block!important}}`;
+/**
+ * 밀도 + 인쇄 시 hidden 복원(TW print:block 폴백). `[data-cb-reveal]`는
+ * ResultBlock이 접어 둔 표/쿼리 — 지면에는 접힘이 없으므로 되살린다.
+ */
+export const SHELL_CSS = `:root[data-density="compact"]{--spacing:0.2rem}:root[data-density="spacious"]{--spacing:0.3rem}@media print{[data-page].hidden{display:block!important}[data-cb-reveal].hidden{display:block!important}[data-cb-controls]{display:none!important}}`;
 
 const DENSITIES = ['compact', 'comfortable', 'spacious'] as const;
 type Density = (typeof DENSITIES)[number];

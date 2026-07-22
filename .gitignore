@@ -26,3 +26,6 @@ evals/fixtures/verifier/clean.src.html
 
 # tsx package
 packages/cookiebite/node_modules/
+
+# brainstorming mockups (superpowers visual companion)
+.superpowers/brainstorm/

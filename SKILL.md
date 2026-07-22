@@ -239,6 +239,59 @@ children only**. Do not wrap them in `<>…</>` if you need TOC or paged nav.
 | `Tracker` | `{ data, className? }` — block `{ status: 'success'\|'error'\|'warning'\|'neutral', label? }` | Status block strip; `label` becomes the block `title` tooltip. |
 | `CategoryBar` | `{ segments, className? }` — segment `{ label, value }` | Stacked composition bar with legend; segment width is proportional to value. |
 | `DataTable` | `{ columns: ColumnDef<T>[], data: T[], className? }` | TanStack Table. Use `DataTableColumnHeader` in `header` for sortable columns. Grouped headers (nested `columns` under a group `header`) and column `footer` totals are supported. |
+| `ResultBlock` | `{ columns: ResultColumn[], rows, chart?, query?, source?, meta?, totals?, maxRows?, searchable?, title?, className? }` | 쿼리 결과 한 덩어리 — 표 + 선택적 차트 + 푸터에 접힌 출처(쿼리 또는 `source`) + 내보내기(CSV·마크다운·PNG). 아래 **쿼리 결과 블록** 참고. |
+
+### 쿼리 결과 블록 (`ResultBlock`)
+
+쿼리를 돌려 나온 결과를 그대로 리포트에 앉힐 때 쓴다. `Panel` 안에 넣는다 —
+카드 테두리와 제목은 `Panel`이 준다.
+
+```tsx
+<Panel title="게임별 쿠폰 사용자" description="지난 1년">
+  <ResultBlock
+    title="게임별 쿠폰 사용자"
+    columns={[
+      { key: 'gameCode', label: '게임', type: 'text' },
+      { key: 'users', label: '쿠폰 사용자', type: 'number' },
+    ]}
+    rows={rows}
+    chart={{ type: 'bar', x: 'gameCode', y: 'users', mode: 'both' }}
+    query={{ text: SQL }}
+    meta={{ engine: 'BigQuery', ranAt: '2026-07-22 14:17:19', duration: '6.4s' }}
+    totals
+  />
+</Panel>
+```
+
+`type: 'number'`는 정렬 방향, 자릿수 구분, 합계, 차트 축 후보를 한꺼번에 정한다 —
+숫자 열에 빠뜨리면 왼쪽 정렬되고 합계에서 빠진다.
+
+**차트를 표와 함께 세울지, 토글 뒤로 보낼지**는 이 블록이 받치는 주장으로 정한다.
+
+- **`mode: 'both'`** — 주장이 **모양**에 관한 것일 때. 크기 비교, 추세, 편중, 분포.
+  "ck 하나가 나머지를 합친 것보다 크다", "3월부터 꺾였다", "상위 둘이 90%를 먹는다".
+- **`mode: 'toggle'`(기본)** — 주장이 **값**에 관한 것일 때. 조회, 명세, 기록.
+  "게임별 쿠폰 사용자 수는 다음과 같다", "대상 12건은 이렇다", "감사용 원본".
+
+애매하면 토글이다. 차트는 지면과 독자의 주의를 쓰므로 쓸 이유를 대야 한다. 차트가
+의미 없는 결과(수치 열이 없거나, 행이 하나거나, 열이 전부 ID)면 `chart`를 아예 뺀다.
+
+**쿼리는 없어도 된다.** CSV·수기 집계처럼 재생할 쿼리가 없으면 `query` 대신
+`source="운영팀 집계 시트 · 2026-07-20 기준"`을 준다. 본문 구조는 그대로고 푸터
+한 줄만 바뀐다.
+
+그 밖에 알아 둘 것:
+
+- **내보내기는 항상 전체 원본이다.** 검색·접기는 읽는 방식일 뿐 블록의 정체를 바꾸지
+  않는다. 버튼도 `CSV (전체 6행)`처럼 행 수를 밝힌다.
+- **검색은 차트도 같이 좁힌다** — 표와 차트가 서로 다른 걸 말하면 블록이 거짓말을 한다.
+  행이 12개 미만이면 검색창은 아예 안 붙는다(`searchable`로 강제 가능).
+- **표는 `maxRows`(기본 50)에서 접힌다.** 축 선택기는 독자의 탐색이고, 저자가 고른 축이
+  기본값이다 — 바꾸면 `↺ 기본 축`이 뜬다. `axisPicker: false`로 잠글 수 있다.
+- **SSR은 전부 펼친 상태로 나간다.** 접힘은 하이드레이션이 만든다. JS가 죽어도, 인쇄해도
+  정보가 사라지지 않고 컨트롤만 빠진다.
+- **행이 1,000을 넘으면 빌드가 경고한다.** 데이터는 CSV를 위해 통째로 박제되므로
+  파일이 무거워진다. 리포트는 원본 덤프가 아니라 주장의 근거다 — 집계해서 넣는다.
 
 ### Charts (shadcn chart idiom)
 
@@ -396,7 +449,8 @@ Order inside `cookiebite build`:
    a custom seed whose first family is not Pretendard skips embedding.
 8. **content gate** — assembled HTML 본문에서 placeholder 잔재는 stderr WARNING,
    시크릿 유사 문자열은 빌드 FAIL. SSR 마크업의 `<tr`가 300을 넘으면 사전 집계
-   (pre-aggregation) 권고 WARNING(비치명).
+   (pre-aggregation) 권고 WARNING(비치명). `ResultBlock`이 박제한 행이 1,000을 넘어도
+   같은 권고 WARNING — 접힌 표는 `<tr`에 안 잡히지만 데이터는 번들에 통째로 실린다.
 
 `cookiebite verify` then catches runtime issues the compiler cannot see: hydration
 timeout / failed / warning, `console-error`, `chart-empty` (no SVG shapes after hydrate),

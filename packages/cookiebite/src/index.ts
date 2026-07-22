@@ -92,5 +92,14 @@ export {
   Panel,
   type PanelProps,
 } from './report/panel.tsx';
+export {
+  ResultBlock,
+  type ResultBlockProps,
+  type ResultChartSpec,
+  type ResultColumn,
+  type ResultRow,
+  type ResultMeta,
+  type ResultQuery,
+} from './report/result-block.tsx';
 export { koGlue } from './lib/ko-text.ts';
 export type { ThemeDocument, ThemeSeed } from './themes.ts';

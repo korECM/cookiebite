@@ -26,6 +26,25 @@ export function countTableRows(markup) {
   return matches ? matches.length : 0;
 }
 
+/** ResultBlock keeps its full result in the bundle for CSV — warn when big. */
+export const EMBEDDED_ROW_WARN_THRESHOLD = 1000;
+
+/**
+ * Largest `data-rows` a ResultBlock declares. The SSR `<tr>` count misses this:
+ * a block folds its table to 50 rows while still shipping every row to the
+ * client so the CSV export can stay the full original.
+ * @param {string} markup
+ */
+export function maxEmbeddedRows(markup) {
+  let max = 0;
+  const re = /data-rows="(\d+)"/g;
+  let match;
+  while ((match = re.exec(markup)) !== null) {
+    max = Math.max(max, Number(match[1]));
+  }
+  return max;
+}
+
 /** neutral 프리셋과 동일 — `__theme` 없거나 seed 일부만 있을 때 병합. */
 const DEFAULT_SEED = {
   font: 'Inter, -apple-system, system-ui, sans-serif',
@@ -139,6 +158,15 @@ export async function buildCommand(args) {
     process.stderr.write(
       `content-gate: 표 행 ${rowCount}개 — ${TABLE_ROW_WARN_THRESHOLD}행을 넘습니다. ` +
         `원본을 그대로 넣지 말고 사전 집계(pre-aggregation)한 뒤 DataTable에 넣으세요.\n`,
+    );
+  }
+
+  const embeddedRows = maxEmbeddedRows(markup);
+  if (embeddedRows > EMBEDDED_ROW_WARN_THRESHOLD) {
+    process.stderr.write(
+      `content-gate: ResultBlock에 ${embeddedRows}행이 박제됐습니다 — ` +
+        `${EMBEDDED_ROW_WARN_THRESHOLD}행을 넘습니다. 리포트는 원본 덤프가 아니라 ` +
+        `주장의 근거이므로, 집계하거나 상위 N행으로 줄이세요.\n`,
     );
   }
 
