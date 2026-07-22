@@ -1,6 +1,6 @@
 {
   "name": "cookiebite",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "Typed TSX authoring for cookiebite single-file HTML reports",
   "license": "MIT",
   "repository": {
