@@ -37,6 +37,13 @@ const CONTRAST_GATES = [
   { fg: '--card-foreground', bg: '--card', min: 4.5 },
   { fg: '--muted-foreground', bg: '--muted', min: 3.0 },
   { fg: '--success', bg: '--card', min: 3.0 },
+  // 차트 시리즈도 카드 위에 얹히는 색이다. 게이트가 없던 동안 노랑 계열이
+  // 1.4:1로 통과해 범례 점이 보이지 않는 리포트가 나갔다.
+  { fg: '--chart-1', bg: '--card', min: 3.0 },
+  { fg: '--chart-2', bg: '--card', min: 3.0 },
+  { fg: '--chart-3', bg: '--card', min: 3.0 },
+  { fg: '--chart-4', bg: '--card', min: 3.0 },
+  { fg: '--chart-5', bg: '--card', min: 3.0 },
 ];
 
 // --- deriveDarkSeed (구 resolve-theme에서 이식) ---
@@ -282,25 +289,54 @@ function deriveDestructive(accent, mode) {
   return toHex(hslToRgb(hue, sat, light));
 }
 
-/** accent 기준 HSL 회전 + 모드별 명도 보정 → chart-1..5 */
-function chartHarmony(accent, mode) {
-  const [h, s, l] = rgbToHsl(parseHex(normalizeToHex(accent)));
+/** 차트 슬롯이 카드 위에서 가질 대비의 허용 범위. accent 자신의 대비를 목표로 삼되 이 안으로 재운다. */
+const CHART_CONTRAST_FLOOR = 3.2;
+const CHART_CONTRAST_CEIL = 5.5;
+
+/**
+ * 주어진 hue/sat에서 카드 대비가 target에 가장 가까워지는 HSL 명도를 이분 탐색한다.
+ * 라이트 모드는 명도가 오르면 대비가 내려가고, 다크 모드는 반대라 방향을 뒤집는다.
+ */
+function tuneToContrast(hue, sat, card, target, mode) {
+  let lo = 0.04;
+  let hi = 0.96;
+  let color = toHex(hslToRgb(hue, sat, 0.5));
+  for (let i = 0; i < 24; i += 1) {
+    const mid = (lo + hi) / 2;
+    color = toHex(hslToRgb(hue, sat, mid));
+    const tooStrong = contrastRatio(color, card) > target;
+    if (mode === 'dark') {
+      if (tooStrong) hi = mid;
+      else lo = mid;
+    } else if (tooStrong) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return color;
+}
+
+/**
+ * accent 기준 hue 회전 → chart-1..5.
+ *
+ * HSL 명도는 지각 명도가 아니다. 같은 L=0.5에서도 노랑은 상대휘도 0.71, 파랑은 0.20이라
+ * 슬롯을 고정 명도로 찍으면 노랑이 흰 카드에서 1.4:1까지 떨어지고 5시리즈 무게가 흐트러진다.
+ * 그래서 슬롯마다 명도를 탐색해 **카드 대비를 하나의 목표값으로 맞춘다**. 목표값은 accent
+ * 자신의 대비라, chart-1은 브랜드 색 그대로 남고 나머지가 거기에 맞춰 따라온다.
+ */
+function chartHarmony(accent, card, mode) {
+  const [h, s] = rgbToHsl(parseHex(normalizeToHex(accent)));
   const rotations = [0, 40, 160, 200, 280];
   const sat =
     mode === 'dark'
       ? Math.max(0.45, Math.min(0.75, s * 0.9 + 0.15))
       : Math.max(0.4, Math.min(0.8, s * 0.85 + 0.2));
-  const baseL =
-    mode === 'dark'
-      ? Math.max(0.5, Math.min(0.68, l + 0.12))
-      : Math.max(0.38, Math.min(0.58, l * 0.7 + 0.15));
-  // 슬롯마다 살짝 명도 오프셋 → 동채도에서도 값이 겹치지 않게
-  const lightOffsets = [0, 0.04, -0.03, 0.06, -0.05];
-  return rotations.map((rot, i) => {
-    const hue = (h + rot) % 360;
-    const light = Math.max(0.28, Math.min(0.72, baseL + lightOffsets[i]));
-    return toHex(hslToRgb(hue, sat, light));
-  });
+  const target = Math.max(
+    CHART_CONTRAST_FLOOR,
+    Math.min(CHART_CONTRAST_CEIL, contrastRatio(normalizeToHex(accent), card)),
+  );
+  return rotations.map((rot) => tuneToContrast((h + rot) % 360, sat, card, target, mode));
 }
 
 function compileBlock(seed, mode) {
@@ -338,7 +374,7 @@ function compileBlock(seed, mode) {
   const border = mix(foreground, background, 0.85);
   const input = border;
   const ring = primary;
-  const charts = chartHarmony(primary, mode);
+  const charts = chartHarmony(primary, card, mode);
 
   /** @type {Record<string, string>} */
   const vars = {
@@ -393,6 +429,16 @@ function applyOverrides(vars, patch) {
   return next;
 }
 
+/** 카드가 바뀐 뒤 저자가 덮지 않은 chart 슬롯만 새 카드 기준으로 재파생한다. */
+function retuneCharts(vars, patch, mode) {
+  const authored = (n) => typeof patch?.[`--chart-${n}`] === 'string';
+  if ([1, 2, 3, 4, 5].every(authored)) return;
+  const charts = chartHarmony(vars['--primary'], vars['--card'], mode);
+  for (const n of [1, 2, 3, 4, 5]) {
+    if (!authored(n)) vars[`--chart-${n}`] = charts[n - 1];
+  }
+}
+
 function formatBlock(selector, vars) {
   const body = Object.entries(vars)
     .map(([name, value]) => `${name}:${value}`)
@@ -442,6 +488,10 @@ export function compileTheme(theme) {
         dark['--success-foreground'] = onAccent(dark['--success'], dark['--foreground']);
       }
     }
+    // success와 같은 이유로 차트도 카드 위에 얹힌다. 저자가 직접 덮지 않은 슬롯만 새 카드
+    // 기준으로 다시 파생한다 — 덮은 슬롯은 그대로 두고 게이트에서 판정한다.
+    retuneCharts(light, rootPatch, 'light');
+    retuneCharts(dark, darkPatch, 'dark');
     // root overrides는 :root만; 다크에 같은 키를 덮지 않음 (스펙: `.dark` 키가 다크 패치)
     assertContrastGates(light, 'light after overrides');
     assertContrastGates(dark, 'dark after overrides');

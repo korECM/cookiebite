@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { compileTheme } from '../lib/theme-compile.mjs';
+import { compileTheme, contrast } from '../lib/theme-compile.mjs';
 import {
   persimmon,
   neutral,
@@ -111,4 +111,68 @@ test('--chart-1 through --chart-5 present in both blocks and are 5 distinct valu
     }
     assert.equal(new Set(charts).size, 5, `${selector}: 5 distinct chart colors`);
   }
+});
+
+test('every preset keeps chart-1..5 at 3:1 or better on the card', () => {
+  // 회귀 방지: HSL 명도를 고정하던 시절 persimmon --chart-2가 #E7E12A(흰 카드 1.4:1)로
+  // 나가 범례 점이 보이지 않았다. 대비 게이트가 chart를 보지 않아 빌드도 통과했다.
+  for (const [name, doc] of Object.entries(PRESETS)) {
+    const { css } = compileTheme(doc);
+    for (const selector of [':root', '.dark']) {
+      const vars = blockVars(css, selector);
+      for (const n of [1, 2, 3, 4, 5]) {
+        const ratio = contrast(vars[`--chart-${n}`], vars['--card']);
+        assert.ok(
+          ratio >= 3.0,
+          `${name} ${selector} --chart-${n}: ${ratio.toFixed(2)}:1 < 3:1`,
+        );
+      }
+    }
+  }
+});
+
+test('chart slots carry equal weight — contrast spread stays under 1:1 within a block', () => {
+  // 다섯 시리즈가 같은 무게로 읽혀야 한 차트 안에서 특정 시리즈가 튀지 않는다.
+  for (const [name, doc] of Object.entries(PRESETS)) {
+    const { css } = compileTheme(doc);
+    for (const selector of [':root', '.dark']) {
+      const vars = blockVars(css, selector);
+      const ratios = [1, 2, 3, 4, 5].map((n) => contrast(vars[`--chart-${n}`], vars['--card']));
+      const spread = Math.max(...ratios) - Math.min(...ratios);
+      assert.ok(spread < 1.0, `${name} ${selector}: chart contrast spread ${spread.toFixed(2)}`);
+    }
+  }
+});
+
+test('card override retunes charts instead of failing', () => {
+  // --success와 같은 규칙. 저자가 카드만 바꿔도 차트가 따라온다.
+  const { css } = compileTheme({
+    ...persimmon,
+    overrides: { '--card': '#E8A87C' },
+  });
+  const light = blockVars(css, ':root');
+  assert.equal(light['--card'], '#E8A87C');
+  for (const n of [1, 2, 3, 4, 5]) {
+    assert.ok(
+      contrast(light[`--chart-${n}`], '#E8A87C') >= 3.0,
+      `--chart-${n} retuned for the dark card`,
+    );
+  }
+});
+
+test('an authored chart slot is kept verbatim and gated', () => {
+  const { css } = compileTheme({
+    ...persimmon,
+    overrides: { '--chart-1': '#635BFF' },
+  });
+  assert.equal(blockVars(css, ':root')['--chart-1'], '#635BFF');
+
+  assert.throws(
+    () => compileTheme({ ...persimmon, overrides: { '--chart-1': '#FAFAD2' } }),
+    (err) => {
+      assert.match(err.message, /--chart-1\/--card/);
+      assert.match(err.message, /contrast gate failed/);
+      return true;
+    },
+  );
 });
