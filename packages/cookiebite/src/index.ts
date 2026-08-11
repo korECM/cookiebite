@@ -12,6 +12,20 @@ export {
   type ColumnsProps,
 } from './shell/columns.tsx';
 export {
+  Aside,
+  type AsideProps,
+} from './shell/aside.tsx';
+export {
+  Verdict,
+  type VerdictProps,
+  type VerdictTone,
+} from './shell/verdict.tsx';
+export {
+  Steps,
+  type StepsProps,
+  type StepItem,
+} from './shell/steps.tsx';
+export {
   Page,
   type PageProps,
 } from './shell/page.tsx';

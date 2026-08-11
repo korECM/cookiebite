@@ -77,7 +77,12 @@ export function Glossary({ terms, className }: GlossaryProps) {
 }
 Glossary.displayName = 'CookiebiteGlossary';
 
-/** 산문 measure 제한 래퍼 — Section 본문 등에서 사용. */
+/**
+ * 문단 스택 — 연속된 산문을 담는다.
+ *
+ * 폭은 제한하지 않는다. 산문이 데이터 블록과 오른쪽 끝을 공유해야 열이 어긋나 보이지
+ * 않기 때문이다. `Section` 본문에서 캡션이 아닌 문단을 쓸 때 이걸 쓴다.
+ */
 export function Prose({
   children,
   className,
@@ -85,5 +90,10 @@ export function Prose({
   children: ReactNode;
   className?: string;
 }) {
-  return <div className={cn('space-y-4', className)}>{children}</div>;
+  return (
+    <div className={cn('space-y-3 text-card-foreground [&_p]:text-pretty', className)}>
+      {children}
+    </div>
+  );
 }
+Prose.displayName = 'CookiebiteProse';
