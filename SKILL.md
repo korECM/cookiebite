@@ -76,9 +76,13 @@ when readers jump between named pages (e.g. summary / timeline / cause / actions
 want hash-synced sidebar nav. A fixed three-number status is still an article with
 `KpiRow`, not a dashboard.
 
-**Graphic over textual.** When a point can be a chart, a KPI, a matrix, or a comparison
-instead of a paragraph, make it visual. Prefer shadcn `ChartContainer` + Recharts for
-series; use `Matrix` / `RangeDot` / `DataTable` for structured comparisons.
+**차트는 벌어야 한다.** 그림이 문단보다 빠른 지점에서만 그림을 쓴다. 형태, 추세, 분포,
+비중은 차트가 이긴다(`ChartContainer` + Recharts). **정확한 값 비교는 표가 이긴다** —
+독자가 숫자를 읽어야 하면 `DataTable`이고, 항목이 다섯 안쪽이면 `BarList`나 문장 하나로
+충분하다. 구조화된 비교는 `Matrix` / `RangeDot`을 먼저 본다.
+
+같은 데이터를 차트와 표로 **둘 다** 내지 않는다. 독자는 두 번 읽고 한 번도 확신하지
+못한다. 빌드가 `chart-table-duplicate` WARNING으로 잡는다.
 
 **English data keys.** Object keys in chart data, `ChartConfig`, `ColumnDef` `accessorKey`,
 and similar identifiers stay English. Korean (or any locale) belongs in labels, headers,
@@ -104,6 +108,10 @@ captions, and narrative only.
 5. **컴포넌트 카탈로그 / 갤러리** — 스토리보다 표면 샘플이 목적. 차트 형태, 레지스트리
    블록을 늘어놓는다.
    예: `chart-gallery.tsx`, `registry-remix/`
+6. **검토 메모** — 산문 주도 골격. 배경 `Prose` → 판정 `Verdict` → 근거 데이터 →
+   실행 `Steps` → 기각 `Claims` → 한계 `Verdict`. 결론을 내리기까지의 **논증**이
+   본체이고 데이터는 그 근거로 붙는 장르다. 비용 검토, 아키텍처 결정, 사후 검토.
+   예: `cluster-rightsizing.tsx`
 
 **스파인 수는 내용이 정한다 — 섹션을 채우려 내용을 늘리지 말고, 내용이 없으면 섹션을
 버린다.**
@@ -129,8 +137,20 @@ captions, and narrative only.
    말한다. 신뢰는 완벽 주장이 아니라 반론 처리에서 나온다.
    전: (침묵) → 후: `한 주 스냅샷과 상위 계정 표본에 기대며 시즌성은 분리하지 않았다`
 
+6. **문단은 문단으로 쓴다** — `lede`, `description`, `caption`, `evidence`는 데이터를
+   소개하는 **한 줄 캡션**이다. 판단 근거, 반론 처리, 인과 설명을 거기 밀어 넣으면
+   같은 분량이 열 조각으로 흩어져 어디서도 논지가 이어지지 않는다. 연속된 산문은
+   `Prose`에, 데이터를 보고 난 뒤의 해석은 `Verdict`에 쓴다.
+   전: `<Panel description="확장이 신규를 $13K 앞섰고 이 구성이면 신규가 둔화돼도
+   순증이 버틴다">` → 후: `description`은 `신규를 $13K 앞선 확장 축`, 해석은 Panel
+   뒤 `Verdict` 문단으로.
+
 **서사 규율은 섹션을 늘리는 이유가 아니다 — 빈약한 해석을 고칠 때 쓰고, 채우기용
 문장과 패널은 스파인 규칙대로 버린다.**
+
+**산문 배치의 기본형:** 데이터 **앞**에는 왜 이 그림을 보는지(`Prose` 한두 문단),
+데이터 **뒤**에는 그래서 무엇을 하는지(`Verdict`). 캡션만으로 채운 문서는 빌드가
+`문단 길이 중앙값` WARNING으로 알려 준다.
 
 ## Authoring surface (shadcn + cookiebite)
 
@@ -227,7 +247,10 @@ JSX 산문은 하드랩하지 않는다 — 한 문단을 한 줄로 쓰고 soft
 | `Page` | `{ id, title, icon?, children?, className? }` | One page under `layout="paged"`. SSR stacks all pages; after hydration inactive pages are `hidden` (restored in print). Under `article`, still renders as a section (tolerant). |
 | `Sources` | `{ items: { label, href?, note? }[], className? }` | Source / method list. |
 | `Glossary` | `{ terms: { term, def }[], className? }` | Definition list. |
-| `Prose` | `{ children, className? }` | Measure-limited prose wrapper. |
+| `Prose` | `{ children, className? }` | 문단 스택. 폭은 제한하지 않는다 — 산문이 데이터 블록과 오른쪽 끝을 공유해야 열이 어긋나 보이지 않는다. |
+| `Verdict` | `{ label?, tone?: 'default'\|'caution', children, className? }` | 데이터 블록 **뒤**에 오는 판정 문단. 좌측 액센트 레일 + 톤 배경. `tone="caution"`은 레일과 라벨을 destructive로 돌린다(한계, 주의). 문자열 자식은 문단으로 감싸고 koGlue를 태운다. |
+| `Aside` | `{ prose, children?, side?: 'left'\|'right', className? }` | 산문 \| 데이터 2열. `Columns`는 Panel 격자라 산문이 들어가면 카드 옆에서 붕 뜬다. `md` 아래에서는 항상 산문이 먼저 쌓인다. |
+| `Steps` | `{ items: { kicker?, title, summary?, children? }[], className? }` | 좌측 키 컬럼 + 우측 본문. **순서가 논지인** 내용(실행 계획, 마이그레이션, 조사 단계)의 골격. 좌측이 "무엇을 얼마나"를 고정하므로 우측은 캡션이 아니라 문단으로 쓴다. |
 
 `PageNav` / `Controls` are used by the shell internally; you rarely import them.
 
@@ -351,6 +374,8 @@ const chartConfig = {
 | 뻔한 파랑-보라 그라디언트 | 기본 AI 룩으로 보이고 브랜드가 지워진다 | 리터럴은 lint; 토큰 그라데이션은 판단 |
 | KPI 6개 초과 한 줄 욱여넣기 | 셀이 쪼그라들어 결론이 안 보인다 | 판단 (crowding은 verify 보조) |
 | 표로 충분한 것을 차트로 만들기 | 정확한 수치 비교는 표가 더 빠르다 | 판단 |
+| 같은 데이터를 차트와 표로 두 번 | 독자가 두 번 읽고 한 번도 확신하지 못한다 | **빌드 WARNING** (`chart-table-duplicate`) |
+| 캡션으로 논증하기 | `description`, `lede`에 판단 근거를 밀어 넣으면 논지가 조각난다 | **빌드 WARNING** (문단 길이 중앙값) |
 | placeholder 문구 잔존 | `lorem`, `TODO`, `샘플 데이터` 등이 남으면 미완성으로 보인다 | **빌드 WARNING** (content-gate) |
 
 시크릿 문자열(AWS 키, GitHub PAT, `sk-…`, JWT, private key 헤더)은 **빌드 FAIL**.
@@ -423,7 +448,13 @@ contrast gates re-run (including `--success` on `--card`). If you override `--ca
 not `--success`, success is re-derived.
 
 Gates (fail the build on violation): foreground/background, primary-foreground/primary,
-card-foreground/card ≥ 4.5:1; muted-foreground/muted and success/card ≥ 3:1.
+card-foreground/card ≥ 4.5:1; muted-foreground/muted, success/card, **`--chart-1`…
+`--chart-5` on `--card`** ≥ 3:1.
+
+차트 슬롯은 accent를 hue 회전한 뒤 **카드 대비를 하나의 목표값으로 맞춰** 파생한다.
+HSL 명도는 지각 명도가 아니라서 슬롯을 고정 명도로 찍으면 노랑 계열이 흰 카드에서
+1.4:1까지 떨어지고 5시리즈 무게가 흐트러진다. `--card`를 override하면 저자가 직접
+덮지 않은 chart 슬롯은 `--success`와 같은 규칙으로 새 카드 기준에 재파생된다.
 
 Authored colors live only in `__theme` object literals — source lint skips those
 spans. Everywhere else, use tokens / semantic classes.
@@ -451,7 +482,8 @@ Order inside `cookiebite build`:
 
 1. **typecheck** — TS / prop errors fail first.
 2. **source lint** — bans hex, `rgb()` / `oklch()`, named colors in authored TSX (theme
-   seed/overrides exempt).
+   seed/overrides exempt). 같은 데이터 식별자가 차트와 `DataTable` 양쪽에 들어가면
+   `chart-table-duplicate` WARNING(비치명).
 3. **SSG render** — React static markup.
 4. **theme compile** — seed → `:root` + `.dark` variables; contrast gates (incl. `--success`).
 5. **Tailwind source-scan** — semantic tokens only; palette wiped; preflight on.
@@ -461,7 +493,8 @@ Order inside `cookiebite build`:
    a custom seed whose first family is not Pretendard skips embedding.
 8. **content gate** — assembled HTML 본문에서 placeholder 잔재는 stderr WARNING,
    시크릿 유사 문자열은 빌드 FAIL. SSR 마크업의 `<tr`가 300을 넘으면 사전 집계
-   (pre-aggregation) 권고 WARNING(비치명). `ResultBlock`이 박제한 행이 1,000을 넘어도
+   (pre-aggregation) 권고 WARNING(비치명). 40자 이상 문단이 4개 넘는데 **길이
+   중앙값이 80자 미만**이면 산문 파편화 WARNING(비치명). `ResultBlock`이 박제한 행이 1,000을 넘어도
    같은 권고 WARNING — 접힌 표는 `<tr`에 안 잡히지만 데이터는 번들에 통째로 실린다.
 
 `cookiebite verify` then catches runtime issues the compiler cannot see: hydration
@@ -478,14 +511,17 @@ Deliver the file or host it.
 
 ## Quality checklist
 
-**Already enforced:** typed props; no raw colors outside theme; contrast-safe theme;
-hydrated charts have SVG shapes (verify); English keys in data structures; secrets
-rejected at build; placeholder residue and dense tables (`<tr>` > 300) warned.
+**Already enforced:** typed props; no raw colors outside theme; contrast-safe theme
+(차트 시리즈 포함); hydrated charts have SVG shapes (verify); English keys in data
+structures; secrets rejected at build; placeholder residue, dense tables (`<tr>` > 300),
+차트/표 중복, 산문 파편화가 경고된다.
 
 **Still your judgment** (look at the rendered page):
 
 - [ ] Conclusion visible in ~5 seconds.
 - [ ] Sections/pages read as an argument, not padding.
+- [ ] 각 데이터 블록 뒤에 "그래서 무엇을"이 문단으로 있다 (`Verdict`).
+- [ ] 차트가 자기 자리를 벌었다 — 표가 더 빠른 곳에 차트를 두지 않았다.
 - [ ] Article vs paged (and which spine) chosen for the right reason.
 - [ ] Right points became visuals; captions match figures.
 - [ ] Named anti-patterns above avoided where the build cannot see them.
@@ -518,6 +554,8 @@ its detail **conditionally**: `DESIGN.md` for the freeform token contract, and
 - `docs/examples-tsx/incident-postmortem.tsx` — paged layout demo.
 - `docs/examples-tsx/quarterly-strategy.tsx` — prose-first article (strategy memo).
 - `docs/examples-tsx/abuse-analysis.tsx` — numbered analysis-report genre (`Columns` + donut/bar density).
+- `docs/examples-tsx/cluster-rightsizing.tsx` — 검토 메모 장르. `Prose` / `Verdict` /
+  `Aside` / `Steps` 산문 골격이고 **차트를 하나도 쓰지 않는다**.
 - `docs/examples-tsx/chart-gallery.tsx` — every supported chart shape (verify testbed).
 - `docs/examples-tsx/registry-remix/` — 실제 레지스트리에서 받은 블록 데모(`npx shadcn add`).
 

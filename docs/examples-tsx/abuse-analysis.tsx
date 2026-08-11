@@ -4,6 +4,8 @@ import {
   Standfirst,
   Section,
   Sources,
+  Prose,
+  Verdict,
   Columns,
   Panel,
   KpiRow,
@@ -354,6 +356,9 @@ export default function App() {
       </Standfirst>
 
       <Section id="summary" title="요약">
+        <Prose>
+          <p>2025년 12월부터 2026년 6월까지 결제 로그 전량을 훑어 실결제 금액과 수령 상품이 어긋난 건을 골라냈다. 판정 기준은 단순하다 — 실제 청구된 금액보다 값비싼 상품이 계정에 들어갔고, 그 차이가 환율 반올림으로 설명되지 않는 경우다.</p>
+        </Prose>
         <KpiRow
           items={[
             {
@@ -406,6 +411,9 @@ export default function App() {
             },
           ]}
         />
+        <Verdict label="판정">
+          <p>평균 배수 42.4x는 어뷰저가 1달러를 내고 42달러어치를 가져갔다는 뜻이다. 중앙값이 30.0x라 분포가 오른쪽으로 길게 늘어졌고, 최대 109.1x 구간은 소수의 상습범이 만든다. 손실 추정 $568K는 바꿔치기 차액만 더한 값이라 대응 공수와 신뢰 손상은 빠져 있다.</p>
+        </Verdict>
       </Section>
 
       <Section
@@ -541,6 +549,9 @@ export default function App() {
         >
           <DataTable columns={abuserColumns} data={abuserRows} />
         </Panel>
+        <Verdict label="판정">
+          <p>상습 191명이 전체 건수의 71.2%를 만든다. 대응 설계가 바뀌는 지점이다 — 전수를 막는 규칙보다 이 191개 계정을 끊는 편이 같은 공수로 세 배를 막는다. 1회성 312명은 규칙 오탐일 가능성도 남아 있어 계정 제재보다 재검증 큐로 보내는 편이 안전하다.</p>
+        </Verdict>
       </Section>
 
       <Section
@@ -618,6 +629,9 @@ export default function App() {
       </Section>
 
       <Section id="recommendations" title="결론과 권고">
+        <Prose>
+          <p>앞의 여섯 절이 같은 결론을 다른 각도에서 가리킨다. 어뷰징은 넓게 퍼진 현상이 아니라 좁은 경로에 몰려 있고, 그 경로는 저가 실결제 직후 고가 수령이라는 한 문장으로 요약된다. 그래서 권고도 전면 규칙이 아니라 이 경로 하나를 끊는 데 집중한다.</p>
+        </Prose>
         <Findings
           items={[
             {
@@ -653,6 +667,9 @@ export default function App() {
             },
           ]}
         />
+        <Verdict label="한계" tone="caution">
+          <p>손실 추정은 정가 기준 차액이라 실제 회수 가능액과 다르다. 어뷰저가 정상 경로였다면 그 상품을 샀으리라는 가정이 깔려 있고, 그 가정은 대체로 과대 추정이다. 또한 탐지 규칙 자체가 만든 표본이라 규칙이 못 보는 유형은 이 분석에도 잡히지 않는다 — 실제 규모는 여기 적힌 수보다 크다고 보는 편이 맞다.</p>
+        </Verdict>
         <Sources
           items={[
             {

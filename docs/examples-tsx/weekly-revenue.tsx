@@ -4,6 +4,8 @@ import {
   Standfirst,
   Section,
   Sources,
+  Prose,
+  Verdict,
   KpiRow,
   Claims,
   Findings,
@@ -361,7 +363,9 @@ export default function App() {
       </Section>
 
       <Section id="mix" title="확장이 신규를 대체했다">
-        <p>확장이 유입의 절반을 넘겼다. 신규 $58K보다 확장 $71K가 크다.</p>
+        <Prose>
+          <p>유입을 어디서 벌었는지가 이번 주 해석을 가른다. 신규 로고로 번 돈과 기존 고객을 키워 번 돈은 지속 가능성이 다르기 때문이다. 신규는 매주 새로 사냥해야 하지만 확장은 이미 확보한 계정에서 나온다.</p>
+        </Prose>
         <Panel title="확장이 유입의 절반을 넘겼다" description="신규를 $13K 앞선 확장 축">
           <CategoryBar
             segments={[
@@ -371,13 +375,15 @@ export default function App() {
             ]}
           />
         </Panel>
+        <Verdict label="판정">
+          <p>확장 $71K가 신규 $58K를 $13K 앞섰다. 유입의 절반 이상을 기존 고객이 만들었다는 뜻이고, 이 구성이면 신규 로고가 둔화돼도 한동안 순증이 버틴다. 다만 같은 이유로 확장 여력이 큰 상위 계정에 매출이 몰리는 집중 위험이 함께 커진다 — 아래 상위 계정 절에서 그 집중도를 따로 본다.</p>
+        </Verdict>
       </Section>
 
       <Section id="bridge" title="확장이 음의 요인을 덮었다">
-        <p>
-          $1.377M에서 출발해 확장(+$71K)이 모든 음의 요인보다 큰 지렛대였고, 축소(-$18K)와
-          이탈(-$28K)이 일부를 되돌려 순효과 +$43K로 $1.420M에 마감했다.
-        </p>
+        <Prose>
+          <p>$1.377M에서 출발해 확장(+$71K)이 모든 음의 요인보다 큰 지렛대였고, 축소(-$18K)와 이탈(-$28K)이 일부를 되돌려 순효과 +$43K로 $1.420M에 마감했다. 브리지를 세워 보면 이번 주 순증이 한 축에 의존한다는 사실이 드러난다.</p>
+        </Prose>
         <Panel title="확장 +$71K가 순증의 지렛대다" description="축소와 이탈 합보다 큰 확장 한 축">
           <ChartContainer
             id="mrr-bridge"
@@ -403,10 +409,15 @@ export default function App() {
             </BarChart>
           </ChartContainer>
         </Panel>
+        <Verdict label="판정">
+          <p>확장 한 축이 축소와 이탈을 합친 것보다 크다. 바꿔 말하면 확장이 $46K 아래로 내려가는 주에는 순증이 곧바로 음수로 돌아선다. 이번 주 성적은 견고해 보이지만 완충 구간이 $25K뿐이라는 뜻이고, 그래서 다음 주 권고 첫 줄을 확장 방어에 뒀다.</p>
+        </Verdict>
       </Section>
 
       <Section id="trend" title="복리 성장이 $1.5M을 3주 앞으로 당긴다">
-        <p>현재 속도라면 $1.5M 목표는 약 3주 앞이다. 13주 연속 상승이 끊기지 않았다.</p>
+        <Prose>
+          <p>주간 스냅샷은 흔들리지만 13주 축에 놓으면 추세가 보인다. 연속 상승이 한 번도 끊기지 않았고, 최근 4주 기울기가 앞선 9주보다 가파르다. 목표 도달 시점을 추정할 근거는 이 기울기다.</p>
+        </Prose>
         <Panel title="13주 연속 상승이 $1.42M에 닿았다" description="현재 속도면 $1.5M까지 약 3주">
           <ChartContainer
             id="mrr-trend"
@@ -443,6 +454,9 @@ export default function App() {
             </AreaChart>
           </ChartContainer>
         </Panel>
+        <Verdict label="판정">
+          <p>현재 속도면 $1.5M까지 약 3주다. 이 추정은 최근 4주 평균 순증 $41K가 유지된다는 가정 하나에 얹혀 있고, 그 가정은 확장이 계속 $65K 위에 머무를 때만 성립한다. 신규 로고 둔화가 확장까지 옮겨붙으면 도달 시점은 3주가 아니라 5주 밖으로 밀린다.</p>
+        </Verdict>
       </Section>
 
       <Section id="claims" title="다음 주 권고">
@@ -468,9 +482,9 @@ export default function App() {
       </Section>
 
       <Section id="health" title="Q2 목표의 82%에 있다">
-        <p>
-          2주 남은 시점에 Q2 순증 MRR 목표의 82%에 있다. 확장이 유지되면 궤도에 있다.
-        </p>
+        <Prose>
+          <p>분기 마감까지 2주 남은 시점에 Q2 순증 MRR 목표의 82%에 있다. 남은 18%를 2주에 나눠 담으면 주당 $39K로, 이번 주 순증 $43K보다 낮다. 지금 속도만 유지해도 목표에 닿는다는 뜻이다.</p>
+        </Prose>
         <Findings
           items={[
             {
@@ -492,23 +506,27 @@ export default function App() {
             },
           ]}
         />
-        <p>한계: 이번 해석은 24주차 한 주 스냅샷과 상위 계정 7곳 표본에 기대며, 시즌성과 프로모션 교란은 분리하지 않았다.</p>
+        <Verdict label="한계" tone="caution">
+          <p>이번 해석은 24주차 한 주 스냅샷과 상위 계정 7곳 표본에 기댄다. 시즌성과 프로모션 교란을 분리하지 않았으므로, 확장 $71K 중 얼마가 6월 초 연간 계약 갱신 주기에서 온 일회성인지 이 리포트만으로는 가를 수 없다. 다음 주 수치가 $55K 아래로 떨어지면 갱신 주기 효과였다고 보는 편이 맞다.</p>
+        </Verdict>
       </Section>
 
       <Section id="accounts" title="상위 계정이 확장을 집중한다">
-        <p>
-          확장은 집중돼 있어 상위 계정이 이번 주 순 증감의 대부분을 이끌었다.
-        </p>
+        <Prose>
+          <p>확장이 성장 엔진이라면 그 엔진이 몇 기통인지가 다음 질문이다. 계정별 순 증감을 늘어놓으면 이번 주 성장이 넓게 퍼진 것인지 몇 곳에 몰린 것인지 바로 드러난다.</p>
+        </Prose>
         <Panel title="상위 7계정이 순 증감의 대부분을 이끈다" description="확장 집중도가 높다">
           <BarList items={topAccountDeltas} />
         </Panel>
+        <Verdict label="판정">
+          <p>상위 7곳이 순 증감의 대부분을 이끌었다. 성장이 넓게 퍼진 게 아니라 소수에 얹혀 있다는 뜻이고, 이 중 한 곳만 이탈해도 주간 순증이 절반으로 준다. 업셀 플레이북을 이 7곳에 먼저 붙이라는 권고는 기회가 아니라 위험 관리에서 나온다.</p>
+        </Verdict>
       </Section>
 
       <Section id="channels" title="Card와 Wallet이 MRR 절반을 맡는다">
-        <p>
-          Card와 Wallet이 MRR의 절반 이상을 맡고, Legacy POS는 중단 대기 중이다. 합계
-          MRR은 $1.42M과 맞는다.
-        </p>
+        <Prose>
+          <p>채널별로 쪼개면 매출이 어떤 결제 수단에 묶여 있는지 보인다. 채널 하나가 무너질 때의 노출 규모를 가늠하려면 비중과 함께 추세를 같이 봐야 한다. 합계 MRR은 위에서 본 $1.42M과 맞는다.</p>
+        </Prose>
         <Panel title="Card와 Wallet이 합계의 절반을 넘긴다" description="Legacy POS는 중단 대기">
           <DataTable columns={channelColumns} data={channelData} />
         </Panel>

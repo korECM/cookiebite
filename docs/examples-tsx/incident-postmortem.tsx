@@ -4,6 +4,8 @@ import {
   Page,
   Standfirst,
   Sources,
+  Prose,
+  Verdict,
   KpiRow,
   Claims,
   Findings,
@@ -254,20 +256,21 @@ export default function App() {
       </Page>
 
       <Page id="timeline" title="타임라인">
-        <p>
-          모든 시각은 UTC다. 헤더를 눌러 정렬할 수 있다. 감지가 배포보다 22분
-          늦었고 롤백이 해결책이었다.
-        </p>
+        <Prose>
+          <p>모든 시각은 UTC이고, 헤더를 눌러 정렬할 수 있다. 이 표에서 읽어야 할 건 사건의 순서가 아니라 구간의 길이다. 배포부터 감지까지 22분, 감지부터 원인 특정까지 35분, 특정부터 롤백 완료까지 6분이 걸렸다.</p>
+        </Prose>
         <Panel title="사건 타임라인">
           <DataTable columns={timelineColumns} data={timelineData} />
         </Panel>
+        <Verdict label="판정">
+          <p>고칠 수 있었던 시간은 롤백 6분이 아니라 앞의 57분이다. 감지 22분은 알람이 p99가 아니라 에러율에 걸려 있어서 생겼고, 원인 특정 35분은 같은 시간대에 배포가 넷 있어 후보를 좁히지 못해서 생겼다. 후속 조치 두 건이 각각 이 두 구간을 겨냥한다.</p>
+        </Verdict>
       </Page>
 
       <Page id="cause" title="원인 분석">
-        <p>
-          잘못 입력한 숫자 하나가 고객이 겪는 타임아웃으로 번졌다. 각 단계가
-          다음을 낳았다.
-        </p>
+        <Prose>
+          <p>잘못 입력한 숫자 하나가 고객이 겪는 타임아웃으로 번졌다. 아래 다섯 줄은 각 단계가 다음을 낳는 사슬이고, 어느 고리를 끊어도 고객 영향은 발생하지 않았다. 그래서 근본 원인을 오타 하나로 좁히는 건 정확하지만 유용하지 않다.</p>
+        </Prose>
         <Claims
           items={[
             {
@@ -310,7 +313,9 @@ export default function App() {
       </Page>
 
       <Page id="actions" title="후속 조치">
-        <p>설정 복구는 배포됐고, 재발을 막을 가드레일을 아래에 추적한다.</p>
+        <Prose>
+          <p>설정 복구는 이미 배포됐다. 아래 표는 같은 사고가 다시 나지 않게 하는 가드레일이고, 각 항목은 앞에서 특정한 사슬의 고리 하나씩을 겨냥한다. 오타를 막는 항목보다 오타가 나도 고객에게 닿지 않게 하는 항목을 위에 뒀다.</p>
+        </Prose>
         <Panel title="후속 조치">
           <DataTable columns={actionColumns} data={actionData} />
         </Panel>

@@ -62,11 +62,13 @@ bunx cookiebite verify report.html --runs 3
   edge-to-edge, article TOC right rail at `min-[1400px]`, optional `numbered` section
   indices), `Section`, `Columns`, `Page`,
   `Standfirst`, `Sources`, `Glossary`, 다크/밀도 controls(기본 on)
+- **Prose:** `Prose` (문단 스택), `Verdict` (데이터 뒤 판정 문단), `Aside` (산문 | 데이터
+  2열), `Steps` (좌측 키 컬럼 + 우측 본문)
 - **Data:** `KpiRow` (joined strip), `Panel`, `Claims`, `Findings`, `Matrix`, `RangeDot`,
-  `BarList`, `Tracker`, `CategoryBar`, `DataTable`
+  `BarList`, `Tracker`, `CategoryBar`, `DataTable`, `ResultBlock`
 - **UI:** vendored shadcn 18종 (card, chart, table, badge, alert, tabs, accordion, …)
 - **Theme:** seed 8키 + CSS 변수 overrides + 프리셋 10종 + 자동 다크 + 대비 게이트
-  (`--success` 포함)
+  (`--success`, `--chart-1`…`--chart-5` 포함)
 - **Pipeline:** typecheck → lint → SSG → theme → Tailwind source-scan → hydration bundle →
   단일 HTML
 - **Fonts:** Pretendard 계열 seed는 Variable subset(~1.7MB woff2)을 data URI로 내장(HTML
@@ -85,6 +87,10 @@ bunx cookiebite verify report.html --runs 3
 | `Page` | paged 한 장 | `id`, `title`, `icon?` — SSR은 전부 스택, hydrate 후 비활성 `hidden` |
 | `Sources` | 출처 목록 | `items: { label, href?, note? }[]` |
 | `Glossary` | 용어 정의 | `terms: { term, def }[]` |
+| `Prose` | 문단 스택 | `children` — 폭 제한 없음(데이터 블록과 오른쪽 끝 공유) |
+| `Verdict` | 데이터 뒤 판정 문단 | `{ label?, tone?: 'default'\|'caution', children }` — 좌측 액센트 레일. 문자열 자식은 문단으로 감싼다 |
+| `Aside` | 산문 \| 데이터 2열 | `{ prose, children?, side?: 'left'\|'right' }` — `md` 아래에서는 산문이 먼저 |
+| `Steps` | 단계 스택 | `items: { kicker?, title, summary?, children? }[]` — 좌측 키 컬럼 + 우측 본문 |
 | `KpiRow` | KPI joined strip | item `{ label, value, unit?, delta?, compare?, spark?, caption? }`; delta `{ value, direction, good? }`. 한 카드 안 셀 divider; `compare`는 delta 옆, `spark`는 하단 backdrop |
 | `Panel` | 데이터 유닛 프레임 | `{ title, description?, actions?, children? }` — 차트/표/리스트 래퍼. Section=서사, Panel=데이터 |
 | `Claims` | 주장 목록 | item `{ text, evidence?, badge? }` |
