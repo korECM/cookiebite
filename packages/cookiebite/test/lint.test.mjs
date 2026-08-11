@@ -103,3 +103,66 @@ test('lintSources ignores data-fill and data-stroke but flags real svg paint att
   assert.equal(violations.length, 1);
   assert.equal(violations[0].rule, 'svg-attr-color');
 });
+
+test('chart-table-duplicate: same data in a chart and a DataTable warns, never fails', () => {
+  const file = writeTemp(
+    'dup.tsx',
+    `import { DataTable } from 'cookiebite';
+import { ChartContainer } from '@/components/ui/chart';
+import { Bar, BarChart } from 'recharts';
+const rows = [{ item: 'a', v: 1 }];
+export default function App() {
+  return (
+    <>
+      <ChartContainer id="c" config={{}}>
+        <BarChart accessibilityLayer data={rows}>
+          <Bar dataKey="v" fill="var(--color-v)" />
+        </BarChart>
+      </ChartContainer>
+      <DataTable columns={[]} data={rows} />
+    </>
+  );
+}
+`,
+  );
+  const { violations, warnings } = lintSources({ files: [file] });
+  assert.equal(violations.length, 0, '색 리터럴이 아니므로 빌드를 깨지 않는다');
+  assert.equal(warnings.length, 1);
+  assert.equal(warnings[0].rule, 'chart-table-duplicate');
+  assert.match(warnings[0].detail, /rows/);
+});
+
+test('chart-table-duplicate: distinct datasets stay quiet', () => {
+  const file = writeTemp(
+    'ok.tsx',
+    `import { DataTable } from 'cookiebite';
+import { Bar, BarChart } from 'recharts';
+const trend = [{ d: 1 }];
+const detail = [{ d: 1 }];
+export default function App() {
+  return (
+    <>
+      <BarChart accessibilityLayer data={trend}><Bar dataKey="d" /></BarChart>
+      <DataTable columns={[]} data={detail} />
+    </>
+  );
+}
+`,
+  );
+  const { warnings } = lintSources({ files: [file] });
+  assert.deepEqual(warnings, []);
+});
+
+test('chart-table-duplicate: a chart alone is not a duplicate', () => {
+  const file = writeTemp(
+    'chart-only.tsx',
+    `import { Bar, BarChart } from 'recharts';
+const rows = [{ d: 1 }];
+export default function App() {
+  return <BarChart accessibilityLayer data={rows}><Bar dataKey="d" /></BarChart>;
+}
+`,
+  );
+  const { warnings } = lintSources({ files: [file] });
+  assert.deepEqual(warnings, []);
+});

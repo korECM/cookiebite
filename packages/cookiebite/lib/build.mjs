@@ -5,6 +5,8 @@ import { assembleDocument } from './assemble.mjs';
 import { buildClientBundle } from './client-bundle.mjs';
 import {
   contentGate,
+  proseStats,
+  PROSE_MEDIAN_WARN_THRESHOLD,
   isSecretViolation,
   redactMatch,
 } from './content-gate.mjs';
@@ -119,13 +121,25 @@ export async function buildCommand(args) {
     throw new BuildError(`typecheck 실패 (${diagnostics.length}건):\n${diagnostics.join('\n')}`);
   }
 
-  const { violations } = lintSources({ files: authoredFiles(report) });
+  const { violations, warnings: lintWarnings } = lintSources({
+    files: authoredFiles(report),
+  });
   if (violations.length > 0) {
     const lines = violations.map(
       (v) => `  ${v.file}:${v.line} [${v.rule}] ${v.snippet}`,
     );
     throw new BuildError(
       `색 리터럴 ${violations.length}건 — 테마 토큰/시맨틱 클래스만 허용합니다:\n${lines.join('\n')}`,
+    );
+  }
+  if (lintWarnings.length > 0) {
+    const lines = lintWarnings.map(
+      (w) => `  ${w.file}:${w.line} [${w.rule}] ${w.detail}`,
+    );
+    process.stderr.write(
+      `lint: ${lintWarnings.length}건 (비치명):\n${lines.join('\n')}\n` +
+        `  같은 수치를 그림과 표로 두 번 내면 독자는 두 번 읽고 한 번도 확신하지 못합니다.\n` +
+        `  정확한 값 비교면 표만, 형태·추세면 차트만 남기세요.\n`,
     );
   }
 
@@ -167,6 +181,16 @@ export async function buildCommand(args) {
       `content-gate: ResultBlock에 ${embeddedRows}행이 박제됐습니다 — ` +
         `${EMBEDDED_ROW_WARN_THRESHOLD}행을 넘습니다. 리포트는 원본 덤프가 아니라 ` +
         `주장의 근거이므로, 집계하거나 상위 N행으로 줄이세요.\n`,
+    );
+  }
+
+  const prose = proseStats(markup);
+  if (prose.count >= 4 && prose.median < PROSE_MEDIAN_WARN_THRESHOLD) {
+    process.stderr.write(
+      `content-gate: 문단 ${prose.count}개의 길이 중앙값이 ${prose.median}자입니다 — ` +
+        `${PROSE_MEDIAN_WARN_THRESHOLD}자 아래면 산문이 캡션으로 부서진 상태입니다 (비치명).\n` +
+        `  lede·description·caption은 데이터를 소개하는 한 줄이고, 해석은 문단입니다.\n` +
+        `  Prose로 문단을 묶고, 데이터를 본 뒤의 판정은 Verdict에 쓰세요.\n`,
     );
   }
 

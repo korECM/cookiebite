@@ -19,14 +19,79 @@ const SVG_SAFE = /^(?:none|currentColor|transparent|var\(|url\()/i;
  */
 export function lintSources({ files }) {
   const violations = [];
+  const warnings = [];
   for (const file of files) {
     const source = readFileSync(file, 'utf8');
     const skip = themeSkipRanges(source);
     scanTwArbitrary(source, file, skip, violations);
     scanInlineStyles(source, file, skip, violations);
     scanSvgAttrs(source, file, skip, violations);
+    scanChartTableDuplication(source, file, warnings);
   }
-  return { violations };
+  return { violations, warnings };
+}
+
+/** Recharts 루트들 — `data=`를 받는 차트 컨테이너. */
+const CHART_ELEMENTS = new Set([
+  'AreaChart',
+  'BarChart',
+  'ComposedChart',
+  'LineChart',
+  'PieChart',
+  'RadarChart',
+  'RadialBarChart',
+  'ScatterChart',
+]);
+
+const TABLE_ELEMENTS = new Set(['DataTable']);
+
+/** `data={…}` 앞쪽에서 가장 가까운 여는 JSX 태그 이름. */
+function enclosingJsxName(source, index) {
+  for (let i = index; i > 0; i -= 1) {
+    if (source[i] !== '<') continue;
+    const m = /^<([A-Za-z][\w.]*)/.exec(source.slice(i, i + 40));
+    if (m) return m[1];
+  }
+  return null;
+}
+
+/**
+ * 같은 데이터 식별자가 차트와 표에 동시에 들어가면 경고한다.
+ *
+ * 같은 수치를 그림으로 한 번, 표로 또 한 번 내면 독자는 두 번 읽고 한 번도 확신하지
+ * 못한다. SKILL이 "표로 충분한 것을 차트로 만들기"를 안티패턴으로 못박아 두었는데
+ * 정작 자동으로 잡히는 곳이 없었다. 차트는 하이드레이션 이후에 그려져 SSR HTML로는
+ * 못 보니 소스에서 판정한다.
+ */
+function scanChartTableDuplication(source, file, warnings) {
+  /** @type {Map<string, { chart?: number, table?: number }>} */
+  const seen = new Map();
+  const re = /\bdata=\{([A-Za-z_$][\w$]*)\b[^}]*\}/g;
+  let m;
+  while ((m = re.exec(source))) {
+    const owner = enclosingJsxName(source, m.index);
+    if (!owner) continue;
+    const kind = CHART_ELEMENTS.has(owner)
+      ? 'chart'
+      : TABLE_ELEMENTS.has(owner)
+        ? 'table'
+        : null;
+    if (!kind) continue;
+    const entry = seen.get(m[1]) ?? {};
+    if (entry[kind] === undefined) entry[kind] = m.index;
+    seen.set(m[1], entry);
+  }
+  for (const [name, entry] of seen) {
+    if (entry.chart === undefined || entry.table === undefined) continue;
+    const index = Math.min(entry.chart, entry.table);
+    warnings.push({
+      file,
+      line: lineAt(source, index),
+      snippet: snippetAt(source, index),
+      rule: 'chart-table-duplicate',
+      detail: `\`${name}\` — 차트와 DataTable 양쪽에 들어갑니다`,
+    });
+  }
 }
 
 function isSkipped(skip, index) {

@@ -8,6 +8,7 @@ import {
   contentGate,
   redactMatch,
   extractBodyText,
+  proseStats,
 } from '../lib/content-gate.mjs';
 import {
   countTableRows,
@@ -150,5 +151,53 @@ export default function App() {
   const result = runCli(['build', report, '-o', out]);
   assert.equal(result.code, 0, result.stderr);
   assert.match(result.stderr, /placeholder-residue/);
+  assert.ok(existsSync(out));
+});
+
+test('proseStats: counts paragraphs, ignores captions, strips koGlue joiners', () => {
+  const markup =
+    '<p>짧음</p>' +
+    `<p>${'가'.repeat(120)}</p>` +
+    `<p>${'나'.repeat(60)}</p>` +
+    `<p>${'다'.repeat(100)}</p>` +
+    `<p>노드 1⁠대와 또 ${'라'.repeat(80)}</p>`;
+  const s = proseStats(markup);
+  assert.equal(s.count, 4, '40자 미만은 캡션으로 보고 뺀다');
+  assert.equal(s.longest, 120);
+  assert.ok(s.median >= 60 && s.median <= 110);
+});
+
+test('proseStats: a report with no prose reports zeroes', () => {
+  assert.deepEqual(proseStats('<div>표만 있다</div>'), {
+    count: 0,
+    median: 0,
+    longest: 0,
+  });
+});
+
+test('fragmented prose warns without failing the build', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'cb-prose-'));
+  const report = path.join(dir, 'frag.tsx');
+  // 40자 이상 80자 미만 — 문단으로 세지만 논증을 담기엔 짧은 구간
+  const caption = '한 줄짜리 캡션으로만 쓴 문장이고 여기까지가 한 조각이며 논증이 이어지지 않는다';
+  writeFileSync(
+    report,
+    `import { Report, Section } from 'cookiebite';
+export default function App() {
+  return (
+    <Report title="파편화">
+      <Section id="a" title="A" lede="${caption}"><p>${caption}</p></Section>
+      <Section id="b" title="B" lede="${caption}"><p>${caption}</p></Section>
+      <Section id="c" title="C" lede="${caption}"><p>${caption}</p></Section>
+    </Report>
+  );
+}
+`,
+  );
+  const out = path.join(dir, 'out.html');
+  const result = runCli(['build', report, '-o', out]);
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stderr, /길이 중앙값/);
+  assert.match(result.stderr, /Verdict/);
   assert.ok(existsSync(out));
 });
